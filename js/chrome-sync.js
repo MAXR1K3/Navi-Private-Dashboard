@@ -19,32 +19,85 @@ function walkChromeTree(nodes, parentCat, out){
   });
 }
 
+function addChromeCat(out, seen, cat){
+  cat=cleanCatName(cat)||"Uncategorized";
+  if(isReservedCat(cat)) cat="Uncategorized";
+  var key=cat.toLowerCase();
+  if(!seen[key]){ seen[key]=true; out.push(cat); }
+}
+function chromeBookmarkFromItem(item){
+  var cat=cleanCatName(item.cat)||"Uncategorized";
+  if(isReservedCat(cat)) cat="Uncategorized";
+  return { id:uid(), chromeSyncId:item.cid, title:item.title, url:normalizeUrl(item.url), category:cat, description:smartSummary(item.url,item.title,cat,""), clicks:0, lastOpened:0 };
+}
+function applyChromeReplace(items){
+  var seenUrls={}, seenCats={}, cats=[], bookmarks=[];
+  items.forEach(function(item){
+    var key=normForDup(item.url);
+    if(seenUrls[key]) return;
+    seenUrls[key]=true;
+    var bm=chromeBookmarkFromItem(item);
+    addChromeCat(cats,seenCats,bm.category);
+    bookmarks.push(bm);
+  });
+  state.bookmarks=bookmarks;
+  state.categories=cats;
+  return bookmarks.length;
+}
+function applyChromeMerge(items){
+  var byUrl={}, byCid={}, ordered=[], used={}, seenUrls={}, chromeCats=[], chromeCatSeen={}, added=0;
+  var oldCats=state.categories.slice();
+  state.bookmarks.forEach(function(b){
+    var key=normForDup(b.url);
+    if(!byUrl[key]) byUrl[key]=b;
+    if(b.chromeSyncId&&!byCid[b.chromeSyncId]) byCid[b.chromeSyncId]=b;
+  });
+  items.forEach(function(item){
+    var key=normForDup(item.url);
+    if(seenUrls[key]) return;
+    seenUrls[key]=true;
+    var cat=cleanCatName(item.cat)||"Uncategorized";
+    if(isReservedCat(cat)) cat="Uncategorized";
+    addChromeCat(chromeCats,chromeCatSeen,cat);
+    var ex=byCid[item.cid]||byUrl[key];
+    if(ex){
+      ex.chromeSyncId=item.cid;
+      delete ex._seed;
+      if(item.title&&ex.title!==item.title) ex.title=item.title;
+      if(ex.url!==normalizeUrl(item.url)) ex.url=normalizeUrl(item.url);
+      if(ex.category!==cat) ex.category=cat;
+      ordered.push(ex);
+      used[ex.id]=true;
+    } else {
+      var bm=chromeBookmarkFromItem(item);
+      ordered.push(bm);
+      used[bm.id]=true;
+      added++;
+    }
+  });
+  var rest=[];
+  state.bookmarks.forEach(function(b){
+    if(used[b.id]||b._seed) return;
+    if(b.chromeSyncId) return;
+    rest.push(b);
+  });
+  var seenCats={};
+  state.categories=chromeCats.slice();
+  state.categories.forEach(function(c){ seenCats[String(c).toLowerCase()]=true; });
+  state.bookmarks=ordered.concat(rest);
+  oldCats.forEach(function(c){ addChromeCat(state.categories,seenCats,c); });
+  state.bookmarks.forEach(function(b){ addChromeCat(state.categories,seenCats,b.category); });
+  return added;
+}
+
 function runChromeSync(onDone){
   if(!hasChromeAPI()){ if(onDone) onDone("noext"); return; }
   _csSyncing=true; updateSyncUI();
   chrome.bookmarks.getTree(function(tree){
     var items=[]; walkChromeTree(tree, null, items);
-    // Remove bookmarks deleted from Chrome (only sync'd ones)
-    var cids={}; items.forEach(function(i){ cids[i.cid]=true; });
-    state.bookmarks=state.bookmarks.filter(function(b){ return !b.chromeSyncId||cids[b.chromeSyncId]; });
-    // Index existing by normalised URL
-    var byUrl={}; state.bookmarks.forEach(function(b){ byUrl[normForDup(b.url)]=b; });
-    var added=0;
-    items.forEach(function(item){
-      var key=normForDup(item.url);
-      if(byUrl[key]){
-        var ex=byUrl[key];
-        ex.chromeSyncId=item.cid;
-        if(item.title&&ex.title!==item.title) ex.title=item.title; // reflect title renames
-      } else {
-        var cat=item.cat||"Uncategorized";
-        if(state.categories.indexOf(cat)===-1) state.categories.push(cat);
-        state.bookmarks.push({ id:uid(), chromeSyncId:item.cid, title:item.title, url:normalizeUrl(item.url), category:cat, description:smartSummary(item.url,item.title,cat,""), clicks:0, lastOpened:0 });
-        added++;
-      }
-    });
+    var added=state.settings.chromeSyncReplace?applyChromeReplace(items):applyChromeMerge(items);
     state.settings.chromeSyncLastSync=Date.now();
-    state.settings.chromeSyncCount=items.length;
+    state.settings.chromeSyncCount=state.bookmarks.filter(function(b){ return !!b.chromeSyncId; }).length;
     _csSyncing=false;
     rebuildCategories(); save(); render(); updateSyncUI();
     if(onDone) onDone(null, added);
@@ -55,93 +108,50 @@ function applyPendingChrome(){
   if(!hasChromeAPI()||!chrome.storage||!chrome.storage.local) return;
   chrome.storage.local.get(["naviPending"], function(data){
     var q=(data&&data.naviPending)||[]; if(!q.length) return;
-    var changed=false;
-    q.forEach(function(ev){
-      if(ev.type==="created"&&ev.node&&isWebUrl(ev.node.url)){
-        if(state.bookmarks.some(function(b){ return normForDup(b.url)===normForDup(ev.node.url); })) return;
-        var cat=(ev.parentTitle&&CHROME_ROOTS.indexOf(ev.parentTitle)===-1)?chromeSafeCatName(ev.parentTitle)||"Uncategorized":"Uncategorized";
-        if(state.categories.indexOf(cat)===-1) state.categories.push(cat);
-        state.bookmarks.push({ id:uid(), chromeSyncId:ev.node.id, title:(ev.node.title||"").trim()||getDomain(ev.node.url), url:normalizeUrl(ev.node.url), category:cat, description:smartSummary(ev.node.url,ev.node.title,cat,""), clicks:0, lastOpened:0 });
-        changed=true;
-      } else if(ev.type==="removed"){
-        var prev=state.bookmarks.length;
-        state.bookmarks=state.bookmarks.filter(function(b){ return b.chromeSyncId!==ev.id; });
-        if(state.bookmarks.length!==prev) changed=true;
-      } else if(ev.type==="changed"){
-        state.bookmarks.forEach(function(b){
-          if(b.chromeSyncId===ev.id){
-            if(ev.changes&&ev.changes.title) b.title=ev.changes.title;
-            if(ev.changes&&ev.changes.url&&isWebUrl(ev.changes.url)) b.url=normalizeUrl(ev.changes.url);
-            changed=true;
-          }
-        });
-      } else if(ev.type==="moved"){
-        var isCatRoot=!ev.parentTitle||CHROME_ROOTS.indexOf(ev.parentTitle)>-1;
-        var newCat=isCatRoot?"Uncategorized":(chromeSafeCatName(ev.parentTitle)||"Uncategorized");
-        if(!isCatRoot&&state.categories.indexOf(newCat)===-1) state.categories.push(newCat);
-        state.bookmarks.forEach(function(b){
-          if(b.chromeSyncId===ev.id){ b.category=newCat; changed=true; }
-        });
-      }
-    });
     chrome.storage.local.remove("naviPending");
-    if(changed){ state.settings.chromeSyncLastSync=Date.now(); rebuildCategories(); save(); render(); updateSyncUI(); }
+    runChromeSync(null);
   });
 }
 
-var _csLive=false, _csSyncing=false, _csSyncTimer=null;
+var _csLive=false, _csSyncing=false, _csSyncTimer=null, _csSyncDebounce=null;
+function queueChromeSync(delay){
+  if(!state.settings.chromeSync||!hasChromeAPI()) return;
+  if(_csSyncDebounce) clearTimeout(_csSyncDebounce);
+  _csSyncDebounce=setTimeout(function(){
+    _csSyncDebounce=null;
+    if(state.settings.chromeSync&&hasChromeAPI()&&!_csSyncing) runChromeSync(null);
+  }, delay||180);
+}
 function attachChromeLive(){
   if(!hasChromeAPI()||_csLive) return; _csLive=true;
   chrome.bookmarks.onCreated.addListener(function(id, node){
     if(!state.settings.chromeSync||!node.url||!isWebUrl(node.url)) return;
-    if(state.bookmarks.some(function(b){ return normForDup(b.url)===normForDup(node.url); })) return;
-    chrome.bookmarks.get(node.parentId||id, function(parents){
-      var pt=(parents&&parents[0]&&parents[0].title)||"";
-      var cat=(CHROME_ROOTS.indexOf(pt)===-1&&pt)?chromeSafeCatName(pt)||"Uncategorized":"Uncategorized";
-      if(state.categories.indexOf(cat)===-1) state.categories.push(cat);
-      state.bookmarks.push({ id:uid(), chromeSyncId:id, title:(node.title||"").trim()||getDomain(node.url), url:normalizeUrl(node.url), category:cat, description:smartSummary(node.url,node.title,cat,""), clicks:0, lastOpened:0 });
-      state.settings.chromeSyncLastSync=Date.now();
-      rebuildCategories(); save(); render(); updateSyncUI();
-      toast(t("bookmarkAdded"),"ok");
-    });
+    queueChromeSync(180);
   });
   chrome.bookmarks.onRemoved.addListener(function(id){
     if(!state.settings.chromeSync) return;
-    var prev=state.bookmarks.length;
-    state.bookmarks=state.bookmarks.filter(function(b){ return b.chromeSyncId!==id; });
-    if(state.bookmarks.length!==prev){ state.settings.chromeSyncLastSync=Date.now(); save(); render(); updateSyncUI(); }
+    queueChromeSync(180);
   });
   chrome.bookmarks.onChanged.addListener(function(id, changes){
     if(!state.settings.chromeSync) return;
-    state.bookmarks.forEach(function(b){
-      if(b.chromeSyncId===id){
-        if(changes.title) b.title=changes.title;
-        if(changes.url&&isWebUrl(changes.url)) b.url=normalizeUrl(changes.url);
-      }
-    });
-    state.settings.chromeSyncLastSync=Date.now(); save(); renderContent(); updateSyncUI();
+    queueChromeSync(180);
   });
   chrome.bookmarks.onMoved.addListener(function(id, info){
     if(!state.settings.chromeSync) return;
-    chrome.bookmarks.get(info.parentId, function(parents){
-      var pt=(parents&&parents[0]&&parents[0].title)||"";
-      var isRoot=!pt||CHROME_ROOTS.indexOf(pt)>-1;
-      var cat=isRoot?"Uncategorized":(chromeSafeCatName(pt)||"Uncategorized");
-      var found=false;
-      state.bookmarks.forEach(function(b){ if(b.chromeSyncId===id){ b.category=cat; found=true; } });
-      if(found){ state.settings.chromeSyncLastSync=Date.now(); rebuildCategories(); save(); render(); updateSyncUI(); }
-    });
+    queueChromeSync(180);
   });
 }
 
 var _syncUiTimer=null;
 function updateSyncUI(){
   var tog=document.getElementById("setChromeSync");
+  var replaceTog=document.getElementById("setChromeSyncReplace");
   var statusEl=document.getElementById("csSyncStatus");
   var syncBtn=document.getElementById("csSyncNow");
   var noteEl=document.getElementById("csNote");
   var ext=hasChromeAPI();
   if(tog){ tog.checked=!!state.settings.chromeSync; tog.disabled=!ext; }
+  if(replaceTog){ replaceTog.checked=!!state.settings.chromeSyncReplace; replaceTog.disabled=!ext; }
   if(statusEl){
     if(_csSyncing){
       statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:5px"><svg class="spin" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>'+escapeHtml(t("syncing"))+'</span>';
@@ -174,12 +184,25 @@ function updateSyncUI(){
 function downloadText(fn, txt){ var a=document.createElement("a"); a.href="data:text/plain;charset=utf-8,"+encodeURIComponent(txt); a.download=fn; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); }, 100); }
 
 function downloadExtFiles(){
-  var mf=JSON.stringify({ manifest_version:3, name:"Navi — Private Bookmark Dashboard", version:"1.1", description:"Private bookmark dashboard with read-only Chrome sync.", permissions:["bookmarks","storage"], chrome_url_overrides:{newtab:"bookmark-dashboard.html"}, background:{service_worker:"background.js"} }, null, 2);
+  var mf=JSON.stringify({ manifest_version:3, name:"Navi — Private Bookmark Dashboard", version:"1.4", description:"Private bookmark dashboard with read-only Chrome sync. Open from the toolbar icon.", permissions:["bookmarks","storage","tabs"], host_permissions:["http://*/*","https://*/*"], action:{ default_title:"Navi", default_icon:{ "16":"icons/icon-192.png","32":"icons/icon-192.png","48":"icons/icon-192.png","128":"icons/icon-512.png" } }, icons:{ "192":"icons/icon-192.png","512":"icons/icon-512.png" }, background:{service_worker:"background.js"} }, null, 2);
   var bg=[
-    "// Navi background.js v1.1 — queues Chrome bookmark events while the dashboard is closed",
+    "// Navi background.js v1.4 — queues Chrome bookmark events while the dashboard is closed,",
+    "// and opens/focuses the dashboard from the toolbar icon (no new-tab override).",
     "const ROOTS=['Bookmarks bar','Bookmarks Bar','Other bookmarks','Other Bookmarks',",
     "  'Mobile bookmarks','Mobile Bookmarks','书签栏','其他书签','移动设备书签'];",
     "const MAX_QUEUE=500; // prevent unbounded growth",
+    "",
+    "chrome.action.onClicked.addListener(async()=>{",
+    "  const dashUrl=chrome.runtime.getURL('index.html');",
+    "  try{",
+    "    const tabs=await chrome.tabs.query({});",
+    "    const existing=tabs.find(t=>t.url&&t.url.indexOf(dashUrl)===0);",
+    "    if(existing){",
+    "      await chrome.tabs.update(existing.id,{active:true});",
+    "      if(existing.windowId!=null) await chrome.windows.update(existing.windowId,{focused:true});",
+    "    }else{ await chrome.tabs.create({url:dashUrl}); }",
+    "  }catch(_){ chrome.tabs.create({url:dashUrl}); }",
+    "});",
     "",
     "async function enqueue(ev){",
     "  try{",
@@ -222,26 +245,29 @@ function downloadExtFiles(){
 function showExtSetupGuide(){
   var lang=state.settings.lang;
   var lines=lang==="zh"?[
-    "1. 将 manifest.json 和 background.js 与 bookmark-dashboard.html 放在同一文件夹",
-    "2. 打开 chrome://extensions",
-    "3. 右上角开启【开发者模式】",
-    "4. 点击【加载已解压的扩展程序】，选择该文件夹",
-    "5. 打开新标签页，Navi 会以扩展方式运行",
-    "6. 在设置中开启 Chrome 同步即可"
+    "1. 把下载的 manifest.json 和 background.js 覆盖到本项目根目录（与 index.html 同一文件夹）",
+    "2. 打开 chrome://extensions，右上角开启【开发者模式】",
+    "3. 点击【加载已解压的扩展程序】，选择该文件夹（已装过则点扩展卡片上的刷新图标重新加载）",
+    "4. 点地址栏右侧的【拼图图标🧩】→ 找到本扩展 → 点【图钉】把图标固定到工具栏",
+    "5. 点击固定后的扩展图标即可打开导航页（在独立标签中，地址栏显示 chrome-extension://…）",
+    "6. 此时进入【设置 → 同步】开启 Chrome 同步即可；只有从这个图标打开才能同步",
+    "注：固定的是扩展图标（图片），鼠标悬停提示为 Navi —— 这是扩展名，与你在设置里自定义的页面标题无关。"
   ]:lang==="es"?[
-    "1. Coloca manifest.json y background.js en la misma carpeta que bookmark-dashboard.html",
-    "2. Ve a chrome://extensions",
-    "3. Activa el 'Modo desarrollador' (esquina superior derecha)",
-    "4. Haz clic en 'Cargar sin empaquetar' y selecciona la carpeta",
-    "5. Abre una pestaña nueva — Navi se ejecutará como extensión",
-    "6. Activa la Sincronización Chrome en Ajustes"
+    "1. Copia manifest.json y background.js en la raíz del proyecto (misma carpeta que index.html)",
+    "2. Abre chrome://extensions y activa el 'Modo desarrollador' (arriba a la derecha)",
+    "3. Haz clic en 'Cargar sin empaquetar' y elige la carpeta (si ya está, pulsa el icono de recarga en su tarjeta)",
+    "4. Abre el menú de extensiones (icono de puzle 🧩, junto a la barra de direcciones) → busca esta extensión → fíjala con el alfiler",
+    "5. Haz clic en el icono fijado para abrir el panel (en su pestaña; la URL será chrome-extension://…)",
+    "6. Entra en 'Ajustes → Sincronización' y activa la Sincronización Chrome; solo sincroniza si lo abres desde ese icono",
+    "Nota: es el icono de la extensión (imagen); su tooltip 'Navi' es el nombre de la extensión, no el título personalizable de la página."
   ]:[
-    "1. Place manifest.json and background.js in the same folder as bookmark-dashboard.html",
-    "2. Open chrome://extensions",
-    "3. Enable Developer mode (top-right toggle)",
-    "4. Click 'Load unpacked' and select the folder",
-    "5. Open a new tab — Navi will run as an extension",
-    "6. Enable Chrome Sync in Settings"
+    "1. Copy manifest.json and background.js into the project root (same folder as index.html)",
+    "2. Open chrome://extensions and enable Developer mode (top-right)",
+    "3. Click 'Load unpacked' and pick the folder (if already added, click the reload icon on its card)",
+    "4. Open the extensions menu (puzzle icon 🧩 next to the address bar) → find this extension → click the pin to keep it on the toolbar",
+    "5. Click the pinned icon to open the dashboard (in its own tab; the URL will be chrome-extension://…)",
+    "6. Go to Settings → Sync and turn on Chrome Sync; it only syncs when opened from that icon",
+    "Note: it's the extension icon (an image); its 'Navi' tooltip is the extension name, not the customizable page title."
   ];
   openConfirm(t("extensionSetup"), lines.join("\n"), lang==="zh"?"下载文件":lang==="es"?"Descargar archivos":"Download files", function(){
     downloadExtFiles();
@@ -290,6 +316,11 @@ document.getElementById("setChromeSync").addEventListener("change", function(e){
     if(_csSyncTimer){ clearInterval(_csSyncTimer); _csSyncTimer=null; }
     toast(t("chromeSyncDisabled"),"ok");
   }
+});
+
+document.getElementById("setChromeSyncReplace").addEventListener("change", function(e){
+  state.settings.chromeSyncReplace=e.target.checked;
+  save(); updateSyncUI();
 });
 
 document.getElementById("csSyncNow").addEventListener("click", function(){

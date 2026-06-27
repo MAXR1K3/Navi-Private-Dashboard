@@ -4,7 +4,13 @@
 /* ===== header / menu ===== */
 $("#addBtn").addEventListener("click", openAdd);
 $("#importBtn").addEventListener("click", openImport);
-$("#themeBtn").addEventListener("click", function(){ state.theme=state.theme==="dark"?"light":"dark"; save(); render(); });
+$("#themeBtn").addEventListener("click", function(){
+  // Cycle: light → dark → auto → light
+  state.theme = state.theme==="light"?"dark":state.theme==="dark"?"auto":"light";
+  save(); render();
+  if(state.theme==="auto"&&typeof scheduleAutoTheme==="function"){ scheduleAutoTheme(); requestAutoThemeGeo(); }
+  else if(typeof _autoThemeTimer!=="undefined"&&_autoThemeTimer){ clearTimeout(_autoThemeTimer); _autoThemeTimer=null; }
+});
 $("#viewBtn").addEventListener("click", function(){ state.view=state.view==="grid"?"list":state.view==="list"?"list2":"grid"; save(); renderContent(); $("#viewBtn").innerHTML=viewBtnIcon(); });
 $("#langBtn").addEventListener("click", function(){ var i=LANGS.indexOf(state.settings.lang); setLang(LANGS[(i+1)%LANGS.length]); });
 $("#search").addEventListener("input", function(e){ ui.query=e.target.value; renderContent(); });

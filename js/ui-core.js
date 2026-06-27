@@ -23,8 +23,18 @@ function toastUndo(msg, undoFn){
 /* ===== modals ===== */
 function openOverlay(id){ $("#"+id).classList.add("open"); }
 function closeOverlay(id){ $("#"+id).classList.remove("open"); }
-function closeAll(){ ["bmOverlay","promptOverlay","confirmOverlay","importOverlay","settingsOverlay","trashOverlay","suggestOverlay"].forEach(closeOverlay); confirmCb=null; promptCb=null; }
-document.addEventListener("click", function(e){ if(e.target.closest("[data-close]")){ closeAll(); return; } if(e.target.classList&&e.target.classList.contains("overlay")&&_pressEl===e.target){ e.target.classList.remove("open"); } });
+function closeAll(){
+  var ids=["bmOverlay","promptOverlay","confirmOverlay","summaryOverlay","importOverlay","settingsOverlay","trashOverlay","suggestOverlay"];
+  if(typeof summaryUi!=="undefined"&&summaryUi.running) ids=ids.filter(function(id){ return id!=="summaryOverlay"; });
+  ids.forEach(closeOverlay); confirmCb=null; promptCb=null;
+}
+document.addEventListener("click", function(e){
+  if(e.target.closest("[data-close]")){ closeAll(); return; }
+  if(e.target.classList&&e.target.classList.contains("overlay")&&_pressEl===e.target){
+    if(e.target.id==="summaryOverlay"&&typeof summaryUi!=="undefined"&&summaryUi.running) return;
+    e.target.classList.remove("open");
+  }
+});
 document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ closeAll(); closeMenu(); } });
 
 var confirmCb=null;

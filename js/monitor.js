@@ -252,7 +252,7 @@ function monitorMetricsHtml(){
   var m=monCfg();
   if(m.metricsOn===false) return "";
   if(!(m.host||"").trim()){
-    return '<div class="mon-hint">'+escapeHtml(t("monNoHost"))+' <button class="link-btn" data-monact="settings">'+escapeHtml(t("monConfigure"))+'</button></div>';
+    return monitorDemoHtml();
   }
   if(monState.metricsErr){
     return '<div class="mon-hint mon-err">'+escapeHtml(t("monMetricsErr"))+' <button class="link-btn" data-monact="retry">'+escapeHtml(t("retry"))+'</button>'+
@@ -290,6 +290,27 @@ function monitorMetricsHtml(){
   }
   return html;
 }
+function monitorDemoHtml(){
+  var html='<div class="mon-demo-note">'+escapeHtml(t("monDemoMode"))+' <button class="link-btn" data-monact="settings">'+escapeHtml(t("monConfigure"))+'</button></div>';
+  html+='<div class="mon-grid">';
+  html+=monStat(t("monCpu"), "0%", t("monLoad")+" 0.00", 0, ICONS.cpu);
+  html+=monStat(t("monMem"), "0%", "— / —", 0, ICONS.chip);
+  html+=monStat(t("monTemp"), "—", "", null, ICONS.thermo);
+  html+=monStat(t("monNet"), '<span class="mon-net"><span class="dn">↓ 0 B/s</span><span class="up">↑ 0 B/s</span></span>', "", null, ICONS.netio);
+  html+='</div>';
+  html+='<div class="mon-disks">'+
+    '<div class="mon-disk"><div class="mon-disk-h"><span class="mnt">/volume1</span><span class="pc">0%</span></div><div class="mon-bar"><span class="mon-bar-fill" style="width:0%"></span></div></div>'+
+    '<div class="mon-disk"><div class="mon-disk-h"><span class="mnt">/backup</span><span class="pc">—</span></div><div class="mon-bar"><span class="mon-bar-fill pending" style="width:0%"></span></div></div>'+
+  '</div>';
+  html+='<div class="mon-extras">'+
+    '<div class="mon-x"><span class="mon-x-l">'+ICONS.dockerBox+escapeHtml(t("monDocker"))+'</span><span class="mon-x-v">0 '+escapeHtml(t("monRunning"))+'</span></div>'+
+    '<div class="mon-x"><span class="mon-x-l">'+ICONS.shield+escapeHtml(t("monSmart"))+'</span><span class="mon-x-v">—</span></div>'+
+    '<div class="mon-x"><span class="mon-x-l">'+ICONS.battery+escapeHtml(t("monUps"))+'</span><span class="mon-x-v">—</span></div>'+
+    '<div class="mon-x"><span class="mon-x-l">'+ICONS.archive+escapeHtml(t("monBackup"))+'</span><span class="mon-x-v">—</span></div>'+
+    '<div class="mon-x"><span class="mon-x-l">'+ICONS.clock+escapeHtml(t("monUptime"))+'</span><span class="mon-x-v">—</span></div>'+
+  '</div>';
+  return html;
+}
 function monitorServicesHtml(){
   var m=monCfg();
   if(!m.services.length) return "";
@@ -297,7 +318,9 @@ function monitorServicesHtml(){
   m.services.forEach(function(s){
     var st=(monState.services[s.id]||{}).status||(s.url?"pending":"none");
     var rtt=(monState.services[s.id]||{}).rtt;
-    var sub = st==="up"?(rtt!=null?(rtt+" ms"):t("monOnline")) : st==="down"?t("monOffline") : st==="none"?t("monUnset") : "…";
+    var demo=!(m.host||"").trim()&&!s.url;
+    var sub = demo?t("monPending") : st==="up"?(rtt!=null?(rtt+" ms"):t("monOnline")) : st==="down"?t("monOffline") : st==="none"?t("monUnset") : "…";
+    if(demo) st="demo";
     html+='<div class="mon-svc '+st+'" title="'+escapeHtml(s.url||"")+'"><span class="mon-dot"></span>'+
       '<span class="mon-svc-n">'+escapeHtml(s.name||"—")+'</span>'+
       '<span class="mon-svc-s">'+escapeHtml(sub)+'</span></div>';
@@ -314,7 +337,10 @@ function refreshMonitorDom(){ var b=$("#monBody"); if(b) b.innerHTML=monitorInne
 widgetsEl.addEventListener("click", function(e){
   var act=e.target.closest("[data-monact]"); if(!act) return;
   var a=act.getAttribute("data-monact");
-  if(a==="settings"){ if(typeof openSettings==="function") openSettings(); }
+  if(a==="settings"){
+    if(typeof openSettings==="function") openSettings();
+    if(typeof setActiveSetTab==="function") setActiveSetTab("services");
+  }
   else if(a==="retry"){ monState.metricsErr=null; refreshMonitorData(); }
 });
 

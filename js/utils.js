@@ -19,13 +19,22 @@ function faviconUrl(u){ var d=getDomain(u); if(!d) return ""; return "https://ww
 function hashHue(s){ var h=0; s=s||""; for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))%360; } return h; }
 function byId(id){ for(var i=0;i<state.bookmarks.length;i++){ if(state.bookmarks[i].id===id) return state.bookmarks[i]; } return null; }
 
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }catch(e){ return false; } }
+function save(){
+  if(typeof oplogCapture==="function") oplogCapture();
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }
+  catch(e){
+    // Likely quota — drop undo snapshots (largest payload) and retry once so data still persists.
+    if(typeof oplogDropSnaps==="function") oplogDropSnaps();
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }catch(e2){ return false; }
+  }
+}
 function load(){
   var raw=null; try{ raw=localStorage.getItem(KEY)||localStorage.getItem("navi.dashboard.v2"); }catch(e){}
   if(raw){ try{ var s=JSON.parse(raw); if(s&&Array.isArray(s.bookmarks)){
     var d=defaults();
     state.bookmarks=s.bookmarks; state.categories=Array.isArray(s.categories)?s.categories:[];
     state.trash=Array.isArray(s.trash)?s.trash:[];
+    state.opLog=Array.isArray(s.opLog)?s.opLog:[];
     state.theme=s.theme||"light"; state.view=s.view||"grid";
     state.settings=Object.assign({}, d.settings, s.settings||{});
     state.settings.widgets=Object.assign({}, d.settings.widgets, (s.settings&&s.settings.widgets)||{});
@@ -76,7 +85,7 @@ function seed(){
     ["Wikipedia","https://wikipedia.org","Reading",""],["The Verge","https://theverge.com","Reading","Tech news, reviews and culture."]
   ];
   state.categories=["Development","Productivity","Media","Social","Reading"];
-  state.bookmarks=demo.map(function(d){ return { id:uid(), title:d[0], url:d[1], category:d[2], description:d[3]||smartSummary(d[1],d[0],d[2],""), clicks:0, lastOpened:0 }; });
+  state.bookmarks=demo.map(function(d){ return { id:uid(), title:d[0], url:d[1], category:d[2], description:d[3]||smartSummary(d[1],d[0],d[2],""), clicks:0, lastOpened:0, _seed:true }; });
 }
 function rebuildCategories(){
   var seen={}, cats=[];

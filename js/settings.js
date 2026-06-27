@@ -17,6 +17,7 @@ function openSettings(){
   $all('#aiProvSeg [data-aiprov]').forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-aiprov")===(s.aiProvider||"local")); });
   $("#setGlass").checked=s.glass!==false;
   if(typeof syncMonitorUI==="function") syncMonitorUI();
+  if(typeof renderOpLog==="function") renderOpLog();
   syncBgUI(); updateSyncUI(); openOverlay("settingsOverlay");
 }
 
@@ -40,4 +41,13 @@ $("#setLogoUpload").addEventListener("click", function(){ $("#logoInput").click(
 $("#setLogoRemove").addEventListener("click", function(){ state.settings.logo=null; save(); renderBrand(); $("#setLogoPreview").innerHTML=ICONS.bookmark; toast(t("logoReset"),"ok"); });
 $("#logoInput").addEventListener("change", function(e){ var f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return; if(!/^image\//.test(f.type)){ toast(t("chooseImage"),"err"); return; } var reader=new FileReader(); reader.onload=function(){ var img=new Image(); img.onload=function(){ try{ var max=128, scale=Math.min(1,max/Math.max(img.width,img.height)); var w=Math.max(1,Math.round(img.width*scale)), h=Math.max(1,Math.round(img.height*scale)); var cv=document.createElement("canvas"); cv.width=w; cv.height=h; cv.getContext("2d").drawImage(img,0,0,w,h); var data=cv.toDataURL("image/png"); state.settings.logo=data; save(); renderBrand(); $("#setLogoPreview").innerHTML='<img src="'+escapeHtml(data)+'" alt=""/>'; toast(t("logoUpdated"),"ok"); }catch(err){ state.settings.logo=String(reader.result); save(); renderBrand(); $("#setLogoPreview").innerHTML='<img src="'+escapeHtml(String(reader.result))+'" alt=""/>'; toast(t("logoUpdated"),"ok"); } }; img.onerror=function(){ toast(t("couldntImage"),"err"); }; img.src=String(reader.result); }; reader.readAsDataURL(f); });
 
-function setLang(lang){ if(LANGS.indexOf(lang)===-1) lang="en"; state.settings.lang=lang; save(); applyI18n(); render(); updateSyncUI(); }
+function setLang(lang){ if(LANGS.indexOf(lang)===-1) lang="en"; state.settings.lang=lang; save(); applyI18n(); render(); updateSyncUI(); if(typeof renderOpLog==="function") renderOpLog(); }
+
+/* 设置页分类切换 */
+function setActiveSetTab(tab){
+  $all("#setTabs [data-settab]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-settab")===tab); });
+  $all(".set-tab").forEach(function(p){ p.classList.toggle("on", p.getAttribute("data-tab")===tab); });
+  var wrap=$(".set-tab-wrap"); if(wrap) wrap.scrollTop=0;
+  if(tab==="log" && typeof renderOpLog==="function") renderOpLog();
+}
+$("#setTabs").addEventListener("click", function(e){ var b=e.target.closest("[data-settab]"); if(b) setActiveSetTab(b.getAttribute("data-settab")); });

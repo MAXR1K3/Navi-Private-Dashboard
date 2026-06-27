@@ -12,7 +12,7 @@ function saveBookmark(){
   if(!desc) desc=smartSummary(url,name,cat,"");
   if(isReservedCat(cat)) cat="Uncategorized";
   if(state.categories.indexOf(cat)===-1) state.categories.push(cat);
-  if(ui.editingId){ var b=byId(ui.editingId); if(b){ b.url=url; b.title=name; b.category=cat; b.description=desc; } toast(t("bookmarkUpdated"),"ok"); }
+  if(ui.editingId){ var b=byId(ui.editingId); if(b){ b.url=url; b.title=name; b.category=cat; b.description=desc; delete b._seed; } toast(t("bookmarkUpdated"),"ok"); }
   else { state.bookmarks.unshift({ id:uid(), title:name, url:url, category:cat, description:desc, clicks:0, lastOpened:0 }); toast(t("bookmarkAdded"),"ok"); }
   save(); closeOverlay("bmOverlay"); render();
 }
@@ -152,6 +152,76 @@ function urlPathHint(url){
   }catch(e){ return ''; }
 }
 function smartSummary(url,title,cat,extra){ return knownSiteDesc(url)||urlPathHint(url)||inferTopicSummary(url,title,cat,extra); }
+function hasAiSummaryApi(){
+  var s=state.settings||{};
+  return !!((s.aiKey||"").trim()&&(s.aiProvider==="anthropic"||s.aiProvider==="openai"));
+}
+function aiSummaryLimit(){
+  var l=state.settings.lang;
+  if(l==="zh") return {words:"36 个中文字符", chars:36, instruction:"用简体中文写一句书签描述，最多 36 个中文字符。"};
+  if(l==="es") return {words:"18 palabras", chars:130, instruction:"Escribe una descripción breve en español, una sola frase, máximo 18 palabras."};
+  return {words:"18 words", chars:120, instruction:"Write one concise bookmark description in English, one sentence, max 18 words."};
+}
+function cleanAiSummary(x){
+  var lim=aiSummaryLimit(), s=cleanSummaryText(x).split(/\n/)[0]||"";
+  s=s.replace(/^["'“”‘’`]+|["'“”‘’`]+$/g,"").replace(/^(description|summary|描述|摘要|resumen|descripción)\s*[:：]\s*/i,"");
+  s=s.replace(/^[\-*•\d.)\s]+/,"").trim();
+  if(!s) return "";
+  if(state.settings.lang!=="zh"){
+    var words=s.split(/\s+/).filter(Boolean);
+    if(words.length>18) s=words.slice(0,18).join(" ").replace(/[,.，。;；:]$/,"")+"…";
+  }
+  return clipSummary(s, lim.chars);
+}
+function aiSummaryPrompt(ctx){
+  var lim=aiSummaryLimit(), l=state.settings.lang||"en";
+  return [
+    "You are writing a bookmark description for a private bookmark dashboard.",
+    lim.instruction,
+    "Make it specific, plain, and easy to scan. No markdown, no labels, no quotes.",
+    "Prefer the page metadata/content when available. If content is thin, infer cautiously from the domain, URL path, title, and category. Do not invent specific claims.",
+    "Current UI language: "+l+".",
+    "Bookmark JSON: "+JSON.stringify({
+      url:ctx.url||"",
+      domain:getDomain(ctx.url||""),
+      title:ctx.title||"",
+      category:ctx.category||"",
+      fallbackDescription:ctx.fallbackDesc||"",
+      pageDescription:ctx.meta||"",
+      pageSignals:String(ctx.pageText||"").slice(0,900)
+    })
+  ].join("\n");
+}
+function aiSummarizeBookmark(ctx, cb){
+  var s=state.settings||{}, key=(s.aiKey||"").trim(), prov=s.aiProvider;
+  if(!hasAiSummaryApi()){ cb(""); return; }
+  var prompt=aiSummaryPrompt(ctx), req, ctrl=null, timer=null;
+  if(window.AbortController){
+    ctrl=new AbortController();
+    timer=setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 9000);
+  }
+  if(prov==="anthropic"){
+    req=fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal:ctrl&&ctrl.signal,
+      headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-haiku-4-5",max_tokens:160,messages:[{role:"user",content:prompt}]})
+    }).then(function(r){ return r.json(); }).then(function(j){ return (j&&j.content&&j.content[0]&&j.content[0].text)||""; });
+  } else {
+    req=fetch("https://api.openai.com/v1/chat/completions",{method:"POST",signal:ctrl&&ctrl.signal,
+      headers:{"content-type":"application/json","authorization":"Bearer "+key},
+      body:JSON.stringify({model:"gpt-4o-mini",max_tokens:120,messages:[{role:"user",content:prompt}]})
+    }).then(function(r){ return r.json(); }).then(function(j){ return (j&&j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||""; });
+  }
+  req.then(function(text){ if(timer) clearTimeout(timer); cb(cleanAiSummary(text)); })
+    .catch(function(){ if(timer) clearTimeout(timer); cb(""); });
+}
+function finishSmartDescription(ctx, fellback, done){
+  ctx.fallbackDesc=ctx.fallbackDesc||smartSummary(ctx.url,ctx.title,ctx.category,ctx.pageText||ctx.meta||"");
+  ctx.fallbackDesc=cleanAiSummary(ctx.fallbackDesc)||ctx.fallbackDesc;
+  if(!ctx.title) ctx.title=ctx.fallbackTitle||"";
+  aiSummarizeBookmark(ctx,function(aiDesc){
+    done(aiDesc||ctx.fallbackDesc, aiDesc?false:fellback, ctx.title||ctx.fallbackTitle||"");
+  });
+}
 function heuristicDesc(url){ var b=ui.editingId?byId(ui.editingId):null; var title=$("#bmName")?$("#bmName").value:""; var cat=b?catLabel(b.category):($("#bmCat")?$("#bmCat").value:""); return smartSummary(url,title,cat,""); }
 function metaContent(doc,sel){ var m=doc.querySelector(sel); return m?(m.getAttribute("content")||"").trim():""; }
 function pageSignals(doc){
@@ -208,17 +278,21 @@ function summarizeDoc(url,doc,title,cat){
   if(sig.length>80) return clipSummary(sig,210);
   return smartSummary(url,ttl,cat||"",sig);
 }
-function autoDescribe(url, done){
+function describeUrlForSummary(url, titleGetter, catGetter, done){
   var u=normalizeUrl(url);
   var finished=false, pending=0, ctrls=[], backupHtml=null, backupTitle="";
-  var bmName=function(){return $("#bmName")?$("#bmName").value:"";};
-  var bmCat=function(){return $("#bmCat")?$("#bmCat").value:"";};
+  var bmName=titleGetter||function(){return $("#bmName")?$("#bmName").value:"";};
+  var bmCat=catGetter||function(){return $("#bmCat")?$("#bmCat").value:"";};
   function abortAll(){ ctrls.forEach(function(c){try{c.abort();}catch(e){}});}
   function finalize(){
     if(backupHtml){
-      try{ var doc=new DOMParser().parseFromString(backupHtml,"text/html"); done(summarizeDoc(u,doc,bmName(),bmCat()), false, extractTitle(doc)||backupTitle); return; }catch(e){}
+      try{
+        var doc=new DOMParser().parseFromString(backupHtml,"text/html");
+        finishSmartDescription({url:u,title:extractTitle(doc)||bmName()||backupTitle,category:bmCat(),fallbackTitle:backupTitle,fallbackDesc:summarizeDoc(u,doc,bmName(),bmCat()),pageText:pageSignals(doc),meta:metaContent(doc,'meta[property="og:description"]')||metaContent(doc,'meta[name="description"]')||metaContent(doc,'meta[name="twitter:description"]')}, false, done);
+        return;
+      }catch(e){}
     }
-    done(heuristicDesc(u), true, backupTitle);
+    finishSmartDescription({url:u,title:bmName()||backupTitle,category:bmCat(),fallbackTitle:backupTitle,fallbackDesc:smartSummary(u,bmName()||backupTitle,bmCat(),""),pageText:"",meta:""}, true, done);
   }
   var globalTo=setTimeout(function(){
     if(finished) return; finished=true; abortAll(); finalize();
@@ -239,7 +313,7 @@ function autoDescribe(url, done){
       if(!backupTitle){ var bt=extractTitle(doc); if(bt) backupTitle=bt; }
       if(meta.length>35){
         finished=true; clearTimeout(globalTo); abortAll();
-        done(clipSummary(meta,210), false, extractTitle(doc));
+        finishSmartDescription({url:u,title:extractTitle(doc)||bmName(),category:bmCat(),fallbackDesc:clipSummary(meta,210),pageText:pageSignals(doc),meta:meta}, false, done);
         return true;
       }
       if(!backupHtml && pageSignals(doc).length>80) backupHtml=html;
@@ -300,6 +374,20 @@ function autoDescribe(url, done){
     }catch(e){ tryDone(); }
   })();
 }
+function autoDescribe(url, done){
+  describeUrlForSummary(url,
+    function(){ return $("#bmName")?$("#bmName").value:""; },
+    function(){ return $("#bmCat")?$("#bmCat").value:""; },
+    done
+  );
+}
+function describeBookmarkData(url,title,cat,done){
+  describeUrlForSummary(url,
+    function(){ return title||""; },
+    function(){ return cat||""; },
+    done
+  );
+}
 $("#bmAuto").addEventListener("click", function(){
   var url=$("#bmUrl").value.trim(); if(!url){ toast(t("pleaseUrl"),"err"); $("#bmUrl").focus(); return; }
   var btn=$("#bmAuto"); btn.disabled=true; var old=btn.innerHTML; btn.innerHTML='<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg> '+escapeHtml(t("autoFetching"));
@@ -311,11 +399,97 @@ $("#bmAuto").addEventListener("click", function(){
   });
 });
 
-function summarizeMissingDescriptions(){
-  var n=0;
-  state.bookmarks.forEach(function(b){ if(!String(b.description||"").trim()){ b.description=smartSummary(b.url,b.title,b.category,""); n++; } });
-  if(n){ save(); renderContent(); renderWidgets(); }
-  toast(t("summariesDone",{n:n}), n?"ok":"");
+var summaryUi={scope:"all",mode:"all",running:false};
+function summaryCategories(){
+  var seen={}, arr=[];
+  (state.categories||[]).forEach(function(c){ c=cleanCatName(c); if(c&&!seen[c]){ seen[c]=1; arr.push(c); } });
+  (state.bookmarks||[]).forEach(function(b){ var c=cleanCatName(b.category)||"Uncategorized"; if(!seen[c]){ seen[c]=1; arr.push(c); } });
+  return arr;
+}
+function fillSummaryCatSelect(){
+  var sel=$("#summaryCat"); if(!sel) return;
+  var current=(ui.activeCat&&ui.activeCat!=="All")?ui.activeCat:(state.categories[0]||"Uncategorized");
+  sel.innerHTML=summaryCategories().map(function(c){ return '<option value="'+escapeHtml(c)+'"'+(c===current?" selected":"")+'>'+escapeHtml(catLabel(c))+'</option>'; }).join("");
+}
+function setSummaryScope(scope){
+  summaryUi.scope=scope||"all";
+  $all("[data-summary-scope]").forEach(function(btn){ btn.classList.toggle("on", btn.getAttribute("data-summary-scope")===summaryUi.scope); });
+  var catField=$("#summaryCatField");
+  if(catField) catField.style.display=summaryUi.scope==="category"?"":"none";
+  syncSummaryOverlay();
+}
+function setSummaryMode(mode){
+  summaryUi.mode=mode||"all";
+  $all("[data-summary-mode]").forEach(function(btn){ btn.classList.toggle("on", btn.getAttribute("data-summary-mode")===summaryUi.mode); });
+  syncSummaryOverlay();
+}
+function summaryBaseList(){
+  var scope=summaryUi.scope, cat="";
+  if(scope==="current"&&ui.activeCat&&ui.activeCat!=="All") cat=ui.activeCat;
+  if(scope==="category") cat=$("#summaryCat")?$("#summaryCat").value:"";
+  return (state.bookmarks||[]).filter(function(b){ return !cat || b.category===cat; });
+}
+function summaryTargetList(){
+  var list=summaryBaseList();
+  if(summaryUi.mode==="missing") list=list.filter(function(b){ return !String(b.description||"").trim(); });
+  return list;
+}
+function syncSummaryOverlay(){
+  var info=$("#summaryScopeInfo"), run=$("#summaryRunBtn"); if(!info) return;
+  var base=summaryBaseList(), target=summaryTargetList();
+  info.textContent=t("summaryScopeInfo",{n:target.length,total:base.length});
+  if(run) run.disabled=summaryUi.running||!target.length;
+}
+function openSummaryOverlay(){
+  if(summaryUi.running){ openOverlay("summaryOverlay"); return; }
+  fillSummaryCatSelect();
+  summaryUi.running=false;
+  $("#summaryProgress").textContent="";
+  setSummaryMode("all");
+  setSummaryScope("all");
+  openOverlay("summaryOverlay");
+}
+function lockSummaryControls(locked){
+  summaryUi.running=locked;
+  $all("#summaryOverlay button, #summaryOverlay select").forEach(function(el){
+    if(el.id==="summaryRunBtn") el.disabled=locked;
+    else el.disabled=locked;
+  });
+}
+function runSummaryDescriptions(){
+  if(summaryUi.running) return;
+  var list=summaryTargetList();
+  if(!list.length){ toast(t("summaryNone"),""); syncSummaryOverlay(); return; }
+  var btn=$("#summaryRunBtn"), progress=$("#summaryProgress"), old=btn.innerHTML;
+  lockSummaryControls(true);
+  var i=0,n=0;
+  function finish(){
+    if(n){ save(); renderContent(); renderWidgets(); }
+    lockSummaryControls(false);
+    btn.innerHTML=old;
+    progress.textContent="";
+    closeOverlay("summaryOverlay");
+    toast(t("summariesDone",{n:n}), n?"ok":"");
+  }
+  function next(){
+    if(i>=list.length){ finish(); return; }
+    var b=list[i++], label=b.title||getDomain(b.url)||b.url;
+    progress.textContent=t("summaryProgress",{done:i,total:list.length,title:clipSummary(label,54)});
+    describeBookmarkData(b.url,b.title,b.category,function(desc){
+      b.description=desc||smartSummary(b.url,b.title,b.category,"");
+      n++;
+      next();
+    });
+  }
+  btn.innerHTML='<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg> '+escapeHtml(t("autoFetching"));
+  next();
+}
+function summarizeMissingDescriptions(){ openSummaryOverlay(); }
+if($("#summaryScopeSeg")){
+  $("#summaryScopeSeg").addEventListener("click", function(e){ var btn=e.target.closest("[data-summary-scope]"); if(btn&&!summaryUi.running) setSummaryScope(btn.getAttribute("data-summary-scope")); });
+  $("#summaryModeSeg").addEventListener("click", function(e){ var btn=e.target.closest("[data-summary-mode]"); if(btn&&!summaryUi.running) setSummaryMode(btn.getAttribute("data-summary-mode")); });
+  $("#summaryCat").addEventListener("change", syncSummaryOverlay);
+  $("#summaryRunBtn").addEventListener("click", runSummaryDescriptions);
 }
 
 // 删除 = 软删除：移入回收站并提供短时撤销，无需确认弹窗

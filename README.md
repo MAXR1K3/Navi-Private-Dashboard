@@ -1,50 +1,148 @@
 # Navi — 私人书签导航页
 
-同一套代码支持三种使用方式：
+一个完全运行在浏览器本地的书签管理与导航面板，无需后端、无需账号，数据存在你自己的设备上。同一套代码支持三种使用场景：Chrome 新标签页扩展、本地文件直接打开、手机 PWA 应用。
 
-| 方式 | 怎么用 |
+---
+
+## 功能一览
+
+| 功能 | 说明 |
 |---|---|
-| Chrome 扩展（新标签页） | `chrome://extensions` → 加载已解压的扩展程序 → 选本文件夹（改动后点刷新） |
-| 本地双击 | 直接打开 `index.html`（file:// 下 PWA 自动跳过，不影响功能） |
-| PWA 手机端 | 把整个文件夹静态托管（GitHub Pages / Vercel / Netlify 等，需 HTTPS），手机浏览器打开后"添加到主屏幕"即可像 App 一样使用、离线可用 |
+| 书签管理 | 增删改、分类、标签、描述；支持自动抓取页面标题 |
+| 多视图切换 | 卡片网格 / 紧凑行列 / 双列图标宫格，移动端三种视图差异明显 |
+| 分类管理 | 新增/重命名/删除/拖拽排序；支持跨分类批量移动书签 |
+| 拖拽排序 | 卡片可在同分类内拖拽重排 |
+| 导入/导出 | 兼容浏览器书签 HTML 格式，双向互通 |
+| Chrome 书签同步 | 扩展环境下只读同步 Chrome 书签，非扩展环境自动跳过 |
+| 回收站 | 删除先进回收站，可选保留 1/3/7/14 天或立即清除，支持恢复/永久删除 |
+| 操作日志 + 撤销 | 所有变更自动记录，任意操作均可从日志或浮动撤销栏回滚 |
+| 链接健康检查 | 并发检测全部书签有效性；扩展环境读真实状态码，PWA/网页使用 no-cors 探测 |
+| AI 分类建议 | 基于标题/URL/描述推荐分类和标签；默认离线本地规则，可选接入 Claude/OpenAI |
+| 小组件面板 | 时钟、搜索框、天气、节假日日历、内网监控（Glances）；支持拖拽排序和显示/隐藏 |
+| 外观定制 | 亮/暗主题；动态背景（渐变/极光/落日/海洋/网格/自定义图片）；液态玻璃效果可调 |
+| 性能模式 | 低功耗模式关闭动效和 backdrop-filter，丝滑模式开启完整动画 |
+| 多语言 | 中文 / English / Español |
+| PWA 离线 | HTTPS 环境下注册 Service Worker，断网可用 |
 
-> 手机端走 PWA 模式，不依赖 Chrome 扩展，也不读取 Chrome 书签 API（Chrome Sync 功能只在扩展环境自动启用）。数据存在各端各自的 localStorage，跨端同步可用 导出/导入 HTML。
+---
 
-## 目录结构（模块职责）
+## 使用方式
+
+### 1. Chrome 扩展（工具栏图标）
+
+1. 打开 `chrome://extensions`
+2. 右上角开启「开发者模式」
+3. 点击「加载已解压的扩展程序」，选择本项目根目录
+4. 点击浏览器工具栏上的 **Navi 图标** 打开导航页（会在独立标签中打开；已打开则自动聚焦）
+
+> 扩展**不再占用新标签页**，你的默认新标签页保持原样。后台脚本（`background.js`）常驻：即使没有打开 Navi，Chrome 书签的增删改也会被记录，下次打开时自动补同步。修改代码后在扩展管理页点击刷新图标即可生效；Chrome 书签同步仅在此模式下可用。
+>
+> **首次启用 Chrome 同步会用你的真实书签替换示例卡片**（与示例同网址的会被保留并纳入同步）。
+
+### 2. 本地双击打开
+
+直接双击 `index.html` 用浏览器打开。`file://` 协议下 PWA/Service Worker 自动跳过，其余功能完整可用。
+
+### 3. PWA 手机端
+
+将整个目录部署到支持 HTTPS 的静态托管服务（GitHub Pages、Vercel、Netlify 等），手机浏览器访问后选择「添加到主屏幕」，即可像原生 App 一样使用，支持离线访问。
+
+---
+
+## 目录结构
 
 ```
-index.html            页面骨架（无样式/逻辑）
-css/app.css           全部样式
-js/                   按职责拆分，普通 <script> 顺序加载，无需构建
-  i18n.js             多语言文案 + t()
-  state.js            状态结构 defaults / state / ui
-  icons.js            SVG 图标库
-  utils.js            工具函数 + load/save 持久化
-  render.js           分类/卡片网格渲染
-  widgets.js          时钟/搜索/天气/日历等小组件
-  ui-core.js          toast / toastUndo（撤销）/ 模态框
-  bookmarks.js        书签增删改 + 自动抓取标题/描述
-  categories.js       分类管理 + 多选批量操作
-  dragdrop.js         卡片拖拽排序
-  import-export.js    浏览器书签 HTML 导入/导出
-  settings.js         设置面板（含 AI 引擎/Key）
-  menu.js             头部"更多"菜单
-  chrome-sync.js      Chrome 书签只读同步（仅扩展环境）
-  trash.js            回收站（软删除/保留期/恢复/清空）
-  health.js           链接健康检查
-  suggest.js          AI 分类建议（本地规则 + 可选 Claude/OpenAI）
-  pwa.js              Service Worker 注册（仅 https）
-sw.js                 离线缓存（改完代码记得把 CACHE 版本号 +1）
-manifest.json         Chrome 扩展清单
-manifest.webmanifest  PWA 清单
-background.js         扩展后台：离线排队 Chrome 书签事件
+index.html              页面骨架（标签、模态框、覆盖层的 HTML）
+css/app.css             全部样式（无预处理器，纯 CSS 变量 + 嵌套）
+js/                     按职责拆分，普通 <script> 顺序加载，无需构建工具
+  i18n.js               多语言文案 + t() 翻译函数
+  state.js              状态结构：defaults / state / ui
+  icons.js              内联 SVG 图标库
+  utils.js              工具函数 / load() / save() / i18n 应用 / 品牌渲染
+  render.js             分类标签栏 / 卡片网格渲染 / 搜索过滤
+  widgets.js            时钟 / 搜索 / 天气 / 日历小组件
+  ui-core.js            toast / 模态框 / 确认弹窗 / 覆盖层管理
+  bookmarks.js          书签增删改 / 自动抓取标题与描述
+  categories.js         分类管理 / 多选批量操作
+  dragdrop.js           卡片拖拽排序
+  import-export.js      浏览器书签 HTML 导入/导出
+  settings.js           设置面板（外观/语言/小组件/AI/同步）
+  menu.js               顶部工具栏及「更多」菜单
+  chrome-sync.js        Chrome 书签只读同步（仅扩展环境生效）
+  oplog.js              操作日志 / 差分记录 / 快照撤销 / 浮动撤销栏
+  trash.js              回收站（软删除 / 保留期 / 恢复 / 清空）
+  health.js             链接有效性检测
+  suggest.js            AI 分类建议（本地规则 + Claude/OpenAI）
+  monitor.js            内网服务监控小组件（基于 Glances API）
+  background.js         液态玻璃外观 / 动态背景 / 自定义背景图片
+  pwa.js                Service Worker 注册（仅 HTTPS 环境）
+  app.js                初始化入口：load → render → 事件绑定
+sw.js                   离线缓存（Shell + 资源列表）
+manifest.json           Chrome 扩展清单
+manifest.webmanifest    PWA 清单
+background.js           扩展后台：处理 Chrome 书签变更事件
 ```
 
-新增功能时：新建一个 `js/xxx.js`，在 `index.html` 的 `app.js` 之前加一个 `<script>`，并把文件名补进 `sw.js` 的 SHELL 列表。
+---
 
-## 功能说明
+## 注意事项
 
-- **回收站**：删除（单个/批量）不再直接删数据，先进回收站；"更多菜单 → 回收站"里可恢复/永久删除/清空，保留时长可选 立即/1/3/7/14 天（到期自动清理）。
-- **撤销**：删除、批量删除、删除分类（书签被移动）、应用 AI 建议后，右下角 toast 提供约 6 秒的撤销入口。
-- **链接健康检查**："更多菜单 → 检查链接有效性"，并发检测全部书签；卡片标题前显示状态点：绿=正常、红=疑似失效、黄=存疑。扩展环境读真实状态码，网页/PWA 环境用 no-cors 探测。
-- **AI 分类建议**："更多菜单 → AI 分类建议"。根据标题/URL/域名/描述推荐分类和标签，只生成建议，勾选后手动应用。默认本地规则引擎（离线可用）；设置里可切到 Claude/OpenAI 并填 API Key（仅存本机）获得更智能的建议。
+### 数据存储与隔离
+
+- 数据保存在各端各自的 **localStorage**，不同浏览器、不同设备之间**相互独立、不自动同步**。
+- 跨设备迁移请使用「导出书签 HTML → 在目标设备导入」。
+- localStorage 按**页面来源（origin）隔离**：扩展页面（`chrome-extension://…`）、本地文件（`file://…`）、托管网址（`https://…`）是**三套互不相通的数据**，而且只有扩展页面能访问 Chrome 书签。
+- ⚠️ 若你既装了扩展、又另外双击打开了 `index.html`，看到的会是两份不同的数据 —— 这通常是"自己打开导航却没有同步状态"的原因。**用扩展时请固定从工具栏的 Navi 图标进入**，保证始终是同一份数据。
+
+### PWA 使用要求
+
+- PWA 模式**必须 HTTPS**，`http://` 下 Service Worker 无法注册，离线功能不可用。
+- 安装到主屏幕后，卸载 PWA 会**同时清除该域下的 localStorage 数据**，卸载前请先导出备份。
+
+### Service Worker 缓存
+
+- **修改完代码后，务必将 `sw.js` 顶部的 `CACHE` 版本号 +1**，否则旧的 Service Worker 仍会返回已缓存的旧文件，导致更改不生效。
+- 新增 JS/CSS/图片文件时，也需要将文件路径加入 `sw.js` 的 `SHELL` 资源列表。
+
+### 存储容量
+
+- 浏览器 localStorage 通常限制 **5 MB**。书签数量极多时，操作日志的快照（用于撤销）会占用较大空间。
+- 若接近上限，系统会自动丢弃最旧的撤销快照以腾出空间；自定义背景图片（base64 编码）尤其占空间，建议使用小尺寸图片。
+
+### 链接健康检查
+
+- **扩展环境**：通过 `chrome.permissions` 发送真实 HTTP 请求，可读取状态码。
+- **PWA/网页环境**：受浏览器 CORS 限制，使用 `no-cors` 模式探测，**仅能判断连通性，无法获取状态码**；部分服务器可能出现误判。
+- 检查是并发发起的，对目标服务器有一定请求压力，**请勿频繁对外部服务执行检查**。
+
+### AI 功能
+
+- 本地规则引擎默认启用，**完全离线**，无需配置。
+- 接入 Claude / OpenAI 需在设置中填入 API Key，Key **仅存于本机 localStorage**，不会上传到任何服务器。
+- AI 建议只生成推荐，不会自动修改数据，需手动勾选后应用。
+
+### 内网监控小组件
+
+- 需要目标设备运行 [Glances](https://nicolargo.github.io/glances/)（`glances -w`）并开启 REST API。
+- 跨域访问需在 Glances 配置中允许 CORS，或通过反向代理添加对应请求头。
+- 若在公网部署，**不要将未鉴权的 Glances 接口暴露到公网**。
+
+### Chrome 书签同步（扩展专属）
+
+- 仅在 Chrome 扩展模式下可用，读取 Chrome 书签为**只读同步**，不会修改 Chrome 书签数据。
+- 同步数据存入 Navi 自己的 localStorage，不影响 Chrome 原生书签。
+- **首次开启同步会清除示例书签卡片**，仅保留你 Chrome 中的真实书签；与示例同网址的卡片会被"认领"并保留。手动编辑过的示例卡片也会保留。
+- 关闭 Navi 期间，`background.js` 会把 Chrome 书签变更排队，下次打开自动补上；每 30 分钟也会自动全量同步一次。
+
+---
+
+## 扩展开发
+
+新增功能模块时的标准流程：
+
+1. 在 `js/` 下新建 `xxx.js`，按职责原则只写该模块的逻辑
+2. 在 `index.html` 中，在 `js/app.js` **之前**添加 `<script src="js/xxx.js"></script>`
+3. 将 `js/xxx.js` 路径加入 `sw.js` 的 `SHELL` 资源数组
+4. 将 `sw.js` 顶部的 `CACHE` 版本号 +1
+
+项目不依赖任何构建工具、打包器或框架——所有代码都是可直接阅读和调试的原生 JS/CSS，打开浏览器 DevTools 即可断点调试。

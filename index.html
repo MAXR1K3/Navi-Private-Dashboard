@@ -130,10 +130,49 @@
     </div>
   </div>
 
+  <div class="overlay" id="summaryOverlay">
+    <div class="modal wide" role="dialog" aria-modal="true">
+      <div class="modal-head"><h2 data-i18n="summaryTitle">Generate bookmark descriptions</h2><p data-i18n="summarySub">Use page content and AI when available, then keep each description concise.</p></div>
+      <div class="modal-body">
+        <div class="field">
+          <label data-i18n="summaryScope">Scope</label>
+          <div class="seg summary-seg" id="summaryScopeSeg">
+            <button data-summary-scope="all" data-i18n="summaryAll">All</button>
+            <button data-summary-scope="current" data-i18n="summaryCurrent">Current</button>
+            <button data-summary-scope="category" data-i18n="summaryCategory">Category</button>
+          </div>
+        </div>
+        <div class="field" id="summaryCatField">
+          <label data-i18n="catLabel">Category</label>
+          <select id="summaryCat"></select>
+        </div>
+        <div class="field">
+          <label data-i18n="summaryMode">Mode</label>
+          <div class="seg summary-seg" id="summaryModeSeg">
+            <button data-summary-mode="all" data-i18n="summaryRegenerate">Regenerate all</button>
+            <button data-summary-mode="missing" data-i18n="summaryMissingOnly">Only empty</button>
+          </div>
+        </div>
+        <div class="summary-note" id="summaryScopeInfo"></div>
+        <div class="summary-progress" id="summaryProgress"></div>
+      </div>
+      <div class="modal-foot"><button class="btn" data-close data-i18n="cancel">Cancel</button><button class="btn primary" id="summaryRunBtn" data-i18n="summaryRun">Generate</button></div>
+    </div>
+  </div>
+
   <div class="overlay" id="settingsOverlay">
     <div class="modal wide" role="dialog" aria-modal="true">
       <div class="modal-head"><h2 data-i18n="settingsTitle">Settings</h2><p data-i18n="settingsSub">Personalize your dashboard.</p></div>
-      <div class="modal-body scroll">
+      <div class="modal-body">
+        <div class="set-tabs" id="setTabs">
+          <button class="on" data-settab="general" data-i18n="setTabGeneral">General</button>
+          <button data-settab="appearance" data-i18n="setTabAppearance">Appearance</button>
+          <button data-settab="dashboard" data-i18n="setTabDashboard">Dashboard</button>
+          <button data-settab="services" data-i18n="setTabServices">Monitor &amp; AI</button>
+          <button data-settab="log" data-i18n="setTabLog">Activity log</button>
+        </div>
+        <div class="set-tab-wrap">
+        <div class="set-tab on" data-tab="general">
         <div class="set-section" id="chromeSyncSection">
           <h4 data-i18n="chromeSync">Chrome Sync</h4>
           <div class="set-row">
@@ -146,6 +185,13 @@
               <label class="switch"><input type="checkbox" id="setChromeSync"><span class="track"></span></label>
             </div>
           </div>
+          <div class="set-row">
+            <div class="info">
+              <div class="t" data-i18n="chromeSyncReplace">Replace on sync</div>
+              <div class="d" data-i18n="chromeSyncReplaceDesc">Clear local bookmarks and categories, then rebuild them from Chrome.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="setChromeSyncReplace"><span class="track"></span></label>
+          </div>
           <div id="csNote" class="set-row" style="display:none">
             <div class="info"><div class="d"><a href="#" style="color:var(--accent);text-decoration:none;font-weight:600;" id="csSetupLink" data-i18n="extensionSetup">Extension setup guide</a></div></div>
           </div>
@@ -156,6 +202,8 @@
             <button data-lang="en">English</button><button data-lang="zh">中文</button><button data-lang="es">Español</button>
           </div>
         </div>
+        </div><!-- /general -->
+        <div class="set-tab" data-tab="appearance">
         <div class="set-section">
           <h4 data-i18n="appearance">Appearance</h4>
           <div class="field" style="margin-top:8px;"><label data-i18n="pageName">Page name</label><input id="setName" type="text" placeholder="Navi" /></div>
@@ -167,6 +215,7 @@
           <div class="set-row"><div class="info"><div class="t" data-i18n="motionProfile">Motion profile</div><div class="d" data-i18n="motionProfileDesc">Choose battery-first or smooth low-cost animation</div></div>
             <div class="seg sm motion-seg" id="motionSeg"><button data-motion="low" data-i18n="motionLow">Low power</button><button data-motion="smooth" data-i18n="motionSmooth">Smooth</button></div>
           </div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="autoTheme">Auto theme</div><div class="d" data-i18n="autoThemeDesc">Switch dark/light by local sunrise &amp; sunset</div></div><label class="switch"><input type="checkbox" id="setAutoTheme"><span class="track"></span></label></div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="glassEffect">Liquid glass</div><div class="d" data-i18n="glassEffectDesc">Frosted, translucent panels</div></div><label class="switch"><input type="checkbox" id="setGlass"><span class="track"></span></label></div>
           <div class="set-row" id="glassOpacityRow"><div class="info"><div class="t" data-i18n="glassOpacity">Glass opacity</div><div class="d" data-i18n="glassOpacityDesc">Lower = more see-through</div></div>
             <div class="set-range"><input type="range" id="setGlassOpacity" min="8" max="85" step="1" /><span class="rv" id="glassOpacityVal">45%</span></div>
@@ -188,6 +237,8 @@
             <div style="display:flex; gap:8px;"><button class="btn" id="bgUpload" data-i18n="upload">Upload</button><button class="btn" id="bgRemove" title="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
           </div>
         </div>
+        </div><!-- /appearance -->
+        <div class="set-tab" data-tab="dashboard">
         <div class="set-section">
           <h4 data-i18n="categoriesSec">Categories</h4>
           <div class="set-row"><div class="info"><div class="t" data-i18n="categoryStyle">Category style</div></div>
@@ -206,6 +257,8 @@
           <div class="set-row"><div class="info"><div class="t" data-i18n="recentlyOpened">Recently opened</div></div><label class="switch"><input type="checkbox" data-widget="recent"><span class="track"></span></label></div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="monitorWidget">Status monitor</div><div class="d" data-i18n="monitorWidgetDesc">NAS metrics and service up/down on your dashboard</div></div><label class="switch"><input type="checkbox" data-widget="monitor"><span class="track"></span></label></div>
         </div>
+        </div><!-- /dashboard -->
+        <div class="set-tab" data-tab="services">
         <div class="set-section">
           <h4 data-i18n="aiSection">AI suggestions</h4>
           <div class="set-row"><div class="info"><div class="t" data-i18n="aiProvider">Suggestion engine</div><div class="d" data-i18n="aiKeyDesc">Optional: use Claude or OpenAI for smarter suggestions.</div></div>
@@ -228,6 +281,18 @@
             <button class="btn" id="monAddSvc" style="margin-top:8px;" data-i18n="monAddService">Add service</button>
           </div>
         </div>
+        </div><!-- /services -->
+        <div class="set-tab" data-tab="log">
+        <div class="set-section">
+          <h4 data-i18n="logSection">Activity log</h4>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="logFilterLabel">Show</div><div class="d" data-i18n="logSectionDesc">Every change is recorded and can be undone.</div></div>
+            <div class="seg sm" id="logFilterSeg"><button data-logfilter="all" class="on" data-i18n="logAll">All</button><button data-logfilter="info" data-i18n="logLevel_info">Info</button><button data-logfilter="warn" data-i18n="logLevel_warn">Warn</button><button data-logfilter="danger" data-i18n="logLevel_danger">Danger</button></div>
+          </div>
+          <div id="opLogList" class="op-log-list"></div>
+          <button class="btn" id="logClearBtn" data-i18n="logClear" style="margin-top:10px;">Clear log</button>
+        </div>
+        </div><!-- /log -->
+        </div><!-- /set-tab-wrap -->
       </div>
       <div class="modal-foot"><button class="btn primary" data-close data-i18n="done">Done</button></div>
     </div>
@@ -272,6 +337,14 @@
   <input type="file" id="logoInput" class="sr-file" accept="image/*" />
   <input type="file" id="bgInput" class="sr-file" accept="image/*" />
   <div class="toasts" id="toasts"></div>
+  <div id="quickUndoBar" class="quick-undo-bar">
+    <span class="qu-msg" id="quickUndoMsg"></span>
+    <button class="btn sm log-undo" id="quickUndoBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      <span data-i18n="undo">撤销</span>
+    </button>
+    <button class="qu-close" id="quickUndoClose" aria-label="关闭">&#x2715;</button>
+  </div>
 
 <script src="js/i18n.js"></script>
 <script src="js/state.js"></script>
@@ -292,7 +365,9 @@
 <script src="js/suggest.js"></script>
 <script src="js/background.js"></script>
 <script src="js/monitor.js"></script>
+<script src="js/oplog.js"></script>
 <script src="js/pwa.js"></script>
+<script src="js/auto-theme.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

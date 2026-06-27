@@ -1,7 +1,23 @@
-// Navi background.js v1.1 — queues Chrome bookmark events while the dashboard is closed
+// Navi background.js v1.4 — queues Chrome bookmark events while the dashboard is closed,
+// and opens/focuses the dashboard from the toolbar icon (no new-tab override).
 const ROOTS=['Bookmarks bar','Bookmarks Bar','Other bookmarks','Other Bookmarks',
   'Mobile bookmarks','Mobile Bookmarks','书签栏','其他书签','移动设备书签'];
 const MAX_QUEUE=500; // prevent unbounded growth
+
+// Toolbar icon: focus the existing dashboard tab, or open a new one.
+chrome.action.onClicked.addListener(async()=>{
+  const dashUrl=chrome.runtime.getURL('index.html');
+  try{
+    const tabs=await chrome.tabs.query({});
+    const existing=tabs.find(t=>t.url&&t.url.indexOf(dashUrl)===0);
+    if(existing){
+      await chrome.tabs.update(existing.id,{active:true});
+      if(existing.windowId!=null) await chrome.windows.update(existing.windowId,{focused:true});
+    }else{
+      await chrome.tabs.create({url:dashUrl});
+    }
+  }catch(_){ chrome.tabs.create({url:dashUrl}); }
+});
 
 async function enqueue(ev){
   try{

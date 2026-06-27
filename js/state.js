@@ -7,7 +7,7 @@ var POWER_PROFILE_VERSION = 2;
 var WKEYS = ["clock","search","weather","calendar","frequent","recent","monitor"];
 function defaults(){
   return {
-    bookmarks:[], categories:[], trash:[], theme:"light", view:"grid",
+    bookmarks:[], categories:[], trash:[], opLog:[], theme:"light", view:"grid",
     settings:{
       appName:"Navi", tagline:"", logo:null, lang:"en", motionMode:"low", lowPower:true, animations:false,
       widgetsCollapsed:false, widgetsHidden:false, clockSeconds:false, showHolidays:true, categoryLayout:"tabs",
@@ -15,9 +15,10 @@ function defaults(){
       widgetOrder:["clock","search","weather","calendar","frequent","recent","monitor"],
       widgetSize:{ clock:1, search:2, weather:1, calendar:1, frequent:1, recent:1, monitor:2 },
       weather:null, weatherUnit:"c", searchEngine:"google", engineUsage:{},
-      chromeSync:false, chromeSyncLastSync:0, chromeSyncCount:0,
+      chromeSync:false, chromeSyncReplace:false, chromeSyncLastSync:0, chromeSyncCount:0,
       trashRetention:7, aiProvider:"local", aiKey:"",
       glass:false, glassOpacity:45, refraction:false, background:{ type:"gradient", live:"aurora", image:null },
+      autoThemeCoords:null,
       powerProfileVersion:POWER_PROFILE_VERSION
     }
   };
