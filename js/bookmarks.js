@@ -3,13 +3,14 @@
 
 /* ===== bookmark add/edit ===== */
 function fillCatSelect(sel){ var s=$("#bmCat"); s.innerHTML=state.categories.map(function(c){ return '<option value="'+escapeHtml(c)+'"'+(c===sel?" selected":"")+'>'+escapeHtml(catLabel(c))+'</option>'; }).join(""); if(state.categories.indexOf("Uncategorized")===-1){ s.innerHTML+='<option value="Uncategorized"'+(sel==="Uncategorized"?" selected":"")+'>'+escapeHtml(t("uncategorized"))+'</option>'; } }
-function syncBookmarkOptionFields(b){
+function syncBookmarkOptionFields(b, opts){
+  opts=opts||{};
   var opt=$("#bmOptionsField"), healthRow=$("#bmHealthRow"), sel=$("#bmHealth"), pin=$("#bmPinned"), fav=$("#bmFavorite");
   if(!opt) return;
   var editing=!!b;
-  opt.style.display=editing?"":"none";
+  opt.style.display=(editing||opts.showOptions)?"":"none";
   if(pin) pin.checked=!!(b&&b.pinned);
-  if(fav) fav.checked=!!(b&&b.favorite);
+  if(fav) fav.checked=!!(b&&b.favorite)||!!opts.favorite;
   if(healthRow) healthRow.style.display=editing?"":"none";
   if(sel){
     sel.innerHTML=[
@@ -31,8 +32,15 @@ function parseTags(str){
   });
   return out;
 }
-function openAdd(){ ui.editingId=null; $("#bmTitle").textContent=t("addBookmark"); $("#bmSave").textContent=t("saveBookmark"); $("#bmUrl").value=""; $("#bmName").value=""; $("#bmDesc").value=""; $("#bmTags").value=""; syncBookmarkOptionFields(null); fillCatSelect((ui.activeCat!=="All")?ui.activeCat:(state.categories[0]||"Uncategorized")); openOverlay("bmOverlay"); setTimeout(function(){ $("#bmUrl").focus(); },50); }
-function openEdit(id){ var b=byId(id); if(!b) return; ui.editingId=id; $("#bmTitle").textContent=t("editBookmark"); $("#bmSave").textContent=t("saveChanges"); $("#bmUrl").value=b.url; $("#bmName").value=b.title; $("#bmDesc").value=b.description||""; $("#bmTags").value=(b.tags||[]).join(", "); syncBookmarkOptionFields(b); fillCatSelect(b.category); openOverlay("bmOverlay"); setTimeout(function(){ $("#bmName").focus(); },50); }
+function openAdd(opts){
+  opts=opts||{}; ui.editingId=null; ui.addFavorite=!!opts.favorite;
+  $("#bmTitle").textContent=opts.favorite?t("addFavoritePage"):t("addBookmark");
+  $("#bmSave").textContent=t("saveBookmark"); $("#bmUrl").value=""; $("#bmName").value=""; $("#bmDesc").value=""; $("#bmTags").value="";
+  syncBookmarkOptionFields(null,{showOptions:!!opts.favorite,favorite:!!opts.favorite});
+  fillCatSelect((ui.activeCat!=="All")?ui.activeCat:(state.categories[0]||"Uncategorized"));
+  openOverlay("bmOverlay"); setTimeout(function(){ $("#bmUrl").focus(); },50);
+}
+function openEdit(id){ var b=byId(id); if(!b) return; ui.addFavorite=false; ui.editingId=id; $("#bmTitle").textContent=t("editBookmark"); $("#bmSave").textContent=t("saveChanges"); $("#bmUrl").value=b.url; $("#bmName").value=b.title; $("#bmDesc").value=b.description||""; $("#bmTags").value=(b.tags||[]).join(", "); syncBookmarkOptionFields(b); fillCatSelect(b.category); openOverlay("bmOverlay"); setTimeout(function(){ $("#bmName").focus(); },50); }
 function saveBookmark(){
   var url=normalizeUrl($("#bmUrl").value); if(!url){ toast(t("pleaseUrl"),"err"); $("#bmUrl").focus(); return; }
   if(!isWebUrl(url)){ toast(t("invalidUrl"),"err"); $("#bmUrl").focus(); return; }
@@ -41,7 +49,8 @@ function saveBookmark(){
   if(isReservedCat(cat)) cat="Uncategorized";
   if(state.categories.indexOf(cat)===-1) state.categories.push(cat);
   if(ui.editingId){ var b=byId(ui.editingId); if(b){ b.url=url; b.title=name; b.category=cat; b.description=desc; b.tags=tags; b.pinned=!!($("#bmPinned")&&$("#bmPinned").checked); b.favorite=!!($("#bmFavorite")&&$("#bmFavorite").checked); var h=$("#bmHealth")?$("#bmHealth").value:"auto"; if(h==="ok"||h==="warn"||h==="bad") b.health={status:h,ts:Date.now(),manual:true}; else if(b.health&&b.health.manual) delete b.health; delete b._seed; } toast(t("bookmarkUpdated"),"ok"); }
-  else { state.bookmarks.unshift({ id:uid(), title:name, url:url, category:cat, description:desc, tags:tags, clicks:0, lastOpened:0, favorite:false }); toast(t("bookmarkAdded"),"ok"); }
+  else { state.bookmarks.unshift({ id:uid(), title:name, url:url, category:cat, description:desc, tags:tags, clicks:0, lastOpened:0, favorite:!!(ui.addFavorite||($("#bmFavorite")&&$("#bmFavorite").checked)) }); toast(t("bookmarkAdded"),"ok"); }
+  ui.addFavorite=false;
   save(); closeOverlay("bmOverlay"); render();
 }
 $("#bmSave").addEventListener("click", saveBookmark);

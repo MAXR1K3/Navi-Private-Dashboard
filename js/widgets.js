@@ -22,6 +22,8 @@ function renderWidgets(){
     else if(key==="netinfo"){ icon=ICONS.globe; title=t("ipLocation"); body='<div id="netinfoBody">'+netinfoBody()+'</div>'; }
     else if(key==="calendar"){ icon=ICONS.cal; title=t("calendar"); body='<div id="calBody">'+calendarBody()+'</div>'; }
     else if(key==="frequent"){ icon=ICONS.star; title=t("frequentlyUsed"); body=listBody("frequent"); }
+    else if(key==="overview"){ icon=ICONS.gauge; title=t("overviewTitle"); body=overviewBody(); }
+    else if(key==="notes"){ icon=ICONS.note; title=t("notesTitle"); body=notesBody(); }
     else if(key==="monitor"){ icon=ICONS.server; title=t("monitorTitle"); body=monitorBody(); }
     else { icon=ICONS.history; title=t("recentlyOpened"); body=listBody("recent"); }
     var anim=s.animations?(' style="animation-delay:'+(idx*0.06).toFixed(2)+'s"'):'';
@@ -103,9 +105,40 @@ function clockBody(){
   '</div>'+worldClockBody(new Date());
 }
 function worldClockZones(){
-  var fallback=["UTC","America/New_York","America/Los_Angeles","Europe/London","Europe/Paris","Europe/Madrid","Asia/Shanghai","Asia/Hong_Kong","Asia/Tokyo","Asia/Seoul","Asia/Singapore","Australia/Sydney"];
-  try{ if(Intl.supportedValuesOf) return Intl.supportedValuesOf("timeZone"); }catch(e){}
-  return fallback;
+  var fallback=["UTC","America/New_York","America/Los_Angeles","America/Chicago","America/Denver","America/Toronto","America/Vancouver","Europe/London","Europe/Paris","Europe/Madrid","Europe/Berlin","Europe/Rome","Europe/Amsterdam","Europe/Zurich","Europe/Moscow","Europe/Istanbul","Asia/Shanghai","Asia/Hong_Kong","Asia/Taipei","Asia/Tokyo","Asia/Seoul","Asia/Singapore","Asia/Bangkok","Asia/Kuala_Lumpur","Asia/Jakarta","Asia/Manila","Asia/Dubai","Asia/Kolkata","Australia/Sydney","Australia/Melbourne","Pacific/Auckland"];
+  var zones=[];
+  try{ if(Intl.supportedValuesOf) zones=Intl.supportedValuesOf("timeZone")||[]; }catch(e){}
+  if(!zones.length) zones=fallback.slice();
+  var seen={}, out=[];
+  zones.concat(fallback).forEach(function(z){ if(z&&!seen[z]){ seen[z]=1; out.push(z); } });
+  return out;
+}
+function worldClockAliases(){
+  return [
+    ["Beijing","Asia/Shanghai","Beijing / 北京"],["北京","Asia/Shanghai","北京 / Beijing"],["Peking","Asia/Shanghai","Peking / Beijing"],
+    ["Shanghai","Asia/Shanghai","Shanghai / 上海"],["上海","Asia/Shanghai","上海 / Shanghai"],
+    ["Hong Kong","Asia/Hong_Kong","Hong Kong / 香港"],["香港","Asia/Hong_Kong","香港 / Hong Kong"],
+    ["Taipei","Asia/Taipei","Taipei / 台北"],["台北","Asia/Taipei","台北 / Taipei"],
+    ["Tokyo","Asia/Tokyo","Tokyo / 东京"],["东京","Asia/Tokyo","东京 / Tokyo"],["Seoul","Asia/Seoul","Seoul / 首尔"],["首尔","Asia/Seoul","首尔 / Seoul"],
+    ["Singapore","Asia/Singapore","Singapore / 新加坡"],["新加坡","Asia/Singapore","新加坡 / Singapore"],
+    ["Bangkok","Asia/Bangkok","Bangkok / 曼谷"],["曼谷","Asia/Bangkok","曼谷 / Bangkok"],
+    ["Kuala Lumpur","Asia/Kuala_Lumpur","Kuala Lumpur / 吉隆坡"],["Jakarta","Asia/Jakarta","Jakarta / 雅加达"],["Manila","Asia/Manila","Manila / 马尼拉"],
+    ["Dubai","Asia/Dubai","Dubai / 迪拜"],["迪拜","Asia/Dubai","迪拜 / Dubai"],["Delhi","Asia/Kolkata","Delhi / New Delhi"],["New Delhi","Asia/Kolkata","New Delhi / 新德里"],["新德里","Asia/Kolkata","新德里 / New Delhi"],
+    ["London","Europe/London","London / 伦敦"],["伦敦","Europe/London","伦敦 / London"],["Paris","Europe/Paris","Paris / 巴黎"],["巴黎","Europe/Paris","巴黎 / Paris"],
+    ["Madrid","Europe/Madrid","Madrid / 马德里"],["马德里","Europe/Madrid","马德里 / Madrid"],["Berlin","Europe/Berlin","Berlin / 柏林"],["柏林","Europe/Berlin","柏林 / Berlin"],
+    ["Rome","Europe/Rome","Rome / 罗马"],["Amsterdam","Europe/Amsterdam","Amsterdam / 阿姆斯特丹"],["Zurich","Europe/Zurich","Zurich / 苏黎世"],["Moscow","Europe/Moscow","Moscow / 莫斯科"],["Istanbul","Europe/Istanbul","Istanbul / 伊斯坦布尔"],
+    ["New York","America/New_York","New York / 纽约"],["纽约","America/New_York","纽约 / New York"],
+    ["Los Angeles","America/Los_Angeles","Los Angeles / 洛杉矶"],["LA","America/Los_Angeles","LA / Los Angeles"],["洛杉矶","America/Los_Angeles","洛杉矶 / Los Angeles"],
+    ["San Francisco","America/Los_Angeles","San Francisco / 旧金山"],["旧金山","America/Los_Angeles","旧金山 / San Francisco"],["Seattle","America/Los_Angeles","Seattle / 西雅图"],["西雅图","America/Los_Angeles","西雅图 / Seattle"],
+    ["Chicago","America/Chicago","Chicago / 芝加哥"],["Denver","America/Denver","Denver / 丹佛"],["Toronto","America/Toronto","Toronto / 多伦多"],["Vancouver","America/Vancouver","Vancouver / 温哥华"],
+    ["Sydney","Australia/Sydney","Sydney / 悉尼"],["悉尼","Australia/Sydney","悉尼 / Sydney"],["Melbourne","Australia/Melbourne","Melbourne / 墨尔本"],["Auckland","Pacific/Auckland","Auckland / 奥克兰"],
+    ["UTC","UTC","UTC"],["GMT","UTC","GMT / UTC"]
+  ].map(function(a){ return {value:a[0], tz:a[1], label:a[2]}; });
+}
+function worldClockOptions(){
+  var opts=worldClockAliases().map(function(a){ return {value:a.value, label:a.label}; });
+  worldClockZones().forEach(function(z){ opts.push({value:z,label:tzLabel(z)}); });
+  return opts;
 }
 function tzLabel(tz){ return String(tz||"").replace(/_/g," ").replace(/\//g," / "); }
 function tzCity(tz){ var p=String(tz||"").split("/"); return (p[p.length-1]||tz).replace(/_/g," "); }
@@ -128,6 +161,11 @@ function worldClockList(){
 function findTimeZone(q){
   q=String(q||"").trim().toLowerCase(); if(!q) return "";
   if(q==="utc"||q==="gmt") return "UTC";
+  var alias=worldClockAliases(), compact=q.replace(/[\s_-]+/g,"");
+  for(var a=0;a<alias.length;a++){
+    var av=alias[a].value.toLowerCase(), al=alias[a].label.toLowerCase(), ac=av.replace(/[\s_/-]+/g,"");
+    if(av===q || ac===compact || al.indexOf(q)>-1) return alias[a].tz;
+  }
   var zones=worldClockZones(), compact=q.replace(/[\s_-]+/g,"");
   for(var i=0;i<zones.length;i++){ if(zones[i].toLowerCase()===q) return zones[i]; }
   for(var j=0;j<zones.length;j++){
@@ -146,7 +184,7 @@ function worldClockBody(now){
   return '<div class="world-clock">'+
     '<div class="wc-head"><b>'+escapeHtml(t("worldClock"))+'</b><div class="wc-mode"><button type="button" data-clock-mode="stack" class="'+(mode==="stack"?"on":"")+'">'+escapeHtml(t("clockStack"))+'</button><button type="button" data-clock-mode="compact" class="'+(mode==="compact"?"on":"")+'">'+escapeHtml(t("clockCompact"))+'</button></div></div>'+
     '<div class="wc-list '+mode+'" id="worldClockList">'+rows+'</div>'+
-    '<form class="wc-add" id="worldClockForm"><input name="tz" type="text" list="tzOptions" placeholder="'+escapeHtml(t("worldClockPh"))+'" autocomplete="off" /><datalist id="tzOptions">'+worldClockZones().slice(0,120).map(function(z){ return '<option value="'+escapeHtml(z)+'">'+escapeHtml(tzLabel(z))+'</option>'; }).join("")+'</datalist><button type="submit">'+escapeHtml(t("addClock"))+'</button></form>'+
+    '<form class="wc-add" id="worldClockForm"><input name="tz" type="text" list="tzOptions" placeholder="'+escapeHtml(t("worldClockPh"))+'" autocomplete="off" /><datalist id="tzOptions">'+worldClockOptions().map(function(o){ return '<option value="'+escapeHtml(o.value)+'">'+escapeHtml(o.label)+'</option>'; }).join("")+'</datalist><button type="submit">'+escapeHtml(t("addClock"))+'</button></form>'+
   '</div>';
 }
 function refreshWorldClockDom(){
@@ -497,7 +535,7 @@ function listBody(kind){
   }
   else { items=state.bookmarks.filter(function(b){return (b.lastOpened||0)>0;}).sort(function(a,b){return (b.lastOpened||0)-(a.lastOpened||0);}).slice(0,5); empty=t("recentEmpty"); }
   var hasStats=kind==="frequent"?state.bookmarks.some(function(b){ return (b.clicks||0)>0; }):state.bookmarks.some(function(b){ return (b.lastOpened||0)>0; });
-  var h='<div class="mini-tools"><button type="button" data-list-clear="'+kind+'"'+(hasStats?"":" disabled")+'>'+escapeHtml(kind==="frequent"?t("clearFrequent"):t("clearRecent"))+'</button></div>';
+  var h='<div class="mini-tools">'+(kind==="frequent"?'<button type="button" data-fav-add="1">'+escapeHtml(t("addFavoritePage"))+'</button>':"")+'<button type="button" data-list-clear="'+kind+'"'+(hasStats?"":" disabled")+'>'+escapeHtml(kind==="frequent"?t("clearFrequent"):t("clearRecent"))+'</button></div>';
   if(!items.length){ return h+'<div class="w-empty">'+escapeHtml(empty)+'</div>'; }
   h+='<div class="mini-list">';
   items.forEach(function(b,i){
@@ -509,9 +547,74 @@ function listBody(kind){
   return h+'</div>';
 }
 
+/* ===== Notes（便签）：本地速记，纯 localStorage，隐私模式下照常工作 ===== */
+function notesBody(){
+  var v=state.settings.notes||"";
+  return '<div class="notes-wrap">'+
+    '<textarea id="notesArea" class="notes-area" spellcheck="false" placeholder="'+escapeHtml(t("notesPh"))+'">'+escapeHtml(v)+'</textarea>'+
+    '<div class="notes-foot"><span id="notesCount">'+(v?String(v.length):"")+'</span></div>'+
+  '</div>';
+}
+var _notesSaveTimer=0;
+function onNotesInput(ta){
+  state.settings.notes=ta.value;
+  var c=$("#notesCount"); if(c) c.textContent=ta.value?String(ta.value.length):"";
+  if(_notesSaveTimer) clearTimeout(_notesSaveTimer);
+  _notesSaveTimer=setTimeout(function(){ _notesSaveTimer=0; save(); }, 500);
+}
+function flushNotes(ta){ if(_notesSaveTimer){ clearTimeout(_notesSaveTimer); _notesSaveTimer=0; } state.settings.notes=ta.value; save(); }
+
+/* ===== Overview（概览）：把已有数据聚成一屏，纯自有数据、零外部请求 ===== */
+function overviewStats(){
+  var dead=0, warn=0, lastCheck=0;
+  state.bookmarks.forEach(function(b){
+    if(b.health){
+      if(b.health.status==="bad") dead++; else if(b.health.status==="warn") warn++;
+      if((b.health.ts||0)>lastCheck) lastCheck=b.health.ts;
+    }
+  });
+  var si=(typeof storageInfo==="function")?storageInfo():{pct:0,kb:0};
+  return {
+    bm:state.bookmarks.length, cats:state.categories.length,
+    dead:dead, warn:warn, issues:dead+warn, lastCheck:lastCheck,
+    storagePct:si.pct, storageKb:si.kb,
+    trash:Array.isArray(state.trash)?state.trash.length:0,
+    lastSync:state.settings.chromeSyncLastSync||0
+  };
+}
+function overviewBody(){
+  var s=overviewStats();
+  function tile(val,label,ov,cls){
+    var tag=ov?"button":"div", attr=ov?' type="button" data-ov="'+ov+'"':'';
+    return '<'+tag+' class="ov-tile'+(ov?" act":"")+(cls?" "+cls:"")+'"'+attr+'>'+
+      '<span class="ov-val">'+escapeHtml(String(val))+'</span><span class="ov-label">'+escapeHtml(label)+'</span></'+tag+'>';
+  }
+  var h='<div class="ov-grid">';
+  h+=tile(s.bm, t("ovBookmarks"), "all", "");
+  h+=tile(s.cats, t("ovCategories"), "", "");
+  h+=tile(s.issues, t("ovDeadLinks"), "health", s.issues>0?"warn":"ok");
+  h+=tile(s.storagePct+"%", t("ovStorage"), "storage", s.storagePct>=80?"warn":"");
+  h+='</div>';
+  h+='<div class="ov-bar" title="'+escapeHtml(t("ovStorage"))+'"><i class="'+(s.storagePct>=90?"full":(s.storagePct>=80?"warn":""))+'" style="width:'+Math.max(2,Math.min(100,s.storagePct))+'%"></i></div>';
+  var meta=[];
+  if(s.trash>0) meta.push('<button type="button" class="ov-link" data-ov="trash">'+escapeHtml(t("ovTrash",{n:s.trash}))+'</button>');
+  if(s.lastSync) meta.push('<span>'+escapeHtml(t("ovLastSync",{t:timeAgo(s.lastSync)}))+'</span>');
+  else if(s.lastCheck) meta.push('<span>'+escapeHtml(t("ovLastCheck",{t:timeAgo(s.lastCheck)}))+'</span>');
+  if(meta.length) h+='<div class="ov-foot">'+meta.join('<span class="ov-sep">·</span>')+'</div>';
+  return h;
+}
+
 // widget interactions
 widgetsEl.addEventListener("click", function(e){
+  var ov=e.target.closest("[data-ov]"); if(ov){ var oa=ov.getAttribute("data-ov");
+    if(oa==="health"){ if(typeof openHealthIssues==="function") openHealthIssues(); }
+    else if(oa==="storage"){ if(typeof openSettings==="function") openSettings("general"); }
+    else if(oa==="trash"){ if(typeof openTrash==="function") openTrash(); }
+    else if(oa==="all"){ setActiveCat("All"); }
+    return;
+  }
   var eng=e.target.closest("[data-engine]"); if(eng){ state.settings.searchEngine=eng.getAttribute("data-engine"); save(); refreshSearchWidget(); return; }
+  var favAdd=e.target.closest("[data-fav-add]"); if(favAdd){ openAdd({favorite:true}); return; }
   var favToggle=e.target.closest("[data-fav-toggle]"); if(favToggle){ e.stopPropagation(); toggleFavoriteBookmark(favToggle.getAttribute("data-fav-toggle")); return; }
   var listClear=e.target.closest("[data-list-clear]"); if(listClear&&!listClear.disabled){ clearWidgetList(listClear.getAttribute("data-list-clear")); return; }
   var clockMode=e.target.closest("[data-clock-mode]"); if(clockMode){ state.settings.worldClockMode=clockMode.getAttribute("data-clock-mode")==="compact"?"compact":"stack"; save(); refreshWorldClockDom(); return; }
@@ -557,6 +660,8 @@ widgetsEl.addEventListener("change", function(e){
     save(); refreshCalDom();
   }
 });
+widgetsEl.addEventListener("input", function(e){ if(e.target&&e.target.id==="notesArea") onNotesInput(e.target); });
+widgetsEl.addEventListener("focusout", function(e){ if(e.target&&e.target.id==="notesArea") flushNotes(e.target); }, true);
 function refreshSearchWidget(){ var w=widgetsEl.querySelector('.widget[data-w="search"]'); if(w){ var head=w.querySelector('.w-head'); w.innerHTML=(head?head.outerHTML:"")+searchBody(); } }
 function refreshListWidget(kind){ var w=widgetsEl.querySelector('.widget[data-w="'+kind+'"]'); if(w){ var head=w.querySelector('.w-head'); w.innerHTML=(head?head.outerHTML:"")+listBody(kind); layoutWidgets(); } }
 widgetsEl.addEventListener("error", function(e){ var tg=e.target; if(tg&&tg.classList&&tg.classList.contains("fav-img")) tg.classList.add("hide"); }, true);

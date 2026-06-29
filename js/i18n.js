@@ -465,7 +465,7 @@ function timeAgo(ts){
       worldClock:"World clocks", worldClockEmpty:"Add a city or time zone to compare time.", worldClockPh:"Search city or time zone…", addClock:"Add", removeClock:"Remove clock", clockStack:"Stack", clockCompact:"Compact",
       worldClockAdded:"World clock added", worldClockExists:"That clock already exists", worldClockNotFound:"No matching time zone found",
       clearRecent:"Clear recent", clearFrequent:"Clear usage", recentCleared:"Recently opened cleared", frequentCleared:"Usage counts cleared",
-      favoriteBookmark:"Favorite shortcut", favoriteBookmarkDesc:"Show this bookmark first in the frequently used widget.", addFavorite:"Add favorite", removeFavorite:"Remove favorite", favoriteAdded:"Added to favorites", favoriteRemoved:"Removed from favorites"
+      favoriteBookmark:"Favorite shortcut", favoriteBookmarkDesc:"Show this bookmark first in the frequently used widget.", addFavorite:"Add favorite", addFavoritePage:"Add favorite page", removeFavorite:"Remove favorite", favoriteAdded:"Added to favorites", favoriteRemoved:"Removed from favorites"
     },
     zh:{
       calToday:"今天", calYesterday:"昨天", calTomorrow:"明天", calDaysAgo:"{n} 天前", calDaysLater:"{n} 天后",
@@ -475,7 +475,7 @@ function timeAgo(ts){
       worldClock:"世界时钟", worldClockEmpty:"添加城市或时区，快速对照时间。", worldClockPh:"搜索城市或时区…", addClock:"添加", removeClock:"移除时钟", clockStack:"堆栈", clockCompact:"紧凑",
       worldClockAdded:"已添加世界时钟", worldClockExists:"该时钟已存在", worldClockNotFound:"没有匹配的时区",
       clearRecent:"清空最近", clearFrequent:"清空统计", recentCleared:"已清空最近打开", frequentCleared:"已清空常用统计",
-      favoriteBookmark:"常用收藏", favoriteBookmarkDesc:"在常用小组件中优先显示这个书签。", addFavorite:"设为常用", removeFavorite:"取消常用", favoriteAdded:"已加入常用收藏", favoriteRemoved:"已取消常用收藏"
+      favoriteBookmark:"常用收藏", favoriteBookmarkDesc:"在常用小组件中优先显示这个书签。", addFavorite:"设为常用", addFavoritePage:"添加常用网页", removeFavorite:"取消常用", favoriteAdded:"已加入常用收藏", favoriteRemoved:"已取消常用收藏"
     },
     es:{
       calToday:"Hoy", calYesterday:"Ayer", calTomorrow:"Mañana", calDaysAgo:"Hace {n} días", calDaysLater:"En {n} días",
@@ -485,7 +485,7 @@ function timeAgo(ts){
       worldClock:"Relojes mundiales", worldClockEmpty:"Añade una ciudad o zona horaria.", worldClockPh:"Buscar ciudad o zona horaria…", addClock:"Añadir", removeClock:"Quitar reloj", clockStack:"Pila", clockCompact:"Compacto",
       worldClockAdded:"Reloj añadido", worldClockExists:"Ese reloj ya existe", worldClockNotFound:"No se encontró zona horaria",
       clearRecent:"Borrar recientes", clearFrequent:"Borrar uso", recentCleared:"Recientes borrados", frequentCleared:"Uso borrado",
-      favoriteBookmark:"Acceso favorito", favoriteBookmarkDesc:"Mostrar este marcador primero en el widget de frecuentes.", addFavorite:"Añadir favorito", removeFavorite:"Quitar favorito", favoriteAdded:"Añadido a favoritos", favoriteRemoved:"Quitado de favoritos"
+      favoriteBookmark:"Acceso favorito", favoriteBookmarkDesc:"Mostrar este marcador primero en el widget de frecuentes.", addFavorite:"Añadir favorito", addFavoritePage:"Añadir página favorita", removeFavorite:"Quitar favorito", favoriteAdded:"Añadido a favoritos", favoriteRemoved:"Quitado de favoritos"
     }
   };
   Object.keys(extra).forEach(function(k){ if(I18N[k]) Object.assign(I18N[k], extra[k]); });
@@ -595,6 +595,31 @@ function timeAgo(ts){
       ctxOpen:"Abrir", ctxMoveTo:"Mover a categoría", ctxCopyLink:"Copiar enlace",
       ctxLinkCopied:"Enlace copiado", ctxMoved:"Movido a «{cat}»", ctxOpenCat:"Abrir categoría",
       palTip:"Paleta de comandos"
+    }
+  };
+  Object.keys(extra).forEach(function(k){ if(I18N[k]) Object.assign(I18N[k], extra[k]); });
+})();
+
+/* ===== 便签 / 概览 组件 文案 ===== */
+(function(){
+  var extra={
+    en:{
+      notesTitle:"Notes", notesDesc:"A quick local scratchpad — stays on this device", notesPh:"Jot anything down… (saved locally)",
+      overviewTitle:"Overview", overviewDesc:"At-a-glance counts, link health and storage",
+      ovBookmarks:"Bookmarks", ovCategories:"Categories", ovDeadLinks:"Issues", ovStorage:"Storage",
+      ovTrash:"{n} in trash", ovLastSync:"Synced {t}", ovLastCheck:"Links checked {t}"
+    },
+    zh:{
+      notesTitle:"便签", notesDesc:"本地速记，仅保存在本设备", notesPh:"随手记点什么…（本地保存）",
+      overviewTitle:"概览", overviewDesc:"书签/分类数量、链接健康与存储一目了然",
+      ovBookmarks:"书签", ovCategories:"分类", ovDeadLinks:"问题链接", ovStorage:"存储",
+      ovTrash:"回收站 {n} 项", ovLastSync:"{t}同步", ovLastCheck:"{t}检查链接"
+    },
+    es:{
+      notesTitle:"Notas", notesDesc:"Bloc local rápido — se queda en este dispositivo", notesPh:"Anota lo que sea… (guardado local)",
+      overviewTitle:"Resumen", overviewDesc:"Conteos, salud de enlaces y almacenamiento de un vistazo",
+      ovBookmarks:"Marcadores", ovCategories:"Categorías", ovDeadLinks:"Problemas", ovStorage:"Almacenam.",
+      ovTrash:"{n} en papelera", ovLastSync:"Sincronizado {t}", ovLastCheck:"Enlaces {t}"
     }
   };
   Object.keys(extra).forEach(function(k){ if(I18N[k]) Object.assign(I18N[k], extra[k]); });

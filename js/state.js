@@ -4,7 +4,7 @@
 /* ===== state ===== */
 var KEY = "navi.dashboard.v3";
 var POWER_PROFILE_VERSION = 2;
-var WKEYS = ["clock","search","weather","netinfo","calendar","frequent","recent","monitor"];
+var WKEYS = ["clock","search","overview","weather","netinfo","calendar","frequent","recent","notes","monitor"];
 function defaultBrowserSyncSource(){
   if(typeof navigator!=="undefined" && /Edg\//.test(navigator.userAgent||"")) return "edge";
   return "chrome";
@@ -15,9 +15,10 @@ function defaults(){
     settings:{
       appName:"Navi", tagline:"", logo:null, lang:"en", motionMode:"low", lowPower:true, animations:false,
       widgetsCollapsed:false, widgetsHidden:false, clockSeconds:false, clock24h:false, worldClockMode:"stack", worldClocks:[], showHolidays:true, calendarShowDoneBadges:false, categoryLayout:"tabs", hideHeaderOnScroll:false, hideHeaderOnScrollUserSet:false,
-      widgets:{ clock:true, search:true, weather:true, netinfo:true, calendar:true, frequent:true, recent:true, monitor:false },
-      widgetOrder:["clock","search","weather","netinfo","calendar","frequent","recent","monitor"],
-      widgetSize:{ clock:1, search:2, weather:1, netinfo:1, calendar:1, frequent:1, recent:1, monitor:2 },
+      widgets:{ clock:true, search:true, overview:true, weather:true, netinfo:true, calendar:true, frequent:true, recent:true, notes:true, monitor:false },
+      widgetOrder:["clock","search","overview","weather","netinfo","calendar","frequent","recent","notes","monitor"],
+      widgetSize:{ clock:1, search:2, overview:1, weather:1, netinfo:1, calendar:1, frequent:1, recent:1, notes:2, monitor:2 },
+      notes:"",
       weather:null, weatherUnit:"c", searchEngine:"google", engineUsage:{},
       chromeSync:false, chromeSyncReplace:false, chromeSyncLastSync:0, chromeSyncCount:0,
       browserSyncSource:defaultBrowserSyncSource(), browserSyncMode:"merge", browserSyncLastSync:{}, browserSyncCounts:{}, pinnedCategories:{}, categoryColors:{},
