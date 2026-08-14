@@ -13,6 +13,7 @@ function openSettings(tab){
   $("#setHolidays").checked=s.showHolidays!==false;
   $("#setLogoPreview").innerHTML=s.logo?'<img src="'+escapeHtml(s.logo)+'" alt=""/>':ICONS.bookmark;
   $all('[data-widget]').forEach(function(cb){ cb.checked=!!s.widgets[cb.getAttribute("data-widget")]; });
+  syncWidgetSubRows();
   $all('#langSeg [data-lang]').forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-lang")===s.lang); });
   $all('#catLayoutSeg [data-layout]').forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-layout")===s.categoryLayout); });
   $("#setAiKey").value=s.aiKey||"";
@@ -54,9 +55,17 @@ $("#setSeconds").addEventListener("change", function(e){ state.settings.clockSec
 $("#setClock24").addEventListener("change", function(e){ state.settings.clock24h=e.target.checked; save(); if(typeof tickClock==="function") tickClock(); });
 $("#setHideHeader").addEventListener("change", function(e){ state.settings.hideHeaderOnScroll=e.target.checked; state.settings.hideHeaderOnScrollUserSet=true; save(); if(typeof syncHeaderHidePreference==="function") syncHeaderHidePreference(); });
 $("#setHolidays").addEventListener("change", function(e){ state.settings.showHolidays=e.target.checked; save(); refreshCalDom(); });
-$all('[data-widget]').forEach(function(cb){ cb.addEventListener("change", function(){ state.settings.widgets[cb.getAttribute("data-widget")]=cb.checked; save(); renderWidgets(); }); });
+$all('[data-widget]').forEach(function(cb){ cb.addEventListener("change", function(){ state.settings.widgets[cb.getAttribute("data-widget")]=cb.checked; save(); renderWidgets(); syncWidgetSubRows(); }); });
+// 渐进式披露：某组件关闭时，它的子设置项（如「显示秒」依附于时钟）一并隐藏，
+// 避免仪表盘页把 14 行开关平铺成一堵墙。
+function syncWidgetSubRows(){
+  $all(".set-row.sub[data-subof]").forEach(function(row){
+    var on=!!(state.settings.widgets||{})[row.getAttribute("data-subof")];
+    if(on) row.removeAttribute("hidden"); else row.setAttribute("hidden","");
+  });
+}
 $("#langSeg").addEventListener("click", function(e){ var b=e.target.closest("[data-lang]"); if(!b) return; setLang(b.getAttribute("data-lang")); $all('#langSeg [data-lang]').forEach(function(x){ x.classList.toggle("on", x===b); }); });
-$("#catLayoutSeg").addEventListener("click", function(e){ var b=e.target.closest("[data-layout]"); if(!b) return; state.settings.categoryLayout=b.getAttribute("data-layout"); ui.ddOpen=false; save(); $all('#catLayoutSeg [data-layout]').forEach(function(x){ x.classList.toggle("on", x===b); }); renderCategories(); });
+$("#catLayoutSeg").addEventListener("click", function(e){ var b=e.target.closest("[data-layout]"); if(!b) return; state.settings.categoryLayout=b.getAttribute("data-layout"); save(); $all('#catLayoutSeg [data-layout]').forEach(function(x){ x.classList.toggle("on", x===b); }); renderCategories(); });
 $("#setLogoUpload").addEventListener("click", function(){ $("#logoInput").click(); });
 $("#setLogoRemove").addEventListener("click", function(){ state.settings.logo=null; save(); renderBrand(); $("#setLogoPreview").innerHTML=ICONS.bookmark; toast(t("logoReset"),"ok"); });
 function applyLogo(data){ state.settings.logo=data; save(); renderBrand(); $("#setLogoPreview").innerHTML='<img src="'+escapeHtml(data)+'" alt=""/>'; toast(t("logoUpdated"),"ok"); }
@@ -88,7 +97,7 @@ $("#logoInput").addEventListener("change", function(e){
   reader.readAsDataURL(f);
 });
 
-function setLang(lang){ if(LANGS.indexOf(lang)===-1) lang="en"; state.settings.lang=lang; save(); applyI18n(); render(); updateSyncUI(); if(typeof syncLogRetentionUI==="function") syncLogRetentionUI(); if(typeof renderOpLog==="function") renderOpLog(); }
+function setLang(lang){ if(LANGS.indexOf(lang)===-1) lang="en"; state.settings.lang=lang; save(); applyI18n(); render(); updateSyncUI(); if(typeof syncLogRetentionUI==="function") syncLogRetentionUI(); if(typeof renderOpLog==="function") renderOpLog(); if(typeof pushLangToExt==="function") pushLangToExt(); }
 
 /* 设置页分类切换 */
 function validSetTab(tab){

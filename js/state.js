@@ -31,5 +31,5 @@ function defaults(){
   };
 }
 var state = defaults();
-var ui = { activeCat:"All", query:"", tagFilter:"", selectMode:false, selected:{}, editingId:null, importData:null, importMode:"merge", calMonth:new Date().getMonth(), calYear:new Date().getFullYear(), calSelected:null, geoTried:false, ddOpen:false };
+var ui = { activeCat:"All", query:"", tagFilter:"", selectMode:false, selected:{}, editingId:null, importData:null, importMode:"merge", calMonth:new Date().getMonth(), calYear:new Date().getFullYear(), calSelected:null, geoTried:false };
 var clockTimer=null, weatherCache=null, netInfoCache=null;

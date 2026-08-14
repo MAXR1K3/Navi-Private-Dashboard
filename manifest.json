@@ -1,13 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Navi — Private Bookmark Dashboard",
-  "version": "1.5",
-  "description": "Private bookmark dashboard with browser bookmark sync and WebDAV bookmarks.json upload. Open from the toolbar icon.",
+  "version": "1.6",
+  "description": "Private bookmark dashboard with browser bookmark sync and WebDAV bookmarks.json upload. Open from the toolbar icon, or right-click any page to save it.",
   "permissions": [
     "bookmarks",
     "storage",
-    "tabs"
+    "tabs",
+    "contextMenus"
   ],
+  "commands": {
+    "navi-save-page": {
+      "suggested_key": { "default": "Alt+Shift+S" },
+      "description": "Save the current page to Navi"
+    }
+  },
   "host_permissions": [
     "http://*/*",
     "https://*/*"

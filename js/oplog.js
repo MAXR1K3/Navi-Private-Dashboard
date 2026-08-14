@@ -181,7 +181,6 @@ function oplogCapture(){
     oplogTrim();
   }
   _committedSnap=cur;
-  if(typeof refreshLogBadge==="function") refreshLogBadge();
   if(changes.length && state.opLog[0] && state.opLog[0].snap && state.opLog[0].type!=="undo"){
     showQuickUndo(state.opLog[0]);
   }
@@ -223,7 +222,7 @@ function oplogUndo(id){
 var _opLogFilter="all";
 function renderOpLog(){
   var box=$("#opLogList"); if(!box) return;
-  purgeOpLog(); refreshLogBadge();
+  purgeOpLog();
   var items=state.opLog.filter(function(e){ return _opLogFilter==="all" || e.level===_opLogFilter; });
   if(!items.length){ box.innerHTML='<div class="w-empty">'+escapeHtml(t("logEmpty"))+'</div>'; return; }
   box.innerHTML=items.map(function(e){
@@ -237,7 +236,6 @@ function renderOpLog(){
     '</div>';
   }).join("");
 }
-function refreshLogBadge(){ var el=$("#logCount"); if(el) el.textContent=state.opLog.length?String(state.opLog.length):""; }
 function syncLogRetentionUI(){
   var sel=$("#logRet"); if(!sel) return;
   sel.innerHTML=LOG_RETENTION_OPTIONS.map(function(v){ return '<option value="'+v+'">'+escapeHtml(logRetentionLabel(v))+'</option>'; }).join("");
@@ -253,7 +251,7 @@ function syncLogRetentionUI(){
   if(list) list.addEventListener("click", function(e){ var u=e.target.closest("[data-logundo]"); if(u) oplogUndo(u.getAttribute("data-logundo")); });
   var clr=$("#logClearBtn");
   if(clr) clr.addEventListener("click", function(){
-    openConfirm(t("logClearTitle"), t("logClearMsg"), t("logClear"), function(){ state.opLog=[]; _oplogSuspended=true; save(); _oplogSuspended=false; renderOpLog(); refreshLogBadge(); toast(t("logCleared"),"ok"); });
+    openConfirm(t("logClearTitle"), t("logClearMsg"), t("logClear"), function(){ state.opLog=[]; _oplogSuspended=true; save(); _oplogSuspended=false; renderOpLog(); toast(t("logCleared"),"ok"); });
   });
   var qBtn=$("#quickUndoBtn");
   if(qBtn) qBtn.addEventListener("click", function(){ var id=_quickUndoId; hideQuickUndo(); if(id) oplogUndo(id); });
@@ -264,6 +262,6 @@ function syncLogRetentionUI(){
     state.settings.logRetention=Number(ret.value);
     purgeOpLog();
     _oplogSuspended=true; save(); _oplogSuspended=false;
-    renderOpLog(); refreshLogBadge();
+    renderOpLog();
   });
 })();

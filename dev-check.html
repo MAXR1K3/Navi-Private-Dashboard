@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Navi — 自检 / Health check</title>
+<style>
+  body{ margin:0; padding:28px 22px 60px; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; background:#0f1117; color:#e7e9f0; }
+  h1{ font-size:19px; margin:0 0 4px; } .sub{ color:#8b91a3; font-size:13px; margin-bottom:20px; }
+  .sum{ display:inline-flex; gap:14px; padding:10px 16px; border-radius:12px; background:#171a23; border:1px solid #262a36; margin-bottom:22px; font-weight:700; }
+  .sum .ok{ color:#3fca7d; } .sum .bad{ color:#ff6166; }
+  .chk{ border:1px solid #262a36; border-radius:12px; margin-bottom:10px; overflow:hidden; background:#141721; }
+  .chk h2{ font-size:13.5px; margin:0; padding:11px 14px; display:flex; align-items:center; gap:9px; font-weight:700; }
+  .chk.pass h2{ color:#cfd3de; } .chk.fail h2{ color:#ff8b8f; background:rgba(255,97,102,.07); }
+  .dot{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; } .pass .dot{ background:#3fca7d; } .fail .dot{ background:#ff6166; }
+  .cnt{ margin-left:auto; font-weight:600; color:#8b91a3; font-size:12px; }
+  ul{ margin:0; padding:2px 14px 13px 34px; color:#b9bfd0; font-size:12.5px; }
+  li{ margin:3px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; word-break:break-all; }
+  .note{ color:#8b91a3; font-size:12px; padding:0 14px 12px 34px; }
+</style>
+</head>
+<body>
+<h1>Navi 自检</h1>
+<div class="sub">静态一致性检查：i18n 键、悬空的元素引用、重复 ID、无障碍名称。改完代码刷新这页即可。<br>Static consistency checks — run this after edits (must be served over http, not file://).</div>
+<div id="sum" class="sum">running…</div>
+<div id="out"></div>
+
+<script>
+(async function(){
+  var out=document.getElementById("out"), sum=document.getElementById("sum"), pass=0, fail=0;
+  function render(title, problems, note){
+    var ok=!problems.length; ok?pass++:fail++;
+    var d=document.createElement("div"); d.className="chk "+(ok?"pass":"fail");
+    d.innerHTML='<h2><span class="dot"></span>'+title+'<span class="cnt">'+(ok?"pass":problems.length+" issue(s)")+'</span></h2>'+
+      (note?'<div class="note">'+note+'</div>':'')+
+      (ok?'':'<ul>'+problems.slice(0,40).map(function(p){return '<li>'+String(p).replace(/</g,"&lt;")+'</li>';}).join('')+
+        (problems.length>40?'<li>… +'+(problems.length-40)+' more</li>':'')+'</ul>');
+    out.appendChild(d);
+  }
+  var txt=function(u){ return fetch(u,{cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error(u+" "+r.status); return r.text(); }); };
+
+  var html=await txt("index.html");
+  var scripts=(html.match(/<script src="([^"]+)"/g)||[]).map(function(s){ return s.match(/src="([^"]+)"/)[1]; });
+  var sources={};
+  await Promise.all(scripts.map(function(s){ return txt(s).then(function(t){ sources[s]=t; }).catch(function(){ sources[s]=""; }); }));
+  var alljs=Object.keys(sources).map(function(k){ return sources[k]; }).join("\n");
+
+  /* ---- i18n keys ---- */
+  var I18N=null, keys={};
+  try{ var sb={}; (new Function("g", sources["js/i18n.js"]+"\n g.I18N=I18N;"))(sb); I18N=sb.I18N; }catch(e){}
+  function flat(o,pre,acc){ for(var k in o){ var v=o[k], key=pre?pre+"."+k:k; (v&&typeof v==="object"&&!Array.isArray(v))?flat(v,key,acc):acc[key]=1; } return acc; }
+  var langs=I18N?Object.keys(I18N):[];
+  langs.forEach(function(l){ keys[l]=flat(I18N[l],"",{}); });
+  var en=keys.en||{};
+
+  var parity=[];
+  langs.forEach(function(l){ if(l==="en") return;
+    Object.keys(en).forEach(function(k){ if(!keys[l][k]) parity.push(l+" missing: "+k); });
+    Object.keys(keys[l]).forEach(function(k){ if(!en[k]) parity.push(l+" has extra: "+k); });
+  });
+  render("i18n 各语言键一致 · locale key parity", parity, langs.length? ("langs: "+langs.join(", ")+" · "+Object.keys(en).length+" keys"):"i18n.js 解析失败");
+
+  /* ---- data-i18n keys resolve ---- */
+  var used={}, m, re=/data-i18n(?:-title|-ph|-aria)?="([^"]+)"/g;
+  while((m=re.exec(html))) used[m[1]]=1;
+  render("HTML 里的 data-i18n 键都存在 · data-i18n keys resolve",
+    Object.keys(used).filter(function(k){ return !en[k]; }));
+
+  /* ---- t("key") resolve (skips dynamic t("a"+b)) ---- */
+  var tk={}, re2=/\bt\(\s*"([A-Za-z0-9_]+)"\s*[,)]/g;
+  while((m=re2.exec(alljs))) tk[m[1]]=1;
+  render('JS 里的 t("…") 键都存在 · t() keys resolve',
+    Object.keys(tk).filter(function(k){ return !en[k]; }));
+
+  /* ---- duplicate ids ---- */
+  var idc={}, re3=/\bid="([^"]+)"/g, htmlIds={};
+  while((m=re3.exec(html))){ idc[m[1]]=(idc[m[1]]||0)+1; htmlIds[m[1]]=1; }
+  render("index.html 无重复 ID · no duplicate ids",
+    Object.keys(idc).filter(function(k){ return idc[k]>1; }).map(function(k){ return "#"+k+" ×"+idc[k]; }));
+
+  /* ---- element refs that exist nowhere (not in html, not built by js) ---- */
+  var refs={}, re4=/(?:\$\(\s*"#|getElementById\(\s*")([A-Za-z0-9_-]+)/g;
+  while((m=re4.exec(alljs))) refs[m[1]]=1;
+  render("JS 引用的元素 ID 都存在 · element refs exist",
+    Object.keys(refs).filter(function(id){
+      return !htmlIds[id] && alljs.indexOf('id="'+id+'"')<0 && alljs.indexOf("id='"+id+"'")<0 && alljs.indexOf('id=\\"'+id+'\\"')<0;
+    }).map(function(id){ return "#"+id; }),
+    "动态创建的元素（innerHTML 里写了 id=）视为存在");
+
+  /* ---- accessible names on icon-only buttons ---- */
+  var doc=new DOMParser().parseFromString(html,"text/html"), unnamed=[];
+  Array.prototype.forEach.call(doc.querySelectorAll("button"), function(b){
+    var hasText=(b.textContent||"").trim().length>0;
+    var named=b.hasAttribute("aria-label")||b.hasAttribute("data-i18n-aria")||b.hasAttribute("title")||b.hasAttribute("data-i18n-title");
+    if(!hasText&&!named) unnamed.push("#"+(b.id||"")+" ."+(b.className||"?"));
+  });
+  render("图标按钮有可访问名称 · icon buttons named", unnamed);
+
+  /* ---- overlays are closable by the generic closeAll() ---- */
+  var noId=[];
+  Array.prototype.forEach.call(doc.querySelectorAll(".overlay"), function(o){ if(!o.id) noId.push(o.className); });
+  render("弹层都有 ID（closeAll 才能关掉）· overlays have ids", noId,
+    "ui-core.js 的 closeAll() 按 .overlay 遍历，没有 ID 的弹层关不掉");
+
+  /* ---- every form control has an accessible name (P0) ---- */
+  var forIds={}; Array.prototype.forEach.call(doc.querySelectorAll("label[for]"), function(l){ forIds[l.getAttribute("for")]=1; });
+  var nameless=[];
+  Array.prototype.forEach.call(doc.querySelectorAll("input,select,textarea"), function(el){
+    if(el.hasAttribute("aria-label")||el.hasAttribute("data-i18n-aria")||el.hasAttribute("aria-labelledby")) return;
+    if(el.id&&forIds[el.id]) return;
+    var lab=el.closest?el.closest("label"):null;                 // 包裹式 label 需带文字才算名称
+    if(lab&&(lab.textContent||"").trim().length>0) return;
+    nameless.push((el.tagName.toLowerCase())+"#"+(el.id||el.getAttribute("data-widget")||el.type||"?"));
+  });
+  render("表单控件都有可访问名称 · controls have accessible names", nameless,
+    "占位符不算名称（WCAG）。JS 动态生成的控件需在生成处写 aria-label");
+
+  /* ---- label[for] must point at a control in the same block ---- */
+  var misfor=[];
+  Array.prototype.forEach.call(doc.querySelectorAll("label[for]"), function(l){
+    var id=l.getAttribute("for"), el=doc.getElementById(id);
+    if(!el){ misfor.push('for="'+id+'" 目标不存在'); return; }
+    var box=l.closest(".field,.set-row,.set-section");
+    if(box&&!box.contains(el)) misfor.push('"'+(l.textContent||"").trim().slice(0,24)+'" → #'+id+'（在另一个区块）');
+  });
+  render("label 的 for 指向同区块的控件 · label/control pairing", misfor,
+    "指错比不指更糟：点标签会聚焦到无关控件，读屏也会念错");
+
+  /* ---- no duplicate class attributes (browser silently drops the 2nd) ---- */
+  var dupcls=(html.match(/<[a-z]+[^>]*\bclass="[^"]*"[^>]*\bclass="[^"]*"[^>]*>/g)||[])
+    .map(function(t){ return t.slice(0,70); });
+  render("标签上没有重复的 class 属性 · no duplicate class attrs", dupcls,
+    "同一标签写两个 class= 时，浏览器只认第一个，第二个静默失效");
+
+  /* ---- WCAG contrast of the token pairs (P0) ---- */
+  var cssTxt=await txt("css/app.css");
+  function tokens(sel){
+    var re=new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*\\{([\\s\\S]*?)\\n\\s*\\}");
+    var m=cssTxt.match(re), o={}; if(!m) return o;
+    var r2=/(--[a-z0-9-]+)\s*:\s*([^;]+);/g, x;
+    while((x=r2.exec(m[1]))) o[x[1]]=x[2].trim();
+    return o;
+  }
+  function rgb(c){ c=(c||"").trim().replace("#",""); if(c.length===3) c=c.split("").map(function(k){return k+k;}).join("");
+    return c.length>=6?[parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)]:null; }
+  function L(p){ var a=p.map(function(v){ v/=255; return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4); });
+    return .2126*a[0]+.7152*a[1]+.0722*a[2]; }
+  function CR(a,b){ var x=L(a),y=L(b),hi=Math.max(x,y),lo=Math.min(x,y); return (hi+.05)/(lo+.05); }
+  var base=tokens(":root"), themes={ "浅色":tokens('[data-theme="light"]'), "深色":tokens('[data-theme="dark"]') };
+  var PAIRS=[["--text","--surface",4.5],["--text-soft","--surface",4.5],["--text-faint","--surface",4.5],
+             ["--text-faint","--surface-2",4.5],["--text-faint","--bg",4.5],["--accent","--surface",4.5],
+             ["--border-strong","--surface",3],
+             // 状态色的「文字版」必须达 4.5；填充版（圆点/进度条）不在此断言内，
+             // 因为它们始终伴随文字标签，不是唯一的信息载体
+             ["--ok-ink","--surface",4.5],["--warn-ink","--surface",4.5],["--info-ink","--surface",4.5],
+             ["--ok-ink","--surface-2",4.5],["--warn-ink","--surface-2",4.5]];
+  var lowc=[];
+  Object.keys(themes).forEach(function(tn){
+    var m={}; Object.keys(base).forEach(function(k){ m[k]=base[k]; });
+    Object.keys(themes[tn]).forEach(function(k){ m[k]=themes[tn][k]; });
+    PAIRS.forEach(function(p){
+      var a=rgb(m[p[0]]), b=rgb(m[p[1]]); if(!a||!b) return;
+      var r=CR(a,b);
+      if(r<p[2]) lowc.push(tn+" "+p[0]+" on "+p[1]+" = "+r.toFixed(2)+":1 (需 "+p[2]+")");
+    });
+  });
+  render("配色对比度达标 · WCAG contrast", lowc, "正文 ≥4.5:1，可交互边界 ≥3:1（两个主题分别验证）");
+
+  sum.innerHTML='<span class="ok">✔ '+pass+' passed</span>'+(fail?'<span class="bad">✘ '+fail+' failed</span>':'');
+  document.title=(fail?"✘ ":"✔ ")+"Navi 自检";
+})();
+</script>
+</body>
+</html>

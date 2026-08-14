@@ -131,6 +131,7 @@ function syncProfile(id){
       }
       cacheProfileData(id, data);
       if(state.settings.activeProfile===id){ applyProfileData(data); saveSilently(); render(); }
+      rememberRemoteFp(id, data.bookmarks);   // 记下这次拉到的远程内容指纹，供上传前比对
       setSyncStatus("remote", Date.now());
       toast(t("syncOk",{n:data.bookmarks.length}),"ok");
     })
@@ -159,6 +160,7 @@ function uploadWebdavProfile(id, opts){
   }).then(function(r){
     if(!r.ok) throw new Error("HTTP "+r.status);
     cacheProfileData(id, {bookmarks:state.bookmarks, categories:state.categories});
+    rememberRemoteFp(id, state.bookmarks);   // 远程现在就是我们刚写上去的内容
     p.lastUpload=Date.now();
     setSyncStatus("remote", p.lastUpload);
     saveSilently();
@@ -174,13 +176,117 @@ function uploadWebdavProfile(id, opts){
 function maybeUploadBookmarksAfterBrowserSync(source, res){
   var p=activeProfile();
   if(!p||p.type!=="webdav"||p.autoUpload!==true||!p.url) return Promise.resolve(false);
-  return uploadWebdavProfile(p.id,{silent:true, source:source, result:res}).then(function(info){
-    toast(t("webdavUploadOk",{n:info.count}),"ok");
-    return true;
-  }).catch(function(){
-    toast(t("webdavUploadFailed"),"err");
+  // 自动上传也要先查冲突：远程若有别处的新改动，宁可不传也不覆盖
+  return pushWithConflictCheck(p.id,{silent:true, source:source, result:res}).then(function(ok){ return !!ok; }).catch(function(){ return false; });
+}
+
+/* ===== ⑩ 双向同步：冲突检测 + 合并 =====
+   指纹只看内容（id/url/标题/分类/描述/标签）并排序后计算，与排列顺序无关：
+   避免「只是拖动过顺序」被误判成冲突。 */
+function syncFingerprint(list){
+  var s=(list||[]).map(function(b){
+    return [b.id,b.url,b.title,b.category,b.description||"",(b.tags||[]).join("|")].join("");
+  }).sort().join("");
+  var h=5381;
+  for(var i=0;i<s.length;i++){ h=((h*33)^s.charCodeAt(i))>>>0; }
+  return String(h)+"."+((list&&list.length)||0);
+}
+function rememberRemoteFp(id, list){
+  var p=getProfile(id); if(!p) return;
+  p.remoteFp=syncFingerprint(list);
+}
+function normUrlKey(u){ return (typeof normForDup==="function")?normForDup(u):normalizeUrl(u||"").replace(/\/+$/,"").toLowerCase(); }
+
+/* 读取远程当前内容；404/不存在 → {missing:true} */
+function fetchRemoteData(p){
+  return fetch(p.url,{headers:webdavHeaders(p),cache:"no-store",credentials:"omit"}).then(function(r){
+    if(r.status===404||r.status===410) return {missing:true};
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return r.text().then(function(txt){
+      var data=parseRemote(txt);
+      if(!data) return {unreadable:true};
+      return {data:data};
+    });
+  });
+}
+
+/* 合并：以 URL 为键取并集，同一 URL 本地优先；本地回收站充当墓碑，避免已删除的条目被远程复活 */
+function mergeRemoteIntoLocal(remote){
+  var out=state.bookmarks.slice(), have={}, trashed={};
+  out.forEach(function(b){ have[normUrlKey(b.url)]=true; });
+  (state.trash||[]).forEach(function(tr){ var u=tr&&tr.bm&&tr.bm.url; if(u) trashed[normUrlKey(u)]=true; });
+  var added=0;
+  (remote.bookmarks||[]).forEach(function(rb){
+    var k=normUrlKey(rb.url); if(!k||have[k]||trashed[k]) return;
+    have[k]=true; out.push(rb); added++;
+  });
+  var cats=state.categories.slice(), hc={};
+  cats.forEach(function(c){ hc[c]=true; });
+  (remote.categories||[]).forEach(function(c){ if(c&&!hc[c]){ hc[c]=true; cats.push(c); } });
+  return { bookmarks:out, categories:cats, added:added };
+}
+
+/* 上传前先比对远程指纹：一致（或远程还不存在）才直接写，否则交给用户决定 */
+function pushWithConflictCheck(id, opts){
+  opts=opts||{};
+  var p=getProfile(id);
+  if(!p||p.type!=="webdav"||!p.url){ if(!opts.silent) toast(t("syncNoUrl"),"err"); return Promise.resolve(false); }
+  return fetchRemoteData(p).then(function(r){
+    if(r.missing||!p.remoteFp) return uploadWebdavProfile(id,opts).then(function(){ return true; });
+    if(r.unreadable) return openSyncConflict(id,null,opts);
+    var fp=syncFingerprint(r.data.bookmarks);
+    if(fp===p.remoteFp) return uploadWebdavProfile(id,opts).then(function(){ return true; });
+    return openSyncConflict(id, r.data, opts);
+  }).catch(function(err){
+    setSyncStatus("failed",_syncStatus.at,String(err&&err.message||err));
+    if(!opts.silent) toast(t("webdavUploadFailed"),"err");
     return false;
   });
+}
+
+var _conflictCtx=null;
+function openSyncConflict(id, remoteData, opts){
+  _conflictCtx={id:id, remote:remoteData, opts:opts||{}};
+  if((opts||{}).silent){
+    // 自动上传遇冲突：不擅自覆盖，提示用户手动处理
+    setSyncStatus("cache",_syncStatus.at,t("syncConflictShort"));
+    toast(t("syncConflictAuto"),"err");
+    return Promise.resolve(false);
+  }
+  var body=$("#conflictBody");
+  if(body){
+    var rn=remoteData?((remoteData.bookmarks||[]).length):0;
+    body.textContent=remoteData?t("syncConflictMsg",{local:state.bookmarks.length,remote:rn}):t("syncConflictUnreadable");
+  }
+  var mergeBtn=$("#conflictMerge"); if(mergeBtn) mergeBtn.style.display=remoteData?"":"none";
+  openOverlay("conflictOverlay");
+  return Promise.resolve(false);
+}
+function resolveConflict(choice){
+  var ctx=_conflictCtx; if(!ctx) return;
+  closeOverlay("conflictOverlay");
+  var id=ctx.id, remote=ctx.remote;
+  _conflictCtx=null;
+  if(choice==="local"){                       // 用本地覆盖远程
+    uploadWebdavProfile(id,{force:true});
+    return;
+  }
+  if(choice==="remote"){                      // 用远程覆盖本地
+    if(!remote) return;
+    cacheProfileData(id, remote);
+    if(state.settings.activeProfile===id){ applyProfileData(remote); saveSilently(); render(); }
+    rememberRemoteFp(id, remote.bookmarks); save();
+    setSyncStatus("remote", Date.now());
+    toast(t("syncOk",{n:(remote.bookmarks||[]).length}),"ok");
+    return;
+  }
+  if(choice==="merge"&&remote){               // 合并后回传
+    var m=mergeRemoteIntoLocal(remote);
+    state.bookmarks=m.bookmarks; state.categories=m.categories;
+    rebuildCategories(); saveSilently(); render();
+    toast(t("syncMerged",{n:m.added}),"ok");
+    uploadWebdavProfile(id,{force:true});
+  }
 }
 
 /* ----- 同步状态（④） ----- */
@@ -201,7 +307,8 @@ function renderSyncChip(){
 function renderSyncStatusLine(){
   var line=$("#syncStatusLine"); if(!line) return;
   var rel=syncRelTime(_syncStatus.at), txt=syncStateLabel()+(rel?(" · "+rel):"");
-  if(_syncStatus.state==="failed"&&_syncStatus.msg) txt+=" — "+_syncStatus.msg;
+  // 失败原因、以及「远程有改动待处理」这类提示都要带出来
+  if((_syncStatus.state==="failed"||_syncStatus.state==="cache")&&_syncStatus.msg) txt+=" — "+_syncStatus.msg;
   line.textContent=txt;
 }
 
@@ -275,6 +382,11 @@ function initSync(){
   var upload=$("#webdavUploadBtn"); if(upload) upload.addEventListener("click", function(){
     var p=activeProfile(); if(!p||p.type!=="webdav"||!p.url){ toast(t("syncNoUrl"),"err"); return; }
     var btn=this; btn.disabled=true; btn.textContent=t("syncing");
-    uploadWebdavProfile(p.id).finally(function(){ btn.disabled=false; btn.textContent=t("webdavUploadNow"); });
+    pushWithConflictCheck(p.id).finally(function(){ btn.disabled=false; btn.textContent=t("webdavUploadNow"); });
+  });
+  var cf=$("#conflictOverlay");
+  if(cf) cf.addEventListener("click", function(e){
+    var b=e.target.closest("[data-conflict]"); if(!b) return;
+    resolveConflict(b.getAttribute("data-conflict"));
   });
 })();

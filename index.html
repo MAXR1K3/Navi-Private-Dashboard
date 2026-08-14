@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/app.css?v=43" />
+  <link rel="stylesheet" href="css/app.css?v=45" />
 </head>
 <body>
   <div id="bgLayer"></div>
@@ -21,7 +21,7 @@
       </div>
       <div class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <input id="search" type="text" data-i18n-ph="searchPh" autocomplete="off" />
+        <input id="search" type="text" data-i18n-ph="searchPh" data-i18n-aria="searchPh" autocomplete="off" />
         <button class="search-cmd" id="searchCmdBtn" type="button" data-i18n-title="palTip" data-i18n-aria="palTip"><span class="sc-ico"></span><kbd id="searchCmdKbd">⌘K</kbd></button>
       </div>
       <div class="actions">
@@ -51,6 +51,7 @@
             <button data-act="suggest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 1 6 6c0 2.2-1.2 3.6-2.4 4.8-.7.7-1.1 1.4-1.3 2.2H9.7c-.2-.8-.6-1.5-1.3-2.2C7.2 12.6 6 11.2 6 9a6 6 0 0 1 6-6z"/><path d="M9.5 19h5M10.5 22h3"/></svg> <span data-i18n="aiSuggest">AI category suggestions</span></button>
             <button data-act="health"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8-4-16-3 8H2"/></svg> <span data-i18n="healthCheck">Check links</span></button>
             <button data-act="healthIssues"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg> <span data-i18n="healthIssues">Invalid links</span></button>
+            <button data-act="cleanup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v5M14 11v5"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> <span data-i18n="cleanTitle">Tidy up bookmarks</span></button>
             <button data-act="trash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v5M14 11v5"/></svg> <span data-i18n="trash">Trash</span></button>
             <hr/>
             <button class="danger-item" data-act="clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> <span data-i18n="clearAll">Clear everything</span></button>
@@ -98,31 +99,31 @@
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-head"><h2 id="bmTitle">Add bookmark</h2><p data-i18n="bmSub">Save a page to your dashboard.</p></div>
       <div class="modal-body">
-        <div class="field"><label data-i18n="urlLabel">URL</label><input id="bmUrl" type="text" placeholder="https://example.com" /></div>
-        <div class="field"><label data-i18n="titleLabel">Title</label><input id="bmName" type="text" data-i18n-ph="titlePh" /></div>
-        <div class="field"><label data-i18n="catLabel">Category</label>
-          <div class="cat-input-row"><select id="bmCat"></select><button class="btn" id="bmNewCat" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <div class="field"><label for="bmUrl" data-i18n="urlLabel">URL</label><input id="bmUrl" type="text" placeholder="https://example.com" /></div>
+        <div class="field"><label for="bmName" data-i18n="titleLabel">Title</label><input id="bmName" type="text" data-i18n-ph="titlePh" /></div>
+        <div class="field"><label for="bmCat" data-i18n="catLabel">Category</label>
+          <div class="cat-input-row"><select id="bmCat"></select><button class="btn" id="bmNewCat" type="button" data-i18n-title="newCategory" data-i18n-aria="newCategory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
         </div>
         <div class="field">
-          <div class="label-row"><label data-i18n="descLabel">Description</label>
+          <div class="label-row"><label for="bmDesc" data-i18n="descLabel">Description</label>
             <button class="auto-btn" id="bmAuto" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/></svg> <span data-i18n="autoBtn">Auto</span></button>
           </div>
           <textarea id="bmDesc" data-i18n-ph="descPh"></textarea>
         </div>
-        <div class="field"><label data-i18n="tagsLabel">Tags</label><input id="bmTags" type="text" data-i18n-ph="tagsPh" autocomplete="off" /></div>
+        <div class="field"><label for="bmTags" data-i18n="tagsLabel">Tags</label><input id="bmTags" type="text" data-i18n-ph="tagsPh" autocomplete="off" /></div>
         <div class="field" id="bmOptionsField">
-          <label data-i18n="bookmarkOptions">Bookmark options</label>
+          <label for="bmPinned" data-i18n="bookmarkOptions">Bookmark options</label>
           <div class="set-row compact">
             <div class="info"><div class="t" data-i18n="pinBookmark">Keep this bookmark position</div><div class="d" data-i18n="pinBookmarkDesc">Ignore browser sync order for this bookmark.</div></div>
             <label class="switch"><input type="checkbox" id="bmPinned"><span class="track"></span></label>
           </div>
           <div class="set-row compact">
             <div class="info"><div class="t" data-i18n="favoriteBookmark">Favorite shortcut</div><div class="d" data-i18n="favoriteBookmarkDesc">Show this bookmark first in the frequently used widget.</div></div>
-            <label class="switch"><input type="checkbox" id="bmFavorite"><span class="track"></span></label>
+            <label class="switch"><input type="checkbox" id="bmFavorite" data-i18n-aria="favoriteBookmark"><span class="track"></span></label>
           </div>
           <div class="set-row compact" id="bmHealthRow">
             <div class="info"><div class="t" data-i18n="healthMenu">Link status</div><div class="d" data-i18n="healthManualDesc">Manually override the detected link status.</div></div>
-            <select id="bmHealth" class="sel"></select>
+            <select id="bmHealth" class="sel" data-i18n-aria="healthMenu"></select>
           </div>
         </div>
       </div>
@@ -134,14 +135,14 @@
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-head"><h2 id="promptTitle">Category</h2></div>
       <div class="modal-body">
-        <div class="field"><input id="promptInput" type="text" /></div>
+        <div class="field"><input id="promptInput" type="text" aria-labelledby="promptTitle" /></div>
         <div class="set-row compact" id="promptPinRow" style="display:none">
           <div class="info"><div class="t" id="promptPinTitle"></div><div class="d" id="promptPinDesc"></div></div>
-          <label class="switch"><input type="checkbox" id="promptPin"><span class="track"></span></label>
+          <label class="switch"><input type="checkbox" id="promptPin" aria-labelledby="promptPinTitle"><span class="track"></span></label>
         </div>
         <div class="set-row compact" id="promptColorRow" style="display:none">
           <div class="info"><div class="t" id="promptColorTitle"></div><div class="d" id="promptColorDesc"></div></div>
-          <div class="color-setting"><input type="color" id="promptColor" value="#6d5efc" /><button class="btn" id="promptColorReset" type="button" data-i18n="categoryColorReset">Default</button></div>
+          <div class="color-setting"><input type="color" id="promptColor" value="#6d5efc" aria-labelledby="promptColorTitle" /><button class="btn" id="promptColorReset" type="button" data-i18n="categoryColorReset">Default</button></div>
         </div>
       </div>
       <div class="modal-foot"><button class="btn" data-close data-i18n="cancel">Cancel</button><button class="btn primary" id="promptSave" data-i18n="save">Save</button></div>
@@ -169,7 +170,7 @@
           </div>
         </div>
         <div class="field" id="summaryCatField">
-          <label data-i18n="catLabel">Category</label>
+          <label for="summaryCat" data-i18n="catLabel">Category</label>
           <select id="summaryCat"></select>
         </div>
         <div class="field">
@@ -183,7 +184,7 @@
         <div class="summary-progress" id="summaryProgress"></div>
         <div class="sum-review" id="summaryReview" style="display:none"></div>
       </div>
-      <div class="modal-foot"><button class="btn" id="summaryReviewToggle" style="display:none" data-i18n="suggToggle">Toggle all</button><span style="flex:1"></span><button class="btn" data-close data-i18n="cancel">Cancel</button><button class="btn primary" id="summaryRunBtn" data-i18n="summaryRun">Generate</button><button class="btn primary" id="summaryApplyBtn" style="display:none" data-i18n="suggApply">Apply selected</button></div>
+      <div class="modal-foot"><button class="btn" id="summaryReviewToggle" style="display:none" data-i18n="suggToggle">Toggle all</button><span class="flex-1"></span><button class="btn" data-close data-i18n="cancel">Cancel</button><button class="btn primary" id="summaryRunBtn" data-i18n="summaryRun">Generate</button><button class="btn primary" id="summaryApplyBtn" style="display:none" data-i18n="suggApply">Apply selected</button></div>
     </div>
   </div>
 
@@ -231,19 +232,19 @@
               <div class="t" data-i18n="browserSync">Browser bookmark sync</div>
               <div class="d" id="csSyncStatus"></div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
+            <div class="row-8">
               <button class="btn" id="csSyncNow" style="display:none" data-i18n="syncNow">Sync now</button>
               <button class="btn" id="safariImportBtn" style="display:none" data-i18n="syncSafariImport">Import Safari file</button>
-              <label class="switch"><input type="checkbox" id="setChromeSync"><span class="track"></span></label>
+              <label class="switch"><input type="checkbox" id="setChromeSync" data-i18n-aria="browserSync"><span class="track"></span></label>
             </div>
           </div>
           <div id="csNote" class="set-row" style="display:none">
-            <div class="info"><div class="d"><a href="#" style="color:var(--accent);text-decoration:none;font-weight:600;" id="csSetupLink" data-i18n="extensionSetup">Extension setup guide</a></div></div>
+            <div class="info"><div class="d"><a href="#" class="link-inline" id="csSetupLink" data-i18n="extensionSetup">Extension setup guide</a></div></div>
           </div>
         </div>
         <div class="set-section">
           <h4 data-i18n="language">Language</h4>
-          <div class="seg" id="langSeg" style="margin-top:8px;">
+          <div class="seg mt-2" id="langSeg">
             <button data-lang="en">English</button><button data-lang="zh">中文</button><button data-lang="es">Español</button>
           </div>
         </div>
@@ -256,7 +257,7 @@
         </div>
         <div class="set-section">
           <h4 data-i18n="privacySec">Privacy</h4>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="privacyMode">Privacy mode</div><div class="d" data-i18n="privacyModeDesc">Stop automatic external requests: no site icons from Google, no page fetching for auto-descriptions. Weather, IP and online wallpapers stay under their own settings.</div></div><label class="switch"><input type="checkbox" id="setPrivacy"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="privacyMode">Privacy mode</div><div class="d" data-i18n="privacyModeDesc">Stop automatic external requests: no site icons from Google, no page fetching for auto-descriptions. Weather, IP and online wallpapers stay under their own settings.</div></div><label class="switch"><input type="checkbox" id="setPrivacy" data-i18n-aria="privacyMode"><span class="track"></span></label></div>
         </div>
         </div><!-- /general -->
         <div class="set-tab" data-tab="sync">
@@ -264,19 +265,19 @@
           <h4 data-i18n="profilesSec">Profiles &amp; data source</h4>
           <div class="set-row">
             <div class="info"><div class="t" data-i18n="activeProfile">Active profile</div><div class="d" data-i18n="activeProfileDesc">Switch the data source shown on your dashboard.</div></div>
-            <div style="display:flex;gap:8px;align-items:center"><select id="profileSelect" class="sel"></select><button class="btn" id="profileAdd" data-i18n="profileAdd">New</button></div>
+            <div class="row-8"><select id="profileSelect" class="sel" data-i18n-aria="activeProfile"></select><button class="btn" id="profileAdd" data-i18n="profileAdd">New</button></div>
           </div>
-          <div class="field" style="margin-top:8px;"><label data-i18n="profileName">Profile name</label><input id="profileName" type="text" /></div>
+          <div class="field mt-2"><label for="profileName" data-i18n="profileName">Profile name</label><input id="profileName" type="text" /></div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="profileType">Data source</div></div>
             <div class="seg sm" id="profileTypeSeg"><button data-ptype="local" data-i18n="profileLocal">Local</button><button data-ptype="webdav" data-i18n="profileWebdav">WebDAV / NAS</button></div>
           </div>
           <div id="webdavFields" style="display:none">
-            <div class="field"><label data-i18n="webdavUrl">bookmarks.json URL</label><input id="webdavUrl" type="text" placeholder="https://nas.example.com/dav/bookmarks.json" /></div>
-            <div class="field"><div class="cat-input-row"><input id="webdavUser" type="text" data-i18n-ph="webdavUser" autocomplete="off" /><input id="webdavPass" type="password" data-i18n-ph="webdavPass" autocomplete="off" /></div></div>
-            <div class="set-row"><div class="info"><div class="t" data-i18n="webdavAuto">Auto-sync on open</div><div class="d" data-i18n="webdavAutoDesc">Fetch the latest on every open; otherwise use the cached copy.</div></div><label class="switch"><input type="checkbox" id="webdavAuto"><span class="track"></span></label></div>
-            <div class="set-row" data-pwa-reader-hidden><div class="info"><div class="t" data-i18n="webdavAutoUpload">Upload after browser sync</div><div class="d" data-i18n="webdavAutoUploadDesc">After Chrome or Edge bookmark sync finishes, write the latest bookmarks.json to WebDAV/NAS.</div></div><label class="switch"><input type="checkbox" id="webdavAutoUpload"><span class="track"></span></label></div>
-            <div class="set-row"><div class="info"><div class="t" data-i18n="syncStatusLabel">Sync status</div><div class="d" id="syncStatusLine"></div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><button class="btn" id="syncNowBtn" data-i18n="syncNow">Sync now</button><button class="btn primary" id="webdavUploadBtn" data-i18n="webdavUploadNow" data-pwa-reader-hidden>Upload to NAS</button></div></div>
-            <div class="d" data-i18n="webdavCorsNote" style="font-size:12px;color:var(--text-faint);margin-top:6px;line-height:1.5;">PWA reads need CORS or a reverse proxy. The desktop extension can upload the same bookmarks.json with WebDAV PUT.</div>
+            <div class="field"><label for="webdavUrl" data-i18n="webdavUrl">bookmarks.json URL</label><input id="webdavUrl" type="text" placeholder="https://nas.example.com/dav/bookmarks.json" /></div>
+            <div class="field"><div class="cat-input-row"><input id="webdavUser" type="text" data-i18n-ph="webdavUser" autocomplete="off" data-i18n-aria="webdavUser" /><input id="webdavPass" type="password" data-i18n-ph="webdavPass" autocomplete="off" data-i18n-aria="webdavPass" /></div></div>
+            <div class="set-row"><div class="info"><div class="t" data-i18n="webdavAuto">Auto-sync on open</div><div class="d" data-i18n="webdavAutoDesc">Fetch the latest on every open; otherwise use the cached copy.</div></div><label class="switch"><input type="checkbox" id="webdavAuto" data-i18n-aria="webdavAuto"><span class="track"></span></label></div>
+            <div class="set-row" data-pwa-reader-hidden><div class="info"><div class="t" data-i18n="webdavAutoUpload">Upload after browser sync</div><div class="d" data-i18n="webdavAutoUploadDesc">After Chrome or Edge bookmark sync finishes, write the latest bookmarks.json to WebDAV/NAS.</div></div><label class="switch"><input type="checkbox" id="webdavAutoUpload" data-i18n-aria="webdavAutoUpload"><span class="track"></span></label></div>
+            <div class="set-row"><div class="info"><div class="t" data-i18n="syncStatusLabel">Sync status</div><div class="d" id="syncStatusLine"></div></div><div class="row-8 wrap end"><button class="btn" id="syncNowBtn" data-i18n="syncNow">Sync now</button><button class="btn primary" id="webdavUploadBtn" data-i18n="webdavUploadNow" data-pwa-reader-hidden>Upload to NAS</button></div></div>
+            <div class="d mt-1 hint-text" data-i18n="webdavCorsNote">PWA reads need CORS or a reverse proxy. The desktop extension can upload the same bookmarks.json with WebDAV PUT.</div>
           </div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="profileDelete">Delete this profile</div><div class="d" data-i18n="profileDeleteDesc">Remove this profile and its cached data.</div></div><button class="btn danger" id="profileDelete" data-i18n="deleteBtn">Delete</button></div>
         </div>
@@ -284,22 +285,22 @@
         <div class="set-tab" data-tab="appearance">
         <div class="set-section">
           <h4 data-i18n="appearance">Appearance</h4>
-          <div class="field" style="margin-top:8px;"><label data-i18n="pageName">Page name</label><input id="setName" type="text" placeholder="Navi" /></div>
-          <div class="field"><label data-i18n="subtitle">Subtitle</label><input id="setTag" type="text" /></div>
+          <div class="field mt-2"><label for="setName" data-i18n="pageName">Page name</label><input id="setName" type="text" placeholder="Navi" /></div>
+          <div class="field"><label for="setTag" data-i18n="subtitle">Subtitle</label><input id="setTag" type="text" /></div>
           <div class="set-row">
             <div class="logo-row"><div class="logo-preview" id="setLogoPreview"></div><div class="info"><div class="t" data-i18n="logo">Logo</div><div class="d" data-i18n="logoDesc">PNG, JPG or SVG</div></div></div>
-            <div style="display:flex; gap:8px;"><button class="btn" id="setLogoUpload" data-i18n="upload">Upload</button><button class="btn" id="setLogoRemove" title="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
+            <div class="row-8"><button class="btn" id="setLogoUpload" data-i18n="upload">Upload</button><button class="btn" id="setLogoRemove" title="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
           </div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="motionProfile">Motion profile</div><div class="d" data-i18n="motionProfileDesc">Choose battery-first or smooth low-cost animation</div></div>
             <div class="seg sm motion-seg" id="motionSeg"><button data-motion="low" data-i18n="motionLow">Low power</button><button data-motion="smooth" data-i18n="motionSmooth">Smooth</button></div>
           </div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="autoTheme">Auto theme</div><div class="d" data-i18n="autoThemeDesc">Switch dark/light by local sunrise &amp; sunset</div></div><label class="switch"><input type="checkbox" id="setAutoTheme"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="hideHeader">Hide top bar on scroll</div><div class="d" data-i18n="hideHeaderDesc">Tuck the top bar away when scrolling down; show it again on scroll up</div></div><label class="switch"><input type="checkbox" id="setHideHeader"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="glassEffect">Liquid glass</div><div class="d" data-i18n="glassEffectDesc">Frosted, translucent panels</div></div><label class="switch"><input type="checkbox" id="setGlass"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="autoTheme">Auto theme</div><div class="d" data-i18n="autoThemeDesc">Switch dark/light by local sunrise &amp; sunset</div></div><label class="switch"><input type="checkbox" id="setAutoTheme" data-i18n-aria="autoTheme"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="hideHeader">Hide top bar on scroll</div><div class="d" data-i18n="hideHeaderDesc">Tuck the top bar away when scrolling down; show it again on scroll up</div></div><label class="switch"><input type="checkbox" id="setHideHeader" data-i18n-aria="hideHeader"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="glassEffect">Liquid glass</div><div class="d" data-i18n="glassEffectDesc">Frosted, translucent panels</div></div><label class="switch"><input type="checkbox" id="setGlass" data-i18n-aria="glassEffect"><span class="track"></span></label></div>
           <div class="set-row" id="glassOpacityRow"><div class="info"><div class="t" data-i18n="glassOpacity">Glass opacity</div><div class="d" data-i18n="glassOpacityDesc">Lower = more see-through</div></div>
-            <div class="set-range"><input type="range" id="setGlassOpacity" min="8" max="85" step="1" /><span class="rv" id="glassOpacityVal">45%</span></div>
+            <div class="set-range"><input type="range" id="setGlassOpacity" min="8" max="85" step="1" data-i18n-aria="glassOpacity" /><span class="rv" id="glassOpacityVal">45%</span></div>
           </div>
-          <div class="set-row" id="glassRefractRow"><div class="info"><div class="t" data-i18n="glassRefract">Light refraction</div><div class="d" data-i18n="glassRefractDesc">Bends light at the glass edges</div></div><label class="switch"><input type="checkbox" id="setRefract"><span class="track"></span></label></div>
+          <div class="set-row" id="glassRefractRow"><div class="info"><div class="t" data-i18n="glassRefract">Light refraction</div><div class="d" data-i18n="glassRefractDesc">Bends light at the glass edges</div></div><label class="switch"><input type="checkbox" id="setRefract" data-i18n-aria="glassRefract"><span class="track"></span></label></div>
         </div>
         <div class="set-section">
           <h4 data-i18n="background">Background</h4>
@@ -331,7 +332,7 @@
 	          </div>
 	          <div class="set-row" id="bgWallDownloadRow" style="display:none"><div class="info"><div class="t" data-i18n="bgDownloadWallpaper">Download current wallpaper</div><div class="d" data-i18n="bgDownloadWallpaperDesc">Save the online wallpaper currently shown.</div></div><button class="btn" id="bgDownloadWall" data-i18n="bgDownloadWallpaperBtn">Download</button></div>
 	          <div class="set-row"><div class="info"><div class="t" data-i18n="bgImage">Image</div><div class="d" data-i18n="bgImageDesc">Use your own photo as wallpaper</div></div>
-            <div style="display:flex; gap:8px;"><button class="btn" id="bgUpload" data-i18n="upload">Upload</button><button class="btn" id="bgRemove" title="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
+            <div class="row-8"><button class="btn" id="bgUpload" data-i18n="upload">Upload</button><button class="btn" id="bgRemove" title="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
           </div>
         </div>
         </div><!-- /appearance -->
@@ -344,19 +345,19 @@
         </div>
         <div class="set-section">
           <h4 data-i18n="widgetsSec">Widgets</h4>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="clock">Clock &amp; date</div></div><label class="switch"><input type="checkbox" data-widget="clock"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="showSeconds">Show seconds</div><div class="d" data-i18n="showSecondsDesc">Display seconds on the clock</div></div><label class="switch"><input type="checkbox" id="setSeconds"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="clock24h">24-hour time</div><div class="d" data-i18n="clock24hDesc">Show the clock in 24-hour format instead of AM/PM</div></div><label class="switch"><input type="checkbox" id="setClock24"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="googleSearch">Google search</div></div><label class="switch"><input type="checkbox" data-widget="search"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="weather">Weather</div><div class="d" data-i18n="weatherDesc">Uses your location or a city you set</div></div><label class="switch"><input type="checkbox" data-widget="weather"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="ipWidget">IP &amp; location</div><div class="d" data-i18n="ipWidgetDesc">Show your public IP and approximate location</div></div><label class="switch"><input type="checkbox" data-widget="netinfo"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="calendar">Calendar</div></div><label class="switch"><input type="checkbox" data-widget="calendar"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="showHolidays">Show holidays</div><div class="d" data-i18n="showHolidaysDesc">Mark common public holidays in the calendar</div></div><label class="switch"><input type="checkbox" id="setHolidays"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="frequentlyUsed">Frequently used</div><div class="d" data-i18n="frequentDesc">Your most-opened bookmarks</div></div><label class="switch"><input type="checkbox" data-widget="frequent"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="recentlyOpened">Recently opened</div></div><label class="switch"><input type="checkbox" data-widget="recent"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="overviewTitle">Overview</div><div class="d" data-i18n="overviewDesc">At-a-glance counts, link health and storage</div></div><label class="switch"><input type="checkbox" data-widget="overview"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="notesTitle">Notes</div><div class="d" data-i18n="notesDesc">A quick local scratchpad — stays on this device</div></div><label class="switch"><input type="checkbox" data-widget="notes"><span class="track"></span></label></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="monitorWidget">Status monitor</div><div class="d" data-i18n="monitorWidgetDesc">NAS metrics and service up/down on your dashboard</div></div><label class="switch"><input type="checkbox" data-widget="monitor"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="clock">Clock &amp; date</div></div><label class="switch"><input type="checkbox" data-widget="clock" data-i18n-aria="clock"><span class="track"></span></label></div>
+          <div class="set-row sub" data-subof="clock"><div class="info"><div class="t" data-i18n="showSeconds">Show seconds</div><div class="d" data-i18n="showSecondsDesc">Display seconds on the clock</div></div><label class="switch"><input type="checkbox" id="setSeconds" data-i18n-aria="showSeconds"><span class="track"></span></label></div>
+          <div class="set-row sub" data-subof="clock"><div class="info"><div class="t" data-i18n="clock24h">24-hour time</div><div class="d" data-i18n="clock24hDesc">Show the clock in 24-hour format instead of AM/PM</div></div><label class="switch"><input type="checkbox" id="setClock24" data-i18n-aria="clock24h"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="googleSearch">Google search</div></div><label class="switch"><input type="checkbox" data-widget="search" data-i18n-aria="googleSearch"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="weather">Weather</div><div class="d" data-i18n="weatherDesc">Uses your location or a city you set</div></div><label class="switch"><input type="checkbox" data-widget="weather" data-i18n-aria="weather"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="ipWidget">IP &amp; location</div><div class="d" data-i18n="ipWidgetDesc">Show your public IP and approximate location</div></div><label class="switch"><input type="checkbox" data-widget="netinfo" data-i18n-aria="ipWidget"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="calendar">Calendar</div></div><label class="switch"><input type="checkbox" data-widget="calendar" data-i18n-aria="calendar"><span class="track"></span></label></div>
+          <div class="set-row sub" data-subof="calendar"><div class="info"><div class="t" data-i18n="showHolidays">Show holidays</div><div class="d" data-i18n="showHolidaysDesc">Mark common public holidays in the calendar</div></div><label class="switch"><input type="checkbox" id="setHolidays" data-i18n-aria="showHolidays"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="frequentlyUsed">Frequently used</div><div class="d" data-i18n="frequentDesc">Your most-opened bookmarks</div></div><label class="switch"><input type="checkbox" data-widget="frequent" data-i18n-aria="frequentlyUsed"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="recentlyOpened">Recently opened</div></div><label class="switch"><input type="checkbox" data-widget="recent" data-i18n-aria="recentlyOpened"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="overviewTitle">Overview</div><div class="d" data-i18n="overviewDesc">At-a-glance counts, link health and storage</div></div><label class="switch"><input type="checkbox" data-widget="overview" data-i18n-aria="overviewTitle"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="notesTitle">Notes</div><div class="d" data-i18n="notesDesc">A quick local scratchpad — stays on this device</div></div><label class="switch"><input type="checkbox" data-widget="notes" data-i18n-aria="notesTitle"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="monitorWidget">Status monitor</div><div class="d" data-i18n="monitorWidgetDesc">NAS metrics and service up/down on your dashboard</div></div><label class="switch"><input type="checkbox" data-widget="monitor" data-i18n-aria="monitorWidget"><span class="track"></span></label></div>
         </div>
         </div><!-- /dashboard -->
         <div class="set-tab" data-tab="services">
@@ -365,21 +366,33 @@
           <div class="set-row"><div class="info"><div class="t" data-i18n="aiProvider">Suggestion engine</div><div class="d" data-i18n="aiKeyDesc">Optional: use Claude or OpenAI for smarter suggestions.</div></div>
             <div class="seg sm" id="aiProvSeg"><button data-aiprov="local" data-i18n="aiLocal">Local rules</button><button data-aiprov="anthropic">Claude</button><button data-aiprov="openai">OpenAI</button></div>
           </div>
-          <div class="field" style="margin-top:8px;"><input id="setAiKey" type="password" data-i18n-ph="aiKeyPh" autocomplete="off" /></div>
+          <div class="field mt-2"><input id="setAiKey" type="password" data-i18n-ph="aiKeyPh" autocomplete="off" data-i18n-aria="aiKeyPh" /></div>
         </div>
         <div class="set-section">
           <h4 data-i18n="monitorSection">Network monitor</h4>
           <div class="set-row"><div class="info"><div class="t" data-i18n="monProvider">Metrics source</div><div class="d" data-i18n="monProviderDesc">Where to read NAS metrics from.</div></div>
             <div class="seg sm" id="monProvSeg"><button data-monprov="glances">Glances</button><button data-monprov="synology">Synology</button><button data-monprov="generic" data-i18n="monGeneric">Generic JSON</button></div>
           </div>
-          <div class="field" style="margin-top:8px;"><label data-i18n="monHostLabel">Host / API URL</label><input id="monHost" type="text" autocomplete="off" placeholder="http://192.168.1.10:61208" /><div class="d" id="monHostHint" style="margin-top:4px;font-size:12px;color:var(--text-faint);"></div></div>
-          <div class="field" id="monSynoFields" style="display:none;"><div class="cat-input-row"><input id="monSynoUser" type="text" data-i18n-ph="monSynoUser" autocomplete="off" /><input id="monSynoPass" type="password" data-i18n-ph="monSynoPass" autocomplete="off" /></div></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="monRefreshLabel">Refresh every (seconds)</div></div>
-            <div class="set-range"><input type="number" id="monRefresh" min="10" max="3600" step="5" style="width:90px;height:36px;text-align:center;" /><button class="btn" id="monTest" data-i18n="monTestBtn">Test now</button></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="monAlertsLabel">Threshold alerts</div><div class="d" data-i18n="monAlertsDesc">Warn when a metric stays over its limit for several samples in a row.</div></div><label class="switch"><input type="checkbox" id="monAlertsOn" data-i18n-aria="monAlertsLabel"><span class="track"></span></label></div>
+          <div class="set-row sub" data-subof-alerts="1"><div class="info"><div class="t" data-i18n="monAlertLimits">Limits</div></div>
+            <div class="row-8 wrap end mon-limits">
+              <label class="mon-lim"><span data-i18n="monCpu">CPU</span><input type="number" id="monAlCpu" min="1" max="100" data-i18n-aria="monCpu"><i>%</i></label>
+              <label class="mon-lim"><span data-i18n="monMem">Memory</span><input type="number" id="monAlMem" min="1" max="100" data-i18n-aria="monMem"><i>%</i></label>
+              <label class="mon-lim"><span data-i18n="monTemp">Temp</span><input type="number" id="monAlTemp" min="1" max="150" data-i18n-aria="monTemp"><i>°C</i></label>
+              <label class="mon-lim"><span data-i18n="monDisks">Disk</span><input type="number" id="monAlDisk" min="1" max="100" data-i18n-aria="monDisks"><i>%</i></label>
+            </div>
           </div>
-          <div class="field" style="margin-top:8px;"><label data-i18n="monServicesLabel">Services (online / offline)</label><div class="d" data-i18n="monServicesDesc" style="font-size:12px;color:var(--text-faint);margin:2px 0 8px;">Add an address per service.</div>
+          <div class="set-row sub" data-subof-alerts="1"><div class="info"><div class="t" data-i18n="monAlertSustain">Consecutive samples</div><div class="d" data-i18n="monAlertSustainDesc">How many samples in a row must exceed the limit before alerting.</div></div>
+            <input type="number" id="monAlSustain" class="input-num" min="1" max="10" data-i18n-aria="monAlertSustain">
+          </div>
+          <div class="field mt-2"><label for="monHost" data-i18n="monHostLabel">Host / API URL</label><input id="monHost" type="text" autocomplete="off" placeholder="http://192.168.1.10:61208" /><div class="d mt-1 hint-text" id="monHostHint"></div></div>
+          <div class="field" id="monSynoFields" style="display:none;"><div class="cat-input-row"><input id="monSynoUser" type="text" data-i18n-ph="monSynoUser" autocomplete="off" data-i18n-aria="monSynoUser" /><input id="monSynoPass" type="password" data-i18n-ph="monSynoPass" autocomplete="off" data-i18n-aria="monSynoPass" /></div></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="monRefreshLabel">Refresh every (seconds)</div></div>
+            <div class="set-range"><input type="number" id="monRefresh" min="10" max="3600" step="5" class="input-num" data-i18n-aria="monRefreshLabel" /><button class="btn" id="monTest" data-i18n="monTestBtn">Test now</button><button class="btn" id="monClearHist" data-i18n="monTrendClear">Clear history</button></div>
+          </div>
+          <div class="field mt-2"><label data-i18n="monServicesLabel">Services (online / offline)</label><div class="d hint-text hint-block" data-i18n="monServicesDesc">Add an address per service.</div>
             <div id="monServices" class="mon-svc-editor"></div>
-            <button class="btn" id="monAddSvc" style="margin-top:8px;" data-i18n="monAddService">Add service</button>
+            <button class="btn mt-2" id="monAddSvc" data-i18n="monAddService">Add service</button>
           </div>
         </div>
         </div><!-- /services -->
@@ -391,15 +404,29 @@
           </div>
           <div class="set-row">
             <div class="info"><div class="t" data-i18n="logRetention">Keep logs</div><div class="d" data-i18n="logRetentionDesc">Expired activity logs are deleted automatically to reduce local storage.</div></div>
-            <select id="logRet" class="sel"></select>
+            <select id="logRet" class="sel" data-i18n-aria="logRetention"></select>
           </div>
           <div id="opLogList" class="op-log-list"></div>
-          <button class="btn" id="logClearBtn" data-i18n="logClear" style="margin-top:10px;">Clear log</button>
+          <button class="btn mt-2" id="logClearBtn" data-i18n="logClear">Clear log</button>
         </div>
         </div><!-- /log -->
         </div><!-- /set-tab-wrap -->
       </div>
       <div class="modal-foot"><button class="btn primary" data-close data-i18n="done">Done</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="conflictOverlay">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head"><h2 data-i18n="syncConflictTitle">Sync conflict</h2><p data-i18n="syncConflictSub">The remote file changed since you last synced.</p></div>
+      <div class="modal-body"><p class="msg" id="conflictBody"></p></div>
+      <div class="modal-foot">
+        <button class="btn" data-close data-i18n="cancel">Cancel</button>
+        <span class="flex-1"></span>
+        <button class="btn" data-conflict="remote" data-i18n="syncUseRemote">Use remote</button>
+        <button class="btn" data-conflict="local" data-i18n="syncUseLocal">Use local</button>
+        <button class="btn primary" id="conflictMerge" data-conflict="merge" data-i18n="syncMerge">Merge</button>
+      </div>
     </div>
   </div>
 
@@ -416,12 +443,44 @@
       <div class="modal-head"><h2 data-i18n="trash">Trash</h2><p data-i18n="trashSub">Deleted bookmarks are kept here until they expire.</p></div>
       <div class="modal-body scroll">
         <div class="trash-head-row">
-          <label class="tr-ret"><span data-i18n="retention">Keep deleted items</span> <select id="trashRet" class="sel"></select></label>
+          <label class="tr-ret"><span data-i18n="retention">Keep deleted items</span> <select id="trashRet" class="sel" data-i18n-aria="logRetention"></select></label>
           <button class="btn danger sm" id="trashEmptyBtn" data-i18n="emptyTrash">Empty trash</button>
         </div>
         <div class="trash-list" id="trashList"></div>
       </div>
       <div class="modal-foot"><button class="btn primary" data-close data-i18n="done">Done</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="cleanOverlay">
+    <div class="modal wide" role="dialog" aria-modal="true">
+      <div class="modal-head"><h2 data-i18n="cleanTitle">Tidy up bookmarks</h2><p data-i18n="cleanSub">Duplicates, never-opened, long-unused and invalid links — review and move them to the trash.</p></div>
+      <div class="modal-body scroll">
+        <div class="health-head-row">
+          <div class="seg sm" id="cleanFilter">
+            <button data-clean-filter="all" class="on" data-i18n-aria="cleanAll"></button>
+            <button data-clean-filter="dup" data-i18n-aria="cleanDup"></button>
+            <button data-clean-filter="dead" data-i18n-aria="cleanDead"></button>
+            <button data-clean-filter="never" data-i18n-aria="cleanNever"></button>
+            <button data-clean-filter="stale" data-i18n-aria="cleanStale"></button>
+          </div>
+        </div>
+        <div class="clean-stale-row">
+          <span class="hint-text" data-i18n="cleanStaleAfter">Count as unused after</span>
+          <div class="seg sm" id="cleanStaleSeg">
+            <button data-clean-days="90">90d</button>
+            <button data-clean-days="180">180d</button>
+            <button data-clean-days="365" class="on">365d</button>
+          </div>
+        </div>
+        <div class="health-list" id="cleanList"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="cleanSelectAll" data-i18n="suggToggle">Toggle all</button>
+        <span class="flex-1"></span>
+        <button class="btn" data-close data-i18n="done">Done</button>
+        <button class="btn danger" id="cleanTrashBtn" data-i18n="cleanTrash">Move to trash</button>
+      </div>
     </div>
   </div>
 
@@ -449,18 +508,18 @@
       <div class="modal-body scroll"><div class="sugg-list" id="suggestBody"></div></div>
       <div class="modal-foot">
         <button class="btn" id="suggToggleBtn" data-i18n="suggToggle">Toggle all</button>
-        <span style="flex:1"></span>
+        <span class="flex-1"></span>
         <button class="btn" data-close data-i18n="cancel">Cancel</button>
         <button class="btn primary" id="suggApplyBtn" data-i18n="suggApply">Apply selected</button>
       </div>
     </div>
   </div>
 
-  <input type="file" id="fileInput" class="sr-file" accept=".html,.htm,text/html" />
-  <input type="file" id="jsonInput" class="sr-file" accept=".json,application/json" />
-  <input type="file" id="logoInput" class="sr-file" accept="image/*" />
-  <input type="file" id="bgInput" class="sr-file" accept="image/*" />
-  <div class="toasts" id="toasts"></div>
+  <input type="file" id="fileInput" class="sr-file" accept=".html,.htm,text/html" data-i18n-aria="importFile" />
+  <input type="file" id="jsonInput" class="sr-file" accept=".json,application/json" data-i18n-aria="importJsonLabel" />
+  <input type="file" id="logoInput" class="sr-file" accept="image/*" data-i18n-aria="logo" />
+  <input type="file" id="bgInput" class="sr-file" accept="image/*" data-i18n-aria="bgImage" />
+  <div class="toasts" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
   <div id="quickUndoBar" class="quick-undo-bar">
     <span class="qu-msg" id="quickUndoMsg"></span>
     <button class="btn sm log-undo" id="quickUndoBtn">
@@ -495,6 +554,8 @@
 <script src="js/auto-theme.js"></script>
 <script src="js/palette.js"></script>
 <script src="js/contextmenu.js"></script>
+<script src="js/cleanup.js"></script>
+<script src="js/capture.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

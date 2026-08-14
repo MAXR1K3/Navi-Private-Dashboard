@@ -89,7 +89,20 @@ contentEl.addEventListener("click", function(e){
   var edit=e.target.closest("[data-edit]"); if(edit){ e.stopPropagation(); openEdit(edit.getAttribute("data-edit")); return; }
   var del=e.target.closest("[data-del]"); if(del){ e.stopPropagation(); deleteBookmark(del.getAttribute("data-del")); return; }
   var card=e.target.closest(".card"); if(!card) return; var id=card.getAttribute("data-id");
-  if(ui.selectMode){ toggleSelect(id); return; } openBookmark(id);
+  if(ui.selectMode){ toggleSelect(id); return; }
+  if(e.metaKey||e.ctrlKey){ openBookmark(id,{background:true}); return; }   // ⌘/Ctrl 点击：后台新标签页
+  openBookmark(id);
+});
+// 中键点击卡片：在后台新标签页打开（可连开多个而不离开面板）
+contentEl.addEventListener("auxclick", function(e){
+  if(e.button!==1) return;
+  var card=e.target.closest(".card"); if(!card||ui.selectMode) return;
+  if(e.target.closest(".card-pin,.tag-chip,.card-actions,.card-grip")) return;
+  e.preventDefault(); openBookmark(card.getAttribute("data-id"),{background:true});
+});
+// 阻止中键在卡片上触发浏览器自动滚动
+contentEl.addEventListener("mousedown", function(e){
+  if(e.button===1){ var c=e.target.closest(".card"); if(c && !ui.selectMode && !e.target.closest(".card-pin,.tag-chip,.card-actions,.card-grip")) e.preventDefault(); }
 });
 contentEl.addEventListener("error", function(e){ var tg=e.target; if(tg&&tg.classList&&tg.classList.contains("fav-img")) tg.classList.add("hide"); }, true);
 // 键盘可达：聚焦卡片后 Enter/Space 打开（多选模式则切换勾选），方向键在网格内移动焦点

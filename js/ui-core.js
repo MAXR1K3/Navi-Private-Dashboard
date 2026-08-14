@@ -20,14 +20,53 @@ function toastUndo(msg, undoFn){
   setTimeout(dismiss, 6500);
 }
 
-/* ===== modals ===== */
-function openOverlay(id){ $("#"+id).classList.add("open"); }
-function closeOverlay(id){ $("#"+id).classList.remove("open"); }
+/* ===== modals =====
+   焦点管理：打开时记住来源焦点并把焦点移进弹窗，Tab 在弹窗内循环，关闭后焦点归位。
+   命令面板（palette-overlay）自己管理生命周期与焦点，这里一律跳过。 */
+var _ovFocus={};
+function overlayIds(){
+  return $all(".overlay").filter(function(el){ return el.id && !el.classList.contains("palette-overlay"); })
+    .map(function(el){ return el.id; });
+}
+function focusablesIn(el){
+  return $all('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])', el)
+    .filter(function(n){ return n.offsetWidth||n.offsetHeight||n.getClientRects().length; });
+}
+function openOverlay(id){
+  var el=$("#"+id); if(!el) return;
+  if(!el.classList.contains("open")) _ovFocus[id]=document.activeElement;
+  el.classList.add("open");
+  var modal=el.querySelector(".modal");
+  if(modal){
+    if(!modal.hasAttribute("tabindex")) modal.setAttribute("tabindex","-1");
+    setTimeout(function(){ if(el.classList.contains("open")&&!el.contains(document.activeElement)) modal.focus(); },20);
+  }
+}
+function closeOverlay(id){
+  var el=$("#"+id); if(!el) return;
+  var was=el.classList.contains("open");
+  el.classList.remove("open");
+  if(was){
+    var prev=_ovFocus[id]; _ovFocus[id]=null;
+    // 焦点归位：元素仍在文档里才还回去，否则会把焦点丢给 body
+    if(prev&&prev.focus&&document.contains(prev)) setTimeout(function(){ try{ prev.focus(); }catch(e){} },0);
+  }
+}
 function closeAll(){
-  var ids=["bmOverlay","promptOverlay","confirmOverlay","summaryOverlay","importOverlay","settingsOverlay","trashOverlay","healthOverlay","suggestOverlay"];
+  var ids=overlayIds();
   if(typeof summaryUi!=="undefined"&&summaryUi.running) ids=ids.filter(function(id){ return id!=="summaryOverlay"; });
   ids.forEach(closeOverlay); confirmCb=null; promptCb=null;
 }
+// Tab 焦点陷阱：弹窗打开时不让焦点跑到背后的页面
+document.addEventListener("keydown", function(e){
+  if(e.key!=="Tab") return;
+  var open=$all(".overlay.open").filter(function(el){ return !el.classList.contains("palette-overlay"); }).pop();
+  if(!open) return;
+  var f=focusablesIn(open); if(!f.length) return;
+  var first=f[0], last=f[f.length-1];
+  if(e.shiftKey && (document.activeElement===first || !open.contains(document.activeElement))){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+});
 document.addEventListener("click", function(e){
   if(e.target.closest("[data-close]")){ closeAll(); return; }
   if(e.target.classList&&e.target.classList.contains("overlay")&&_pressEl===e.target){

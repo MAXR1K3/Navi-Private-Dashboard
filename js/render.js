@@ -46,9 +46,6 @@ function renderCategories(){
     var dtLabel=ui.activeCat==="All"?t("categoriesTitle"):catLabel(ui.activeCat);
     bar.innerHTML='<button class="drawer-toggle" id="drawerToggle" title="'+escapeHtml(dtLabel)+'">'+ICONS.layers+'<span class="dt-label"'+categoryColorStyle(ui.activeCat)+'>'+escapeHtml(dtLabel)+'</span></button>';
     drawer.innerHTML=drawerInner(c);
-  } else if(mode==="dropdown"){
-    closeDrawerOverlay(); drawer.style.display="none";
-    bar.innerHTML=dropdownHtml(c);
   } else {
     closeDrawerOverlay(); drawer.style.display="none";
     bar.innerHTML='<div class="tabs" id="tabs">'+tabsInner(c)+'</div>';
@@ -71,13 +68,6 @@ function tabHtml(cat,n,active,removable){
 }
 function allLabel(){ var l=state.settings.lang; return l==="zh"?"全部":l==="es"?"Todos":"All"; }
 
-function dropdownHtml(c){
-  var cur = ui.activeCat==="All"? allLabel() : catLabel(ui.activeCat);
-  var items='<div class="dd-item'+(ui.activeCat==="All"?" active":"")+'" data-cat="All">'+escapeHtml(allLabel())+'<span class="cnt">'+c.All+'</span></div>';
-  state.categories.forEach(function(cat){ items+='<div class="dd-item'+(ui.activeCat===cat?" active":"")+'" data-cat="'+escapeHtml(cat)+'">'+escapeHtml(catLabel(cat))+'<span class="cnt">'+(c[cat]||0)+'</span></div>'; });
-  items+='<div class="dd-item add" data-addcat="1">'+ICONS.plus+' '+escapeHtml(t("newCategory"))+'</div>';
-  return '<div class="dropdown'+(ui.ddOpen?" open":"")+'" id="dropdown"><button class="dd-btn" id="ddBtn">'+ICONS.folder+'<span>'+escapeHtml(cur)+'</span><span class="cnt">'+(ui.activeCat==="All"?c.All:(c[ui.activeCat]||0))+'</span>'+ICONS.caret+'</button><div class="dd-menu">'+items+'</div></div>';
-}
 function drawerInner(c){
   var h='<div class="drawer-inner"><div class="dh">'+escapeHtml(t("categoriesTitle"))+'</div>';
   h+=drawerItem("All", c.All, ui.activeCat==="All", false);
@@ -96,7 +86,7 @@ function drawerItem(cat,n,active,removable){
   '</div>';
 }
 
-function setActiveCat(cat){ ui.activeCat=cat; ui.ddOpen=false; closeDrawerOverlay(); renderCategories(); renderContent(); }
+function setActiveCat(cat){ ui.activeCat=cat; closeDrawerOverlay(); renderCategories(); renderContent(); }
 function closeDrawerOverlay(){ var d=$("#drawer"), bd=$("#drawerBackdrop"); if(d) d.classList.remove("open"); if(bd) bd.classList.remove("show"); }
 
 // delegated category events on stable containers
@@ -107,7 +97,6 @@ function closeDrawerOverlay(){ var d=$("#drawer"), bd=$("#drawerBackdrop"); if(d
     var del=e.target.closest("[data-del-cat]"); if(del){ e.stopPropagation(); deleteCategory(del.getAttribute("data-del-cat")); return; }
     var ren=e.target.closest("[data-rename-cat]"); if(ren){ e.stopPropagation(); renameCategory(ren.getAttribute("data-rename-cat")); return; }
     var add=e.target.closest("[data-addcat]"); if(add){ addCategory(); return; }
-    if(e.target.closest("#ddBtn")){ ui.ddOpen=!ui.ddOpen; renderCategories(); return; }
     if(e.target.closest("#drawerToggle")){ var d=$("#drawer"); d.classList.add("open"); $("#drawerBackdrop").classList.add("show"); return; }
     var item=e.target.closest("[data-cat]"); if(item){ setActiveCat(item.getAttribute("data-cat")); }
   });
@@ -136,7 +125,6 @@ document.addEventListener("pointerdown", function(e){ _pressEl=e.target; }, true
 function clickFullyOutside(e, sel){ var p=_pressEl; if(p && p.closest && p.closest(sel)) return false; return !e.target.closest(sel); }
 
 $("#drawerBackdrop").addEventListener("click", function(e){ if(e.target===this && _pressEl===this) closeDrawerOverlay(); });
-document.addEventListener("click", function(e){ if(ui.ddOpen && clickFullyOutside(e,"#dropdown")){ ui.ddOpen=false; renderCategories(); } });
 
 var dragCatEl=null, dragCatPh=null, dragCatParent=null, dragCatPointer=null, dragCatOffset={x:0,y:0}, dragCatPoint=null, dragCatRAF=0, dragCatMoved=false, dragCatLastMove=null, catDragSuppressClickUntil=0;
 ["catsBar","drawer"].forEach(function(cid){

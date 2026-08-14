@@ -43,6 +43,127 @@ function monRate(bytesPerSec){ return monBytes(bytesPerSec)+"/s"; }
 function monPct(n){ return (n==null||!isFinite(n))?"—":Math.round(n)+"%"; }
 function monGaugeClass(p){ p=Number(p)||0; return p>=90?"crit":p>=75?"warn":"ok"; }
 
+/* ===== 指标历史（趋势曲线） =====
+   单独存在 navi.monhist，不进 state —— 这样每 30 秒一次的采样不会触发 save()/操作日志。
+   换了主机或提供者就清空，避免把两台机器的数据画进同一条线。 */
+var MONHIST_KEY="navi.monhist", MONHIST_MAX=60;
+var monHist=null;
+function monHistBlank(){ return { host:"", provider:"", ts:[], cpu:[], mem:[], temp:[], down:[], up:[] }; }
+function loadMonHist(){
+  if(!monHist){
+    try{ var raw=localStorage.getItem(MONHIST_KEY); if(raw){ var h=JSON.parse(raw); if(h&&Array.isArray(h.ts)) monHist=h; } }catch(e){}
+    if(!monHist) monHist=monHistBlank();
+  }
+  var m=monCfg(), host=m.host||"", prov=m.provider||"";
+  if(monHist.host!==host||monHist.provider!==prov){ monHist=monHistBlank(); monHist.host=host; monHist.provider=prov; }
+  return monHist;
+}
+function saveMonHist(){ try{ localStorage.setItem(MONHIST_KEY, JSON.stringify(monHist)); }catch(e){} }
+function clearMonHist(){ monHist=monHistBlank(); var m=monCfg(); monHist.host=m.host||""; monHist.provider=m.provider||""; saveMonHist(); }
+function pushMonSample(x){
+  if(!x) return;
+  var h=loadMonHist();
+  function put(k,v){ h[k].push((v==null||!isFinite(v))?null:Number(v)); if(h[k].length>MONHIST_MAX) h[k].shift(); }
+  h.ts.push(Date.now()); if(h.ts.length>MONHIST_MAX) h.ts.shift();
+  put("cpu",x.cpu); put("mem",x.mem); put("temp",x.temp);
+  put("down",x.net?x.net.down:null); put("up",x.net?x.net.up:null);
+  saveMonHist();
+}
+function monSpanText(ms){
+  var mn=Math.round(ms/60000);
+  if(mn<1) return "<1m";
+  if(mn<60) return mn+"m";
+  var hr=ms/3600000;
+  return (hr<10?hr.toFixed(1):Math.round(hr))+"h";
+}
+/* 迷你趋势图：纯静态内联 SVG（无动画、无外部依赖），随卡片宽度拉伸 */
+function monSparkMulti(sets, opts){
+  opts=opts||{};
+  var n=0, all=[];
+  sets.forEach(function(s){ n=Math.max(n,(s.vals||[]).length); (s.vals||[]).forEach(function(v){ if(v!=null&&isFinite(v)) all.push(v); }); });
+  if(all.length<2||n<2) return "";
+  var lo=opts.min!=null?opts.min:Math.min.apply(null,all);
+  var hi=opts.max!=null?opts.max:Math.max.apply(null,all);
+  if(opts.max==null){ var pad=(hi-lo)*0.15||1; hi+=pad; lo=Math.max(opts.floor!=null?opts.floor:lo-pad, 0); }
+  if(hi<=lo) hi=lo+1;
+  var W=100, H=24;
+  function xy(i,v){ return [ (n===1?0:(i/(n-1))*W), H-((v-lo)/(hi-lo))*H ]; }
+  var svg="";
+  sets.forEach(function(s){
+    var pts=[];
+    (s.vals||[]).forEach(function(v,i){ if(v==null||!isFinite(v)) return; var p=xy(i,Math.max(lo,Math.min(hi,v))); pts.push(p[0].toFixed(2)+","+p[1].toFixed(2)); });
+    if(pts.length<2) return;
+    if(s.area!==false) svg+='<polygon class="spk-area '+(s.cls||"")+'" points="'+pts[0].split(",")[0]+','+H+' '+pts.join(" ")+' '+pts[pts.length-1].split(",")[0]+','+H+'"/>';
+    svg+='<polyline class="spk-line '+(s.cls||"")+'" points="'+pts.join(" ")+'"/>';
+  });
+  if(!svg) return "";
+  return '<svg class="mon-spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true" focusable="false">'+svg+'</svg>';
+}
+function monSparkTitle(vals, fmt){
+  var h=loadMonHist(), ok=(vals||[]).filter(function(v){ return v!=null&&isFinite(v); });
+  if(ok.length<2||!h.ts.length) return "";
+  var span=monSpanText(h.ts[h.ts.length-1]-h.ts[0]);
+  var peak=Math.max.apply(null,ok);
+  return t("monTrendSpan",{span:span})+" · "+t("monTrendPeak",{v:(fmt?fmt(peak):peak)});
+}
+
+/* ===== 阈值告警 =====
+   判定基于历史缓冲区而非单次采样：必须「连续 N 次采样都超线」才算告警，
+   这样偶发的一次尖峰（备份任务、缩略图生成等）不会触发噪音。 */
+function monAlertCfg(){
+  var m=monCfg();
+  if(!m.alerts) m.alerts={ on:true, cpu:90, mem:90, temp:75, disk:90, sustain:3 };
+  return m.alerts;
+}
+function monLastN(arr,n){
+  var out=[];
+  for(var i=(arr||[]).length-1;i>=0&&out.length<n;i--){ if(arr[i]!=null&&isFinite(arr[i])) out.push(arr[i]); }
+  return out;
+}
+/* 返回 [{key,label,value,limit}]；连续 sustain 次超线才计入 */
+function evalMonAlerts(){
+  var a=monAlertCfg();
+  if(!a.on) return [];
+  var h=loadMonHist(), x=monState.metrics, n=Math.max(1,+a.sustain||3), out=[];
+  function check(key,series,limit,label,fmt){
+    if(limit==null||!isFinite(limit)) return;
+    var last=monLastN(series,n);
+    if(last.length<n) return;                       // 样本还不够，先不报
+    if(last.every(function(v){ return v>=limit; }))
+      out.push({ key:key, label:label, value:fmt(last[0]), limit:fmt(limit) });
+  }
+  var pct=function(v){ return Math.round(v)+"%"; }, deg=function(v){ return Math.round(v)+"°C"; };
+  check("cpu",h.cpu,+a.cpu,t("monCpu"),pct);
+  check("mem",h.mem,+a.mem,t("monMem"),pct);
+  check("temp",h.temp,+a.temp,t("monTemp"),deg);
+  // 磁盘没有历史序列，用当前值（容量变化慢，无需持续判定）
+  if(x&&x.fs&&isFinite(+a.disk)){
+    x.fs.forEach(function(f){
+      if(f&&isFinite(f.percent)&&f.percent>=+a.disk)
+        out.push({ key:"disk:"+f.mnt, label:f.mnt, value:pct(f.percent), limit:pct(+a.disk) });
+    });
+  }
+  return out;
+}
+function monAlertKeys(list){ return list.map(function(a){ return a.key; }).sort().join(","); }
+var _monAlertSig="";
+/* 只在「新进入告警」时提示一次，避免每次刷新都弹 */
+function notifyMonAlerts(list){
+  var sig=monAlertKeys(list);
+  if(sig===_monAlertSig) return;
+  var prev=_monAlertSig.split(",").filter(Boolean);
+  _monAlertSig=sig;
+  var fresh=list.filter(function(a){ return prev.indexOf(a.key)===-1; });
+  if(!fresh.length) return;
+  var first=fresh[0];
+  toast(fresh.length===1
+    ? t("monAlertOne",{name:first.label,value:first.value,limit:first.limit})
+    : t("monAlertMany",{n:fresh.length}), "err");
+}
+function monAlertSet(){
+  var s={}; evalMonAlerts().forEach(function(a){ s[a.key]=a; }); return s;
+}
+
 /* ===== reachability ping (online/offline + latency) ===== */
 function monPing(url, timeoutMs){
   return new Promise(function(resolve){
@@ -211,7 +332,7 @@ function refreshMonitorData(){
   var jobs=[];
   // metrics
   if(m.metricsOn!==false && (m.host||"").trim()){
-    jobs.push(monFetchMetrics().then(function(mx){ monState.metrics=mx; monState.metricsErr=null; monState.metricsTs=Date.now(); })
+    jobs.push(monFetchMetrics().then(function(mx){ monState.metrics=mx; monState.metricsErr=null; monState.metricsTs=Date.now(); pushMonSample(mx); notifyMonAlerts(evalMonAlerts()); })
       .catch(function(e){ monState.metrics=null; monState.metricsErr=(e&&e.message)||"error"; }));
   } else { monState.metrics=null; monState.metricsErr=null; }
   // services
@@ -229,7 +350,7 @@ function scheduleMonTick(){
 }
 function monTick(){ if(document.hidden||!$("#monBody")) return; refreshMonitorData(); scheduleMonTick(); }
 function startMonTimer(){ stopMonTimer(); if(document.hidden||!$("#monBody")) return; monTick(); }
-function ensureMonitor(){ startMonTimer(); }
+function ensureMonitor(){ loadMonHist(); startMonTimer(); }
 document.addEventListener("visibilitychange", function(){
   if(document.hidden) stopMonTimer();
   else if($("#monBody")) startMonTimer();
@@ -237,16 +358,30 @@ document.addEventListener("visibilitychange", function(){
 
 /* ===== widget body render ===== */
 function monitorBody(){ return '<div id="monBody">'+monitorInner()+'</div>'; }
-function monStat(label, value, sub, gaugePct, icon){
+function monStat(label, value, sub, gaugePct, icon, spark, sparkTitle, alerted){
   var g="";
   if(gaugePct!=null && isFinite(gaugePct)){
     var p=Math.max(0,Math.min(100,gaugePct));
-    g='<div class="mon-bar"><span class="mon-bar-fill '+monGaugeClass(p)+'" style="width:'+p+'%"></span></div>';
+    g='<div class="mon-bar"><span class="mon-bar-fill '+(alerted?"crit":monGaugeClass(p))+'" style="width:'+p+'%"></span></div>';
   }
-  return '<div class="mon-stat">'+
-    '<div class="mon-stat-h">'+(icon||"")+'<span class="mon-stat-l">'+escapeHtml(label)+'</span></div>'+
-    '<div class="mon-stat-v">'+value+'</div>'+(sub?'<div class="mon-stat-s">'+sub+'</div>':"")+g+
+  var sp=spark?('<div class="mon-spark-wrap"'+(sparkTitle?' title="'+escapeHtml(sparkTitle)+'"':'')+'>'+spark+'</div>'):"";
+  // 告警不只靠颜色：同时加感叹号图标与 title 文本（skill §1 color-not-only）
+  var flag=alerted?('<span class="mon-alert-flag" title="'+escapeHtml(alerted)+'" aria-label="'+escapeHtml(alerted)+'">'+ICONS.warnTri+'</span>'):"";
+  return '<div class="mon-stat'+(alerted?" alert":"")+'">'+
+    '<div class="mon-stat-h">'+(icon||"")+'<span class="mon-stat-l">'+escapeHtml(label)+'</span>'+flag+'</div>'+
+    '<div class="mon-stat-v">'+value+'</div>'+(sub?'<div class="mon-stat-s">'+sub+'</div>':"")+sp+g+
   '</div>';
+}
+
+/* 告警横幅：出现在指标区顶部，汇总当前所有超线项 */
+function monAlertBanner(set){
+  var list=Object.keys(set||{}).map(function(k){ return set[k]; });
+  if(!list.length) return "";
+  var items=list.map(function(a){
+    return '<span class="mon-alert-item">'+escapeHtml(a.label)+' <b>'+escapeHtml(a.value)+'</b> <em>/ '+escapeHtml(a.limit)+'</em></span>';
+  }).join("");
+  return '<div class="mon-alert-bar" role="status">'+ICONS.warnTri+
+    '<span class="mon-alert-t">'+escapeHtml(t("monAlertTitle",{n:list.length}))+'</span>'+items+'</div>';
 }
 function monitorMetricsHtml(){
   var m=monCfg();
@@ -260,19 +395,28 @@ function monitorMetricsHtml(){
   }
   var x=monState.metrics;
   if(!x){ return '<div class="mon-skel"></div>'; }
-  var html='<div class="mon-grid">';
-  html+=monStat(t("monCpu"), monPct(x.cpu), x.load!=null?(t("monLoad")+" "+x.load.toFixed(2)):"", x.cpu, ICONS.cpu);
-  html+=monStat(t("monMem"), monPct(x.mem), (x.memUsed&&x.memTotal)?(monBytes(x.memUsed)+" / "+monBytes(x.memTotal)):"", x.mem, ICONS.chip);
-  html+=monStat(t("monTemp"), x.temp!=null?(x.temp+"°C"):"—", "", x.temp!=null?Math.min(100,x.temp):null, ICONS.thermo);
+  var h=loadMonHist(), AL=monAlertSet();
+  function alertOf(k){ var a=AL[k]; return a?t("monAlertTip",{value:a.value,limit:a.limit}):""; }
+  var html=monAlertBanner(AL)+'<div class="mon-grid">';
+  // CPU / 内存用固定 0-100 刻度（避免 5%→6% 被自动缩放画成暴涨）；温度与网速自适应
+  html+=monStat(t("monCpu"), monPct(x.cpu), x.load!=null?(t("monLoad")+" "+x.load.toFixed(2)):"", x.cpu, ICONS.cpu,
+    monSparkMulti([{vals:h.cpu,cls:"spk-a"}],{min:0,max:100}), monSparkTitle(h.cpu,function(v){return Math.round(v)+"%";}), alertOf("cpu"));
+  html+=monStat(t("monMem"), monPct(x.mem), (x.memUsed&&x.memTotal)?(monBytes(x.memUsed)+" / "+monBytes(x.memTotal)):"", x.mem, ICONS.chip,
+    monSparkMulti([{vals:h.mem,cls:"spk-a"}],{min:0,max:100}), monSparkTitle(h.mem,function(v){return Math.round(v)+"%";}), alertOf("mem"));
+  html+=monStat(t("monTemp"), x.temp!=null?(x.temp+"°C"):"—", "", x.temp!=null?Math.min(100,x.temp):null, ICONS.thermo,
+    monSparkMulti([{vals:h.temp,cls:"spk-w"}],{}), monSparkTitle(h.temp,function(v){return Math.round(v)+"°C";}), alertOf("temp"));
   var net='<span class="mon-net"><span class="dn">↓ '+monRate(x.net.down)+'</span><span class="up">↑ '+monRate(x.net.up)+'</span></span>';
-  html+=monStat(t("monNet"), net, "", null, ICONS.netio);
+  html+=monStat(t("monNet"), net, "", null, ICONS.netio,
+    monSparkMulti([{vals:h.down,cls:"spk-dn",area:false},{vals:h.up,cls:"spk-up",area:false}],{min:0}),
+    monSparkTitle((h.down||[]).concat(h.up||[]),function(v){return monRate(v);}));
   html+='</div>';
   // disks
   if(x.fs&&x.fs.length){
     html+='<div class="mon-disks">';
     x.fs.slice(0,3).forEach(function(f){
-      html+='<div class="mon-disk"><div class="mon-disk-h"><span class="mnt">'+escapeHtml(f.mnt)+'</span><span class="pc">'+monPct(f.percent)+'</span></div>'+
-        '<div class="mon-bar"><span class="mon-bar-fill '+monGaugeClass(f.percent)+'" style="width:'+Math.max(0,Math.min(100,f.percent))+'%"></span></div></div>';
+      var da=AL["disk:"+f.mnt];
+      html+='<div class="mon-disk'+(da?" alert":"")+'"><div class="mon-disk-h"><span class="mnt">'+escapeHtml(f.mnt)+(da?' '+ICONS.warnTri:'')+'</span><span class="pc">'+monPct(f.percent)+'</span></div>'+
+        '<div class="mon-bar"><span class="mon-bar-fill '+(da?"crit":monGaugeClass(f.percent))+'" style="width:'+Math.max(0,Math.min(100,f.percent))+'%"></span></div></div>';
     });
     html+='</div>';
   }
@@ -344,6 +488,14 @@ widgetsEl.addEventListener("click", function(e){
 });
 
 /* ===== settings panel wiring ===== */
+function syncMonAlertUI(){
+  var a=monAlertCfg();
+  function set(id,v){ var e=$("#"+id); if(e) e.value=v; }
+  var on=$("#monAlertsOn"); if(on) on.checked=a.on!==false;
+  set("monAlCpu",a.cpu); set("monAlMem",a.mem); set("monAlTemp",a.temp); set("monAlDisk",a.disk); set("monAlSustain",a.sustain);
+  // 关闭告警时隐藏其子设置项
+  $all("[data-subof-alerts]").forEach(function(r){ if(a.on!==false) r.removeAttribute("hidden"); else r.setAttribute("hidden",""); });
+}
 function syncMonitorUI(){
   var m=monCfg();
   var prov=$("#monProvSeg"); if(prov) $all("#monProvSeg [data-monprov]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-monprov")===m.provider); });
@@ -354,6 +506,7 @@ function syncMonitorUI(){
   monSyncProviderFields();
   renderMonServicesEditor();
   monSyncHostHint();
+  syncMonAlertUI();
 }
 function monSyncProviderFields(){
   var m=monCfg(), syno=$("#monSynoFields");
@@ -371,8 +524,8 @@ function renderMonServicesEditor(){
   var m=monCfg(), html="";
   m.services.forEach(function(s){
     html+='<div class="mon-svc-row" data-sid="'+escapeHtml(s.id)+'">'+
-      '<input class="mon-svc-name" type="text" value="'+escapeHtml(s.name||"")+'" placeholder="'+escapeHtml(t("monSvcName"))+'" />'+
-      '<input class="mon-svc-url" type="text" value="'+escapeHtml(s.url||"")+'" placeholder="'+escapeHtml(t("monSvcUrl"))+'" autocomplete="off" />'+
+      '<input class="mon-svc-name" type="text" value="'+escapeHtml(s.name||"")+'" placeholder="'+escapeHtml(t("monSvcName"))+'" aria-label="'+escapeHtml(t("monSvcName")+(s.name?" · "+s.name:""))+'" />'+
+      '<input class="mon-svc-url" type="text" value="'+escapeHtml(s.url||"")+'" placeholder="'+escapeHtml(t("monSvcUrl"))+'" aria-label="'+escapeHtml(t("monSvcUrl")+(s.name?" · "+s.name:""))+'" autocomplete="off" />'+
       '<button class="btn icon mon-svc-del" data-mondel="'+escapeHtml(s.id)+'" title="'+escapeHtml(t("delete"))+'">'+ICONS.x+'</button>'+
     '</div>';
   });
@@ -395,6 +548,16 @@ function monRefreshWidget(){ var b=$("#monBody"); if(b){ refreshMonitorDom(); st
   var sp=$("#monSynoPass"); if(sp) sp.addEventListener("input", function(e){ monCfg().synoPass=e.target.value; save(); });
   var add=$("#monAddSvc"); if(add) add.addEventListener("click", function(){ monNewService("",""); save(); renderMonServicesEditor(); });
   var test=$("#monTest"); if(test) test.addEventListener("click", function(){ monState.metricsErr=null; monState.metrics=null; refreshMonitorDom(); refreshMonitorData(); toast(t("monTesting"),"ok"); });
+  var aOn=$("#monAlertsOn");
+  if(aOn) aOn.addEventListener("change", function(e){ monAlertCfg().on=e.target.checked; save(); syncMonAlertUI(); refreshMonitorDom(); });
+  [["monAlCpu","cpu"],["monAlMem","mem"],["monAlTemp","temp"],["monAlDisk","disk"],["monAlSustain","sustain"]].forEach(function(p){
+    var el=$("#"+p[0]); if(!el) return;
+    el.addEventListener("change", function(e){
+      var v=parseFloat(e.target.value);
+      if(isFinite(v)) { monAlertCfg()[p[1]]=v; save(); _monAlertSig=""; refreshMonitorDom(); }
+    });
+  });
+  var clr=$("#monClearHist"); if(clr) clr.addEventListener("click", function(){ clearMonHist(); refreshMonitorDom(); toast(t("monTrendClear"),"ok"); });
   var box=$("#monServices");
   if(box){
     box.addEventListener("input", function(e){

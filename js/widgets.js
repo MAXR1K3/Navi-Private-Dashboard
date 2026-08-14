@@ -184,7 +184,7 @@ function worldClockBody(now){
   return '<div class="world-clock">'+
     '<div class="wc-head"><b>'+escapeHtml(t("worldClock"))+'</b><div class="wc-mode"><button type="button" data-clock-mode="stack" class="'+(mode==="stack"?"on":"")+'">'+escapeHtml(t("clockStack"))+'</button><button type="button" data-clock-mode="compact" class="'+(mode==="compact"?"on":"")+'">'+escapeHtml(t("clockCompact"))+'</button></div></div>'+
     '<div class="wc-list '+mode+'" id="worldClockList">'+rows+'</div>'+
-    '<form class="wc-add" id="worldClockForm"><input name="tz" type="text" list="tzOptions" placeholder="'+escapeHtml(t("worldClockPh"))+'" autocomplete="off" /><datalist id="tzOptions">'+worldClockOptions().map(function(o){ return '<option value="'+escapeHtml(o.value)+'">'+escapeHtml(o.label)+'</option>'; }).join("")+'</datalist><button type="submit">'+escapeHtml(t("addClock"))+'</button></form>'+
+    '<form class="wc-add" id="worldClockForm"><input name="tz" type="text" list="tzOptions" placeholder="'+escapeHtml(t("worldClockPh"))+'" aria-label="'+escapeHtml(t("worldClockPh"))+'" autocomplete="off" /><datalist id="tzOptions">'+worldClockOptions().map(function(o){ return '<option value="'+escapeHtml(o.value)+'">'+escapeHtml(o.label)+'</option>'; }).join("")+'</datalist><button type="submit">'+escapeHtml(t("addClock"))+'</button></form>'+
   '</div>';
 }
 function refreshWorldClockDom(){
@@ -238,7 +238,7 @@ function currentEngine(){ var k=state.settings.searchEngine||"google"; return EN
 function searchBody(){
   var cur=currentEngine(), chips="";
   engineDisplayOrder().forEach(function(k){ var e=ENGINES[k]; chips+='<button type="button" class="engine-pill'+(k===cur?" on":"")+'" data-engine="'+k+'"><span class="ed" style="background:'+e.c+'"></span>'+escapeHtml(e.label)+'</button>'; });
-  return '<div class="engine-strip">'+chips+'</div><form class="gform" id="gForm"><input name="q" type="text" placeholder="'+escapeHtml(t("searchWebPh"))+'" autocomplete="off" /><button type="submit" title="'+escapeHtml(ENGINES[cur].label)+'">'+ICONS.gsearch+'</button></form><div class="g-hint">'+escapeHtml(t("searchHint",{engine:ENGINES[cur].label}))+'</div>';
+  return '<div class="engine-strip">'+chips+'</div><form class="gform" id="gForm"><input name="q" type="text" aria-label='+JSON.stringify(t("searchWebPh"))+' placeholder="'+escapeHtml(t("searchWebPh"))+'" autocomplete="off" /><button type="submit" title="'+escapeHtml(ENGINES[cur].label)+'">'+ICONS.gsearch+'</button></form><div class="g-hint">'+escapeHtml(t("searchHint",{engine:ENGINES[cur].label}))+'</div>';
 }
 function runWebSearch(q){ q=String(q||"").trim(); if(!q) return; var k=currentEngine(), e=ENGINES[k]||ENGINES.google; bumpEngineUsage(k); save(); window.open(e.url+encodeURIComponent(q),"_blank","noopener"); }
 
@@ -275,7 +275,7 @@ function weatherSearchPanel(){
   } else if(weatherSearchQuery){
     results='<div class="wx-msg">'+escapeHtml(t("cityNotFound"))+'</div>';
   }
-  return '<div class="wx-panel"><div class="wx-panel-head"><b>'+escapeHtml(t("areaSearch"))+'</b><button class="link-btn" data-wact="closePanel">'+escapeHtml(t("close"))+'</button></div><form class="wx-set" id="wxSearchForm"><input type="text" id="wxSearchCity" value="'+escapeHtml(weatherSearchQuery)+'" placeholder="'+escapeHtml(t("enterCity"))+'" /><button class="btn primary" type="submit" style="height:36px;padding:0 12px;">'+escapeHtml(t("searchArea"))+'</button></form>'+results+'<button class="link-btn" data-wact="geo" style="margin-top:8px;">'+escapeHtml(t("useMyLocation"))+'</button></div>';
+  return '<div class="wx-panel"><div class="wx-panel-head"><b>'+escapeHtml(t("areaSearch"))+'</b><button class="link-btn" data-wact="closePanel">'+escapeHtml(t("close"))+'</button></div><form class="wx-set" id="wxSearchForm"><input type="text" id="wxSearchCity" value="'+escapeHtml(weatherSearchQuery)+'" placeholder="'+escapeHtml(t("enterCity"))+'" aria-label="'+escapeHtml(t("enterCity"))+'" /><button class="btn primary" type="submit" style="height:36px;padding:0 12px;">'+escapeHtml(t("searchArea"))+'</button></form>'+results+'<button class="link-btn" data-wact="geo" style="margin-top:8px;">'+escapeHtml(t("useMyLocation"))+'</button></div>';
 }
 function weatherBody(){
   var s=state.settings;
@@ -489,7 +489,7 @@ function calendarDetail(date, holidayName){
   return '<div class="cal-detail" data-cal-selected="'+escapeHtml(key)+'">'+
     '<div class="cal-picked"><div><b>'+escapeHtml(dateLabel)+'</b><small>'+escapeHtml(key)+'</small></div></div>'+
     '<div class="cal-chips">'+chips+'</div>'+
-    '<form class="cal-add" id="calEventForm"><input name="event" type="text" maxlength="80" placeholder="'+escapeHtml(t("calReminderPh"))+'" autocomplete="off" /><button type="submit">'+escapeHtml(t("calAddReminder"))+'</button></form>'+
+    '<form class="cal-add" id="calEventForm"><input name="event" type="text" maxlength="80" placeholder="'+escapeHtml(t("calReminderPh"))+'" aria-label="'+escapeHtml(t("calReminderPh"))+'" autocomplete="off" /><button type="submit">'+escapeHtml(t("calAddReminder"))+'</button></form>'+
     '<label class="cal-done-badges"><input type="checkbox" id="calShowDoneBadges"'+(state.settings.calendarShowDoneBadges?" checked":"")+'><span>'+escapeHtml(t("calShowDoneBadges"))+'</span></label>'+
     '<div class="cal-events">'+rows+'</div>'+up+
   '</div>';
@@ -504,7 +504,7 @@ function calendarBody(){
   var yearOpts="", monthOpts="";
   for(var yy=today.getFullYear()-80; yy<=today.getFullYear()+80; yy++){ yearOpts+='<option value="'+yy+'"'+(yy===y?" selected":"")+'>'+yy+'</option>'; }
   for(var mm=0; mm<12; mm++){ var md=new Date(y,mm,1); monthOpts+='<option value="'+mm+'"'+(mm===m?" selected":"")+'>'+escapeHtml(md.toLocaleDateString(LOCALE[state.settings.lang],{month:"short"}))+'</option>'; }
-  var h='<div class="cal-head"><button class="cal-title" data-cal="today" title="'+escapeHtml(t("today"))+'"><span class="m">'+escapeHtml(monthName)+'</span></button><div class="cal-nav"><button data-cal="prev" title="‹">'+ICONS.chevL+'</button><button data-cal="today" class="cal-now'+(atToday?" cur":"")+'" title="'+escapeHtml(t("today"))+'"><span class="dot"></span></button><button data-cal="next" title="›">'+ICONS.chevR+'</button></div></div><div class="cal-jump"><select id="calJumpMonth" title="'+escapeHtml(t("calJumpMonth"))+'">'+monthOpts+'</select><select id="calJumpYear" title="'+escapeHtml(t("calJumpYear"))+'">'+yearOpts+'</select></div><div class="cal-grid">';
+  var h='<div class="cal-head"><button class="cal-title" data-cal="today" title="'+escapeHtml(t("today"))+'"><span class="m">'+escapeHtml(monthName)+'</span></button><div class="cal-nav"><button data-cal="prev" title="‹">'+ICONS.chevL+'</button><button data-cal="today" class="cal-now'+(atToday?" cur":"")+'" title="'+escapeHtml(t("today"))+'"><span class="dot"></span></button><button data-cal="next" title="›">'+ICONS.chevR+'</button></div></div><div class="cal-jump"><select id="calJumpMonth" title="'+escapeHtml(t("calJumpMonth"))+'" aria-label="'+escapeHtml(t("calJumpMonth"))+'">'+monthOpts+'</select><select id="calJumpYear" title="'+escapeHtml(t("calJumpYear"))+'" aria-label="'+escapeHtml(t("calJumpYear"))+'">'+yearOpts+'</select></div><div class="cal-grid">';
   dows.forEach(function(d,i){ h+='<div class="dow'+(i===0||i===6?" we":"")+'">'+escapeHtml(d)+'</div>'; });
   for(var i=0;i<startDow;i++){ h+='<div class="day blank"></div>'; }
   var holidays=state.settings.showHolidays===false?{}:holidayMap(y);
@@ -551,7 +551,7 @@ function listBody(kind){
 function notesBody(){
   var v=state.settings.notes||"";
   return '<div class="notes-wrap">'+
-    '<textarea id="notesArea" class="notes-area" spellcheck="false" placeholder="'+escapeHtml(t("notesPh"))+'">'+escapeHtml(v)+'</textarea>'+
+    '<textarea id="notesArea" class="notes-area" spellcheck="false" placeholder="'+escapeHtml(t("notesPh"))+'" aria-label="'+escapeHtml(t("notesTitle"))+'">'+escapeHtml(v)+'</textarea>'+
     '<div class="notes-foot"><span id="notesCount">'+(v?String(v.length):"")+'</span></div>'+
   '</div>';
 }
@@ -619,7 +619,7 @@ widgetsEl.addEventListener("click", function(e){
   var listClear=e.target.closest("[data-list-clear]"); if(listClear&&!listClear.disabled){ clearWidgetList(listClear.getAttribute("data-list-clear")); return; }
   var clockMode=e.target.closest("[data-clock-mode]"); if(clockMode){ state.settings.worldClockMode=clockMode.getAttribute("data-clock-mode")==="compact"?"compact":"stack"; save(); refreshWorldClockDom(); return; }
   var clockRemove=e.target.closest("[data-clock-remove]"); if(clockRemove){ removeWorldClock(clockRemove.getAttribute("data-clock-remove")); return; }
-  var open=e.target.closest("[data-open]"); if(open){ openBookmark(open.getAttribute("data-open")); return; }
+  var open=e.target.closest("[data-open]"); if(open){ openBookmark(open.getAttribute("data-open"),(e.metaKey||e.ctrlKey)?{background:true}:null); return; }
   var calDay=e.target.closest("[data-cal-day]"); if(calDay){ ui.calSelected=calDay.getAttribute("data-cal-day"); refreshCalDom(); return; }
   var calOpen=e.target.closest("[data-cal-open]"); if(calOpen){ var od=calDateFromKey(calOpen.getAttribute("data-cal-open")); ui.calYear=od.getFullYear(); ui.calMonth=od.getMonth(); ui.calSelected=calDateKey(od); refreshCalDom(); return; }
   var calDone=e.target.closest("[data-cal-done]"); if(calDone){ toggleCalendarEvent(calDone.getAttribute("data-cal-done")); return; }
@@ -662,6 +662,13 @@ widgetsEl.addEventListener("change", function(e){
 });
 widgetsEl.addEventListener("input", function(e){ if(e.target&&e.target.id==="notesArea") onNotesInput(e.target); });
 widgetsEl.addEventListener("focusout", function(e){ if(e.target&&e.target.id==="notesArea") flushNotes(e.target); }, true);
+// 中键点击常用/最近里的条目：后台新标签页打开
+widgetsEl.addEventListener("auxclick", function(e){
+  if(e.button!==1) return;
+  var open=e.target.closest("[data-open]"); if(!open) return;
+  e.preventDefault(); openBookmark(open.getAttribute("data-open"),{background:true});
+});
+widgetsEl.addEventListener("mousedown", function(e){ if(e.button===1 && e.target.closest("[data-open]")) e.preventDefault(); });
 function refreshSearchWidget(){ var w=widgetsEl.querySelector('.widget[data-w="search"]'); if(w){ var head=w.querySelector('.w-head'); w.innerHTML=(head?head.outerHTML:"")+searchBody(); } }
 function refreshListWidget(kind){ var w=widgetsEl.querySelector('.widget[data-w="'+kind+'"]'); if(w){ var head=w.querySelector('.w-head'); w.innerHTML=(head?head.outerHTML:"")+listBody(kind); layoutWidgets(); } }
 widgetsEl.addEventListener("error", function(e){ var tg=e.target; if(tg&&tg.classList&&tg.classList.contains("fav-img")) tg.classList.add("hide"); }, true);
@@ -773,4 +780,14 @@ function commitWidgetOrder(){
   state.settings.widgetOrder=order; save();
 }
 
-function openBookmark(id){ var b=byId(id); if(!b) return; var url=normalizeUrl(b.url); if(!isWebUrl(url)){ toast(t("invalidUrl"),"err"); return; } b.clicks=(b.clicks||0)+1; b.lastOpened=Date.now(); save(); window.open(url,"_blank","noopener"); }
+function openBookmark(id, opts){ var b=byId(id); if(!b) return; var url=normalizeUrl(b.url); if(!isWebUrl(url)){ toast(t("invalidUrl"),"err"); return; } b.clicks=(b.clicks||0)+1; b.lastOpened=Date.now(); save(); if(opts&&opts.background) openInBackgroundTab(url); else window.open(url,"_blank","noopener"); }
+// 在“后台新标签页”打开：用临时 <a>+修饰键触发浏览器的后台打开行为，不夺取当前页焦点（中键/⌘·Ctrl 点击用）
+function openInBackgroundTab(url){
+  try{
+    var a=document.createElement("a"); a.href=url; a.target="_blank"; a.rel="noopener noreferrer"; a.style.display="none";
+    document.body.appendChild(a);
+    var mac=/Mac|iPhone|iPad|iPod/.test((navigator.platform||"")+" "+(navigator.userAgent||""));
+    a.dispatchEvent(new MouseEvent("click",{bubbles:false,cancelable:true,view:window,button:0,ctrlKey:!mac,metaKey:mac}));
+    if(a.parentNode) a.parentNode.removeChild(a);
+  }catch(e){ window.open(url,"_blank","noopener"); }
+}
