@@ -29,6 +29,38 @@ var SUGGEST_RULES=[
   {cat:"travel",  kws:["travel","trip","flight","hotel","airbnb","booking.com","map","旅行","机票","酒店","地图","攻略"]}
 ];
 
+
+/* ===== 概念搜索 =====
+   复用上面的 SUGGEST_RULES 词表做「概念扩展」：查询词命中某个概念组时，
+   该组其它关键词匹配到的书签也算结果（权重低于直接匹配）。
+   好处是跨语言 —— 搜「视频」能找到 YouTube，搜 "code" 能找到写着「编程」的书签。
+   刻意不用向量嵌入：那需要把全部书签发给第三方 API，与「私人面板」的定位冲突。 */
+function conceptNorm(s){ return String(s||"").toLowerCase(); }
+/* 查询词命中了哪些概念组 */
+function conceptMatchGroups(q){
+  q=conceptNorm(q).trim(); if(q.length<2) return [];
+  var hits=[];
+  SUGGEST_RULES.forEach(function(rule){
+    var hit=rule.kws.some(function(k){ k=conceptNorm(k); return k===q||k.indexOf(q)>-1||q.indexOf(k)>-1; });
+    if(!hit){
+      var names=SUGGEST_CATS[rule.cat]||[];
+      hit=names.some(function(n){ n=conceptNorm(n); return n===q||n.indexOf(q)>-1||q.indexOf(n)>-1; });
+    }
+    if(hit) hits.push(rule);
+  });
+  return hits;
+}
+/* 该书签是否落在这些概念组里 */
+function bookmarkInConcepts(b, groups){
+  if(!groups||!groups.length) return false;
+  var hay=conceptNorm(bookmarkHaystack(b));
+  for(var i=0;i<groups.length;i++){
+    var kws=groups[i].kws;
+    for(var j=0;j<kws.length;j++){ if(hay.indexOf(conceptNorm(kws[j]))>-1) return true; }
+  }
+  return false;
+}
+
 function localSuggest(b){
   var hay=((b.title||"")+" "+(b.url||"")+" "+(getDomain(b.url)||"")+" "+(b.description||"")).toLowerCase();
   var dom=(getDomain(b.url)||"").toLowerCase();

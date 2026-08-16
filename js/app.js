@@ -11,3 +11,4 @@ if(typeof purgeOpLog==="function"){
 oplogInit(); applyI18n(); initPerformanceGuards(); render(); initAutoTheme(); initChromeSync();
 if(typeof initSync==="function") initSync();
 if(typeof initCapture==="function") initCapture();
+if(typeof initContextual==="function") initContextual();

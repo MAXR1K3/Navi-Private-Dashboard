@@ -238,12 +238,18 @@ function fuzzyScore(q, hay){
   var cq=compactSearch(q), ch=compactSearch(hay); if(!cq) return 1; if(!ch) return 0;
   var exact=ch.indexOf(cq); if(exact>-1) return 1000-exact;
   var qt=looseText(q).split(/\s+/).filter(Boolean), ht=looseText(hay).split(/\s+/).filter(Boolean), tokenScore=0;
-  if(qt.length){ var all=true; qt.forEach(function(t){ var hit=false; for(var i=0;i<ht.length;i++){ if(ht[i].indexOf(t)>-1 || (t.length>2 && editDistance(t,ht[i].slice(0,Math.max(t.length,ht[i].length)),2)<=2)){ hit=true; break; } } if(hit) tokenScore+=120; else all=false; }); if(all) return 780+tokenScore; }
-  var qi=0,gaps=0,last=-1; for(var k=0;k<ch.length&&qi<cq.length;k++){ if(ch.charAt(k)===cq.charAt(qi)){ if(last>-1) gaps+=k-last-1; last=k; qi++; } }
-  if(qi===cq.length) return Math.max(120,520-gaps);
-  if(cq.length>=3){ for(var x=0;x<ht.length;x++){ if(editDistance(cq,ht[x],2)<=2) return 360; } }
+  if(qt.length){ var all=true; qt.forEach(function(t){ var hit=false; for(var i=0;i<ht.length;i++){ var maxd=t.length<=4?1:2;   /* 短词收紧：否则 "code" 会和每个 URL 里的 "com" 编辑距离 2 相等而全部命中 */
+        if(ht[i].indexOf(t)>-1 || (t.length>2 && editDistance(t,ht[i].slice(0,Math.max(t.length,ht[i].length)),maxd)<=maxd)){ hit=true; break; } } if(hit) tokenScore+=120; else all=false; }); if(all) return 780+tokenScore; }
+  // 子序列匹配：要求命中区间足够紧凑，否则像 "code" 这种常见字母组合会在
+  // 长 haystack（标题+URL+分类+描述拼接）里到处"碰巧"命中，把无关书签全捞出来。
+  // 上限给得宽松，保证 githb→github 这类拼写容错仍然有效。
+  var qi=0,gaps=0,last=-1,first=-1; for(var k=0;k<ch.length&&qi<cq.length;k++){ if(ch.charAt(k)===cq.charAt(qi)){ if(last>-1) gaps+=k-last-1; else first=k; last=k; qi++; } }
+  if(qi===cq.length && (last-first+1)<=cq.length*4+8) return Math.max(120,520-gaps);
+  // 兜底的整体编辑距离同样按词长收紧（否则 code↔com 这类 2 距离仍会全表命中）
+  if(cq.length>=3){ var md=cq.length<=4?1:2; for(var x=0;x<ht.length;x++){ if(editDistance(cq,ht[x],md)<=md) return 360; } }
   return 0;
 }
+var _conceptHits=0;
 function bookmarkHaystack(b){ return [b.title,b.url,prettyUrl(b.url),getDomain(b.url),b.category,b.description,(b.tags||[]).join(" ")].join(" "); }
 function bookmarkHasTag(b,tag){ if(!b.tags||!b.tags.length) return false; tag=String(tag).toLowerCase(); for(var i=0;i<b.tags.length;i++){ if(String(b.tags[i]).toLowerCase()===tag) return true; } return false; }
 function visibleBookmarks(){
@@ -254,16 +260,37 @@ function visibleBookmarks(){
     return true;
   });
   // 浏览态：置顶书签浮到顶部（稳定排序保留组内原有顺序）；搜索态保持相关度排序
-  if(!q) return base.slice().sort(function(a,b){ return (b.pinned?1:0)-(a.pinned?1:0); });
-  return base.map(function(b,idx){ return {b:b,idx:idx,score:fuzzyScore(q,bookmarkHaystack(b))}; }).filter(function(x){ return x.score>0; }).sort(function(a,b){ return (b.score-a.score)||(a.idx-b.idx); }).map(function(x){ return x.b; });
+  if(!q){
+    // 排序优先级：置顶 > 当前时段的分类 > 原有顺序（稳定排序保留组内次序）
+    var boost=(typeof inActiveScene==="function");
+    return base.slice().sort(function(a,b){
+      var p=(b.pinned?1:0)-(a.pinned?1:0); if(p) return p;
+      if(boost){ var sc=(inActiveScene(b)?1:0)-(inActiveScene(a)?1:0); if(sc) return sc; }
+      return 0;
+    });
+  }
+  var groups=(typeof conceptMatchGroups==="function")?conceptMatchGroups(q):[];
+  var scored=base.map(function(b,idx){
+    var sc=fuzzyScore(q,bookmarkHaystack(b));
+    // 概念命中给一个低于任何直接匹配的分值，保证直接匹配始终排在前面
+    if(!sc && groups.length && bookmarkInConcepts(b,groups)) sc=60;
+    return {b:b,idx:idx,score:sc};
+  }).filter(function(x){ return x.score>0; });
+  _conceptHits=scored.filter(function(x){ return x.score===60; }).length;
+  return scored.sort(function(a,b){ return (b.score-a.score)||(a.idx-b.idx); }).map(function(x){ return x.b; });
 }
 function setTagFilter(tag){ ui.tagFilter=(ui.tagFilter===tag)?"":tag; renderContent(); }
 function clearTagFilter(){ if(ui.tagFilter){ ui.tagFilter=""; renderContent(); } }
 $("#resultTitle").addEventListener("click", function(e){ if(e.target.closest("[data-clear-tag]")) clearTagFilter(); });
 function renderContent(){
+  if(typeof renderSceneChip==="function") renderSceneChip();
   var list=visibleBookmarks(), total=state.bookmarks.length, tt=$("#resultTitle");
   if(total===0){ tt.textContent=""; }
-  else if(ui.query){ tt.innerHTML=nResults(list.length, escapeHtml(ui.query)); }
+  else if(ui.query){
+    // 概念命中要说明来由，否则"我没搜这个词它为什么出现"会很困惑
+    tt.innerHTML=nResults(list.length, escapeHtml(ui.query))+
+      (_conceptHits?' <span class="concept-note" title="'+escapeHtml(t("conceptTip"))+'">'+escapeHtml(t("conceptNote",{n:_conceptHits}))+'</span>':'');
+  }
   else if(ui.activeCat==="All"){ tt.innerHTML="<b>"+list.length+"</b> "+nBookmarks(list.length).replace(/^\d+\s?/,""); }
   else { tt.innerHTML=nInCat(list.length, escapeHtml(catLabel(ui.activeCat))); }
   if(total!==0 && ui.tagFilter){ tt.innerHTML+=' <button class="tag-filter-chip" data-clear-tag="1" title="'+escapeHtml(t("tagFilterClear"))+'">#'+escapeHtml(ui.tagFilter)+ICONS.x+'</button>'; }

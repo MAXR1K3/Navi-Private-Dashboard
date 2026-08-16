@@ -1517,3 +1517,18 @@ body.low-power .ctx-menu{ animation:none; }
   .clean-item{ grid-template-columns:auto minmax(0,1fr); }
   .clean-item .fav, .clean-item .btn.sm{ display:none; }
 }
+
+/* ===== 时段感知提示条 ===== */
+.scene-chip{ display:inline-flex; align-items:center; gap:7px; height:26px; padding:0 6px 0 10px;
+  border-radius:var(--radius-full); border:1px solid var(--border); background:var(--surface-2);
+  font-size:var(--fs-xs); font-weight:700; color:var(--text-soft); white-space:nowrap; }
+.scene-chip[hidden]{ display:none; }
+.scene-chip svg{ width:13px; height:13px; flex:0 0 auto; color:var(--accent); }
+.scene-chip.work{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+.scene-chip.leisure{ border-color:var(--ok); color:var(--ok-ink); background:color-mix(in srgb, var(--ok) 12%, transparent); }
+.scene-chip.leisure svg{ color:var(--ok-ink); }
+.scene-off{ border:0; background:transparent; color:inherit; cursor:pointer; opacity:.6; font-size:var(--fs-sm);
+  line-height:1; padding:4px 5px; border-radius:var(--radius-full); }
+.scene-off:hover{ opacity:1; background:rgba(0,0,0,.08); }
+.concept-note{ display:inline-block; margin-left:6px; padding:1px 8px; border-radius:var(--radius-full);
+  background:var(--surface-3); color:var(--text-soft); font-size:var(--fs-xs); font-weight:700; cursor:help; }

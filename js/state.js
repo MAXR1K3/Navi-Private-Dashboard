@@ -26,6 +26,7 @@ function defaults(){
       glass:false, glassOpacity:45, refraction:false, background:{ type:"gradient", live:"aurora", image:null, wallpaperCat:"nature", wallpaperSource:"unsplash", wallpaperRotate:30 },
       autoThemeCoords:null,
       profiles:[{ id:"local", name:"Local", type:"local" }], activeProfile:"local",
+      contextual:{ on:false, workStart:9, workEnd:18, eveStart:18, eveEnd:23 }, categoryScenes:{},
       powerProfileVersion:POWER_PROFILE_VERSION
     }
   };

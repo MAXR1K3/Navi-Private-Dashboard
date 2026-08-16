@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/app.css?v=45" />
+  <link rel="stylesheet" href="css/app.css?v=46" />
 </head>
 <body>
   <div id="bgLayer"></div>
@@ -78,6 +78,7 @@
       <div class="bar">
         <div class="left">
           <div class="title" id="resultTitle"></div>
+          <span class="scene-chip" id="sceneChip" hidden></span>
           <span class="sync-chip" id="syncChip" hidden></span>
         </div>
         <div class="hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14M5 15h14M9 5v14M15 5v14"/></svg> <span data-i18n="dragReorder">Drag cards to reorder</span></div>
@@ -343,7 +344,14 @@
             <div class="seg sm" id="catLayoutSeg"><button data-layout="tabs" data-i18n="layoutTabs">Tabs</button><button data-layout="drawer" data-i18n="layoutDrawer">Drawer</button></div>
           </div>
         </div>
-        <div class="set-section">
+        <div class="set-row"><div class="info"><div class="t" data-i18n="sceneTitle">Time-aware ordering</div><div class="d" data-i18n="sceneDesc">During work hours or evenings, bring the matching categories to the front. Right-click a category to assign it.</div></div><label class="switch"><input type="checkbox" id="setContextual" data-i18n-aria="sceneTitle"><span class="track"></span></label></div>
+          <div class="set-row sub" data-subof-scene="1"><div class="info"><div class="t" data-i18n="sceneHours">Work hours</div></div>
+            <div class="row-8 wrap end">
+              <label class="mon-lim"><span data-i18n="sceneFrom">From</span><input type="number" id="setSceneStart" min="0" max="23" data-i18n-aria="sceneFrom"><i>:00</i></label>
+              <label class="mon-lim"><span data-i18n="sceneTo">To</span><input type="number" id="setSceneEnd" min="1" max="24" data-i18n-aria="sceneTo"><i>:00</i></label>
+            </div>
+          </div>
+          <div class="set-section">
           <h4 data-i18n="widgetsSec">Widgets</h4>
           <div class="set-row"><div class="info"><div class="t" data-i18n="clock">Clock &amp; date</div></div><label class="switch"><input type="checkbox" data-widget="clock" data-i18n-aria="clock"><span class="track"></span></label></div>
           <div class="set-row sub" data-subof="clock"><div class="info"><div class="t" data-i18n="showSeconds">Show seconds</div><div class="d" data-i18n="showSecondsDesc">Display seconds on the clock</div></div><label class="switch"><input type="checkbox" id="setSeconds" data-i18n-aria="showSeconds"><span class="track"></span></label></div>
@@ -554,6 +562,7 @@
 <script src="js/auto-theme.js"></script>
 <script src="js/palette.js"></script>
 <script src="js/contextmenu.js"></script>
+<script src="js/contextual.js"></script>
 <script src="js/cleanup.js"></script>
 <script src="js/capture.js"></script>
 <script src="js/app.js"></script>

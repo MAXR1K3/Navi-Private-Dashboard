@@ -10,6 +10,7 @@ function openSettings(tab){
   syncMotionUI();
   $("#setSeconds").checked=!!s.clockSeconds;
   if($("#setClock24")) $("#setClock24").checked=!!s.clock24h;
+  if(typeof syncSceneUI==="function") syncSceneUI();
   $("#setHolidays").checked=s.showHolidays!==false;
   $("#setLogoPreview").innerHTML=s.logo?'<img src="'+escapeHtml(s.logo)+'" alt=""/>':ICONS.bookmark;
   $all('[data-widget]').forEach(function(cb){ cb.checked=!!s.widgets[cb.getAttribute("data-widget")]; });
@@ -52,6 +53,25 @@ $("#setName").addEventListener("input", function(e){ state.settings.appName=e.ta
 $("#setTag").addEventListener("input", function(e){ state.settings.tagline=e.target.value; renderBrand(); save(); });
 $("#motionSeg").addEventListener("click", function(e){ var b=e.target.closest("[data-motion]"); if(!b) return; setMotionMode(b.getAttribute("data-motion")); });
 $("#setSeconds").addEventListener("change", function(e){ state.settings.clockSeconds=e.target.checked; save(); startClockTimer(); });
+function syncSceneUI(){
+  if(typeof ctxCfg!=="function") return;
+  var c=ctxCfg();
+  var on=$("#setContextual"); if(on) on.checked=!!c.on;
+  if($("#setSceneStart")) $("#setSceneStart").value=c.workStart;
+  if($("#setSceneEnd")) $("#setSceneEnd").value=c.workEnd;
+  $all("[data-subof-scene]").forEach(function(r){ if(c.on) r.removeAttribute("hidden"); else r.setAttribute("hidden",""); });
+}
+if($("#setContextual")) $("#setContextual").addEventListener("change", function(e){
+  ctxCfg().on=e.target.checked; save(); syncSceneUI(); renderContent();
+  if(typeof scheduleSceneCheck==="function") scheduleSceneCheck();
+});
+[["setSceneStart","workStart"],["setSceneEnd","workEnd"]].forEach(function(p){
+  var el=$("#"+p[0]); if(!el) return;
+  el.addEventListener("change", function(e){
+    var v=parseInt(e.target.value,10);
+    if(isFinite(v)&&v>=0&&v<=24){ ctxCfg()[p[1]]=v; if(p[1]==="workEnd") ctxCfg().eveStart=v; save(); renderContent(); }
+  });
+});
 $("#setClock24").addEventListener("change", function(e){ state.settings.clock24h=e.target.checked; save(); if(typeof tickClock==="function") tickClock(); });
 $("#setHideHeader").addEventListener("change", function(e){ state.settings.hideHeaderOnScroll=e.target.checked; state.settings.hideHeaderOnScrollUserSet=true; save(); if(typeof syncHeaderHidePreference==="function") syncHeaderHidePreference(); });
 $("#setHolidays").addEventListener("change", function(e){ state.settings.showHolidays=e.target.checked; save(); refreshCalDom(); });

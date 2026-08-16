@@ -74,12 +74,21 @@ function ctxBuildItems(){
       items.push({ icon:ICONS.link,   label:t("ctxCopyLink"), run:function(){ copyToClipboard(b.url); toast(t("ctxLinkCopied"),"ok"); } });
       items.push({ icon:ICONS.trash,  label:t("delete"), danger:true, run:function(){ deleteBookmark(c.id); } });
     }
+  } else if(c.kind==="cat" && ctxState.view==="scene"){
+    var scat=c.cat, cur=categoryScene(scat);
+    ctxState.viewTitle=t("sceneAssign");
+    items.push({ icon:ICONS.chevL, label:t("back"), back:true, view:"main" });
+    items.push({ icon:ICONS.clock,  label:t("sceneWork"),    on:cur==="work",    run:function(){ setCategoryScene(scat,"work"); } });
+    items.push({ icon:ICONS.star,   label:t("sceneLeisure"), on:cur==="leisure", run:function(){ setCategoryScene(scat,"leisure"); } });
+    items.push({ icon:ICONS.x,      label:t("sceneNone"),    on:!cur,            run:function(){ setCategoryScene(scat,""); } });
   } else if(c.kind==="cat"){
     var cat=c.cat;
     var catPinned=!!(state.settings.pinnedCategories&&state.settings.pinnedCategories[cat]);
     items.push({ icon:ICONS.layers, label:t("ctxOpenCat"), run:function(){ setActiveCat(cat); } });
     items.push({ icon:ICONS.edit,   label:t("categorySettings"), run:function(){ renameCategory(cat); } });
     items.push({ icon:(catPinned?ICONS.pinOff:ICONS.pin), label:(catPinned?t("unpinCategory"):t("pinCategory")), run:function(){ toggleCategoryPinned(cat); } });
+    if(typeof categoryScene==="function")
+      items.push({ icon:ICONS.clock, label:t("sceneAssign"), view:"scene" });
     items.push({ icon:ICONS.trash,  label:t("deleteCategory"), danger:true, run:function(){ deleteCategory(cat); } });
   }
   ctxState.items=items;
