@@ -163,6 +163,36 @@ const C = [mk("1","https://a.com","A 改过了"), mk("2","https://b.com","B")];
 eq("纯换顺序不算改动", syncFingerprint(A), syncFingerprint(B));
 ok("改了标题就要变", syncFingerprint(A) !== syncFingerprint(C));
 
+/* ---------- 存档导出包 ---------- */
+G("snapParseBundle");
+const goodBundle={schema:"navi-archives",version:1,count:2,archives:[
+  {url:"https://a.example/1",title:"甲",text:"x".repeat(80),at:1000},
+  {url:"https://b.example/2",title:"乙",text:"y".repeat(80),at:2000}]};
+eq("正常包能解析", (ctx.snapParseBundle(goodBundle)||[]).length, 2);
+ok("补齐缺省字段", (function(){ const r=ctx.snapParseBundle(goodBundle)[0];
+  return typeof r.excerpt==="string" && typeof r.truncated==="boolean" && r.chars===80; })());
+// 别把书签备份误当成存档包导进来
+ok("书签备份不是存档包", ctx.snapParseBundle({schema:"navi-bookmarks",bookmarks:[{url:"https://x.com"}]}) === null);
+ok("乱七八糟的对象返回 null", ctx.snapParseBundle({foo:1}) === null);
+ok("null 返回 null", ctx.snapParseBundle(null) === null);
+eq("裸数组也接受（手工拼的文件常这样）",
+   (ctx.snapParseBundle([{url:"https://c.example/3",text:"z".repeat(80)}])||[]).length, 1);
+eq("完全没正文的条目被丢掉",
+   (ctx.snapParseBundle({schema:"navi-archives",archives:[{url:"https://d.example",text:"  "}]})||[]).length, 0);
+// 回归：按字符数卡长度是拉丁中心的，四十来字的中文正文是完整文章
+eq("短中文正文不该被当成垃圾丢掉",
+   (ctx.snapParseBundle({schema:"navi-archives",archives:[
+     {url:"https://d.example",text:"红烧肉的做法。五花肉切块焯水。冰糖炒糖色是关键。红烧肉要炖到软糯。"}]})||[]).length, 1);
+eq("没有 url 的条目被丢掉",
+   (ctx.snapParseBundle({schema:"navi-archives",archives:[{title:"没地址",text:"x".repeat(80)}]})||[]).length, 0);
+
+G("snapImportDecision");
+// 同一页面两边都有时，留更新的那份，避免导入旧备份把新存档盖掉
+eq("本地没有 → 新增", ctx.snapImportDecision({at:100}, null), "add");
+eq("导入的更新 → 替换", ctx.snapImportDecision({at:200}, {at:100}), "replace");
+eq("导入的更旧 → 跳过", ctx.snapImportDecision({at:100}, {at:200}), "skip");
+eq("时间相同 → 跳过（不做无谓写入）", ctx.snapImportDecision({at:100}, {at:100}), "skip");
+
 /* ---------- 远端内容识别 ---------- */
 G("looksLikeBookmarkExport");
 // NAS 反代在会话过期时常对任何请求回一个 200 登录页；登录页里也有 <a href>，

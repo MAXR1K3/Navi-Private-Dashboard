@@ -53,6 +53,32 @@ function updateSnapUsage(){
   var val=$("#snapUsageVal"); if(!val||typeof snapStats!=="function") return;
   snapStats().then(function(st){ val.textContent=t("snapStorageVal",{n:st.count,kb:st.kb}); });
 }
+if($("#snapExportBtn")) $("#snapExportBtn").addEventListener("click", function(){
+  if(typeof snapExportBundle!=="function") return;
+  snapExportBundle().then(function(bundle){
+    if(!bundle.count){ toast(t("snapNothingToExport"),""); return; }
+    var stamp=new Date().toISOString().slice(0,10);
+    downloadBlob(JSON.stringify(bundle), "application/json",
+      (state.settings.appName||"navi").toLowerCase().replace(/[^a-z0-9]+/g,"-")+"-archives-"+stamp+".json");
+    toast(t("snapExported",{n:bundle.count}),"ok");
+  });
+});
+if($("#snapImportBtn")) $("#snapImportBtn").addEventListener("click", function(){ $("#snapInput").click(); });
+if($("#snapInput")) $("#snapInput").addEventListener("change", function(e){
+  var f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+  var r=new FileReader();
+  r.onload=function(){
+    var obj=null; try{ obj=JSON.parse(String(r.result||"")); }catch(err){}
+    if(!obj){ toast(t("snapImportBad"),"err"); return; }
+    snapImportBundle(obj).then(function(res){
+      if(!res){ toast(t("snapImportBad"),"err"); return; }
+      updateSnapUsage(); renderContent();
+      toast(t("snapImported",{added:res.added,replaced:res.replaced,skipped:res.skipped}),"ok");
+    });
+  };
+  r.onerror=function(){ toast(t("couldntRead"),"err"); };
+  r.readAsText(f);
+});
 if($("#snapClearBtn")) $("#snapClearBtn").addEventListener("click", function(){
   openConfirm(t("snapClear"), t("snapClearMsg"), t("delete"), function(){
     snapClearAll().then(function(){

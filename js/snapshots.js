@@ -97,7 +97,9 @@ function snapRelated(url, limit){
     function vec(v){
       var o={}, norm=0;
       (v.terms||[]).forEach(function(t){
-        var w=(1+Math.log(t.n))*Math.log((N+1)/((df[t.w]||0)+1));
+        // 语料很小时 log((N+1)/(df+1)) 会正好等于 0（比如只有两篇、且词在两篇里都出现），
+        // 于是所有共有词权重归零、永远算不出"相关"。给个下限保住区分度。
+        var w=(1+Math.log(t.n))*Math.max(0.25, Math.log((N+1)/((df[t.w]||0)+1)));
         if(w>0){ o[t.w]=w; norm+=w*w; }
       });
       return { o:o, norm:Math.sqrt(norm)||1 };
@@ -377,4 +379,79 @@ function snapMarkInto(el, text, q){
     i=hit+needle.length;
   }
   return first;
+}
+
+/* ----- 存档的导出 / 导入 -----
+   存档只活在本机 IndexedDB 里，bookmarks.json 和 WebDAV 同步都不带它。
+   所以清一次浏览器数据、换台机器，几百篇正文就没了——这是它唯一的备份出口，
+   也是把存档搬到另一台设备（比如手机）的唯一途径。
+   刻意不塞进 bookmarks.json：那个文件才几 KB，而同步是整份 GET/PUT，
+   把几 MB 正文塞进去等于每次同步都来回搬一遍。 */
+var SNAP_BUNDLE_SCHEMA="navi-archives";
+
+function snapExportBundle(){
+  return snapTx("readonly").then(function(st){
+    return new Promise(function(res){
+      var out=[], c=st.openCursor();
+      c.onsuccess=function(e){ var cur=e.target.result; if(!cur){ res(out); return; }
+        var v=cur.value;
+        out.push({ url:v.url, title:v.title, text:v.text, excerpt:v.excerpt, byline:v.byline,
+                   chars:v.chars, truncated:!!v.truncated, at:v.at });
+        cur.continue(); };
+      c.onerror=function(){ res(out); };
+    });
+  }).then(function(list){
+    return { schema:SNAP_BUNDLE_SCHEMA, version:1, exportedAt:new Date().toISOString(),
+             count:list.length, archives:list };
+  });
+}
+
+/* 校验 + 归一，返回可导入的条目数组；不认识的格式返回 null。
+   纯函数，便于在 tools/test.js 里直接断言。 */
+function snapParseBundle(obj){
+  if(!obj||typeof obj!=="object") return null;
+  var list=obj.archives;
+  // 也接受"直接是个数组"的形态，手工拼的文件常长这样
+  if(!Array.isArray(list)&&Array.isArray(obj)) list=obj;
+  if(!Array.isArray(list)) return null;
+  if(obj.schema&&obj.schema!==SNAP_BUNDLE_SCHEMA&&!Array.isArray(obj)) return null;
+  var out=[];
+  list.forEach(function(a){
+    if(!a||typeof a!=="object") return;
+    var url=String(a.url||"").trim(), text=String(a.text||"");
+    // 只做"有没有正文"的兜底检查，不在这里评判长短：包里的存档在抓取时
+    // 已经过了扩展那道 200 字门槛，而按字符数卡长度是拉丁中心的——
+    // 一段四十来字的中文正文是完整文章，却会被误判成垃圾（已经踩过一次）。
+    if(!url||text.trim().length<10) return;
+    out.push({ url:url, title:String(a.title||""), text:text, excerpt:String(a.excerpt||""),
+               byline:String(a.byline||""), chars:Number(a.chars)||text.length,
+               truncated:!!a.truncated, at:Number(a.at)||Date.now() });
+  });
+  return out;
+}
+
+/* 同一个页面两边都有存档时，留下更新的那份 */
+function snapImportDecision(incoming, existing){
+  if(!existing) return "add";
+  return (incoming.at||0) > (existing.at||0) ? "replace" : "skip";
+}
+
+function snapImportBundle(obj){
+  var list=snapParseBundle(obj);
+  if(!list) return Promise.resolve(null);
+  return snapAll().then(function(have){
+    var byKey={}; have.forEach(function(h){ byKey[h.key]=h; });
+    var added=0, replaced=0, skipped=0, chain=Promise.resolve();
+    list.forEach(function(a){
+      var d=snapImportDecision(a, byKey[snapKey(a.url)]);
+      if(d==="skip"){ skipped++; return; }
+      if(d==="add") added++; else replaced++;
+      chain=chain.then(function(){ return snapPut(a.url, a); });
+    });
+    return chain.then(function(){
+      return refreshSnapKeys().then(function(){
+        return { added:added, replaced:replaced, skipped:skipped, total:list.length };
+      });
+    });
+  });
 }

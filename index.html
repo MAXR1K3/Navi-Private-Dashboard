@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/app.css?v=58" />
+  <link rel="stylesheet" href="css/app.css?v=59" />
 </head>
 <body>
   <div id="bgLayer"></div>
@@ -252,7 +252,7 @@
         <div class="set-section">
           <h4 data-i18n="dataBackup">Data &amp; backup</h4>
           <div class="set-row"><div class="info"><div class="t" data-i18n="storageUsage">Local storage used</div><div class="d" id="storageUsageDesc"></div></div><div class="storage-meter"><div class="storage-bar"><i id="storageBarFill"></i></div><span id="storageUsageVal"></span></div></div>
-          <div class="set-row"><div class="info"><div class="t" data-i18n="snapStorage">Page archives</div><div class="d" data-i18n="snapHint">Right-click a page in the browser and choose “Save this page to Navi”.</div></div><div class="snap-usage"><span id="snapUsageVal"></span><button class="btn danger" id="snapClearBtn" data-i18n="snapClear">Delete all archives</button></div></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="snapStorage">Page archives</div><div class="d" data-i18n="snapHint">Right-click a page in the browser and choose “Save this page to Navi”.</div><div class="d hint-text mt-1" data-i18n="snapLocalOnly">Archives stay on this device — they are not included in bookmarks.json or WebDAV sync. Export them to keep a backup or move them to another device.</div></div><div class="snap-usage"><span id="snapUsageVal"></span><button class="btn" id="snapExportBtn" data-i18n="snapExport">Export</button><button class="btn" id="snapImportBtn" data-i18n="snapImport">Import</button><button class="btn danger" id="snapClearBtn" data-i18n="snapClear">Delete all archives</button></div></div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="exportJsonLabel">Export bookmarks.json</div><div class="d" data-i18n="exportJsonDesc">Download a full JSON backup (bookmarks, categories, settings)</div></div><button class="btn" id="exportJsonBtn" data-i18n="exportBtn">Export</button></div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="importJsonLabel">Import bookmarks.json</div><div class="d" data-i18n="importJsonDesc">Restore from a JSON backup file (replaces current data)</div></div><button class="btn" id="importJsonBtn" data-i18n="importBtnLabel">Import</button></div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="restorePrevLabel">Restore previous version</div><div class="d" data-i18n="restorePrevDesc">Revert to the snapshot saved before the last import/restore</div></div><button class="btn" id="restorePrevBtn" data-i18n="restoreBtn">Restore</button></div>
@@ -540,6 +540,7 @@
 
   <input type="file" id="fileInput" class="sr-file" accept=".html,.htm,text/html" data-i18n-aria="importFile" />
   <input type="file" id="jsonInput" class="sr-file" accept=".json,application/json" data-i18n-aria="importJsonLabel" />
+  <input type="file" id="snapInput" class="sr-file" accept=".json,application/json" data-i18n-aria="snapImport" />
   <input type="file" id="logoInput" class="sr-file" accept="image/*" data-i18n-aria="logo" />
   <input type="file" id="bgInput" class="sr-file" accept="image/*" data-i18n-aria="bgImage" />
   <div class="toasts" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
