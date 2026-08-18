@@ -40,7 +40,7 @@ function openAdd(opts){
   fillCatSelect((ui.activeCat!=="All")?ui.activeCat:(state.categories[0]||"Uncategorized"));
   openOverlay("bmOverlay"); setTimeout(function(){ $("#bmUrl").focus(); },50);
 }
-function openEdit(id){ var b=byId(id); if(!b) return; ui.addFavorite=false; ui.editingId=id; $("#bmTitle").textContent=t("editBookmark"); $("#bmSave").textContent=t("saveChanges"); $("#bmUrl").value=b.url; $("#bmName").value=b.title; $("#bmDesc").value=b.description||""; $("#bmTags").value=(b.tags||[]).join(", "); syncBookmarkOptionFields(b); fillCatSelect(b.category); openOverlay("bmOverlay"); setTimeout(function(){ $("#bmName").focus(); },50); }
+function openEdit(id){ var b=byId(id); if(!b) return; ui.addFavorite=false; ui.editingId=id; $("#bmTitle").textContent=t("editBookmark"); $("#bmSave").textContent=t("saveChanges"); $("#bmUrl").value=b.url; $("#bmName").value=b.title; $("#bmDesc").value=b.description||""; $("#bmTags").value=(b.tags||[]).join(", "); syncBookmarkOptionFields(b); fillCatSelect(b.category); if(typeof renderTagSuggest==="function") renderTagSuggest(b); openOverlay("bmOverlay"); setTimeout(function(){ $("#bmName").focus(); },50); }
 function saveBookmark(){
   var url=normalizeUrl($("#bmUrl").value); if(!url){ toast(t("pleaseUrl"),"err"); $("#bmUrl").focus(); return; }
   if(!isWebUrl(url)){ toast(t("invalidUrl"),"err"); $("#bmUrl").focus(); return; }
@@ -315,6 +315,36 @@ function summarizeDoc(url,doc,title,cat){
   if(sig.length>80) return clipSummary(sig,210);
   return smartSummary(url,ttl,cat||"",sig);
 }
+/* r.jina.ai 返回的是 markdown，不是 HTML。整段做正则清洗会把侧边栏、
+   语言列表这些导航块也当成正文（维基百科上就会摘出「Main menu / move to sidebar」），
+   所以按行筛：太短的、列表/标题行、链接密度过高的一律丢掉，只留像句子的行。 */
+function parseJina(txt){
+  if(!txt||typeof txt!=="string") return null;
+  var title=(txt.match(/^Title:\s*(.+)$/m)||[])[1]||"";
+  var body=txt.split(/^Markdown Content:\s*$/m)[1]||txt;
+  /* 「够长才算正文」这条阈值不能直接用字符数：一段中文正文通常五六十字就说完了，
+     按 80 字符卡会把中日韩页面的正文整段丢掉，只剩 null。按信息量折算一下。 */
+  function weight(s){
+    var cjk=(s.match(/[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]/g)||[]).length;
+    return s.length+cjk*1.5;
+  }
+  var keep=[];
+  body.split(/\r?\n/).forEach(function(l){
+    l=l.trim();
+    if(weight(l)<80) return;
+    if(/^([*\-+>|#]|\d+\.)\s/.test(l)) return;                 // 列表 / 引用 / 表格 / 标题
+    if(((l.match(/\]\(/g)||[]).length)*60>=l.length) return;    // 链接密集 = 导航块
+    for(var i=0;i<2;i++)                                        // 两遍：兼容嵌套的图片链接
+      l=l.replace(/!\[[^\]]*\]\([^)]*\)/g,"").replace(/\[([^\]]*)\]\([^)]*\)/g,"$1");
+    l=l.replace(/[`*_]+/g,"").replace(/\s+/g," ").trim();
+    if(weight(l)>=80) keep.push(l);
+  });
+  var text=keep.join(" ");
+  if(weight(text)<=60) return null;      // 同上：总量也得按折算算，别把中文正文卡掉
+  return "<title>"+jinaEsc(title)+"</title><meta name=\"description\" content=\""+jinaEsc(text.slice(0,300))+"\"><p>"+jinaEsc(text.slice(0,1500))+"</p>";
+}
+function jinaEsc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
 function describeUrlForSummary(url, titleGetter, catGetter, done){
   var u=normalizeUrl(url);
   // 隐私模式：不抓取目标网页、不走第三方代理、不调用 AI —— 只用本地规则生成摘要
@@ -322,11 +352,14 @@ function describeUrlForSummary(url, titleGetter, catGetter, done){
     var pt=(titleGetter?titleGetter():"")||"", pc=(catGetter?catGetter():"")||"";
     done(smartSummary(u,pt,pc,""), true, pt); return;
   }
-  var finished=false, pending=0, ctrls=[], backupHtml=null, backupTitle="";
+  var finished=false, ctrls=[], backupHtml=null, backupTitle="";
   var bmName=titleGetter||function(){return $("#bmName")?$("#bmName").value:"";};
   var bmCat=catGetter||function(){return $("#bmCat")?$("#bmCat").value:"";};
   function abortAll(){ ctrls.forEach(function(c){try{c.abort();}catch(e){}});}
+  var _finalized=false;
   function finalize(){
+    if(_finalized) return;                 // 超时和「所有档都跑完」可能撞在一起，只出一次结果
+    _finalized=true;
     if(backupHtml){
       try{
         var doc=new DOMParser().parseFromString(backupHtml,"text/html");
@@ -338,7 +371,7 @@ function describeUrlForSummary(url, titleGetter, catGetter, done){
   }
   var globalTo=setTimeout(function(){
     if(finished) return; finished=true; abortAll(); finalize();
-  }, 12000);
+  }, 14000);
   // tryHtml: parse HTML, check quality.
   //   high quality (has meta/JSON-LD desc > 35 chars) → call done immediately, return true
   //   medium quality (page signals > 80 chars, no meta desc) → store as backup, return false
@@ -354,7 +387,7 @@ function describeUrlForSummary(url, titleGetter, catGetter, done){
       meta=cleanSummaryText(meta||"");
       if(!backupTitle){ var bt=extractTitle(doc); if(bt) backupTitle=bt; }
       if(meta.length>35){
-        finished=true; clearTimeout(globalTo); abortAll();
+        finished=true; _finalized=true; clearTimeout(globalTo); abortAll();
         finishSmartDescription({url:u,title:extractTitle(doc)||bmName(),category:bmCat(),fallbackDesc:clipSummary(meta,210),pageText:pageSignals(doc),meta:meta}, false, done);
         return true;
       }
@@ -362,59 +395,81 @@ function describeUrlForSummary(url, titleGetter, catGetter, done){
     }catch(e){}
     return false;
   }
-  function tryDone(){
-    pending--;
-    if(!finished&&pending<=0){ finished=true; clearTimeout(globalTo); finalize(); }
-  }
   function makeCtrl(ms){
     if(!window.AbortController) return {signal:undefined,_t:null};
     var c=new AbortController(); ctrls.push(c);
     var t=setTimeout(function(){ try{c.abort();}catch(e){}}, ms);
     return {signal:c.signal, _t:t};
   }
-  // source 1: direct fetch (5 s) — works for CORS-permissive or same-origin pages
-  pending++;
-  (function(){
-    var ctrl=makeCtrl(5000);
-    fetch(u,{signal:ctrl.signal})
+  /* 取一段文本；失败一律解析成 null，让上层按"这一档没拿到"处理 */
+  function grab(target, ms, pick){
+    if(finished) return Promise.resolve(null);
+    var ctrl=makeCtrl(ms);
+    return fetch(target,{signal:ctrl.signal})
       .then(function(r){ if(!r.ok) throw r.status; return r.text(); })
-      .then(function(html){ if(ctrl._t)clearTimeout(ctrl._t); tryHtml(html)||tryDone(); })
-      .catch(function(){ if(ctrl._t)clearTimeout(ctrl._t); tryDone(); });
-  })();
-  // source 2: allorigins.win proxy (8 s)
-  pending++;
-  (function(){
-    var ctrl=makeCtrl(8000);
-    fetch("https://api.allorigins.win/get?url="+encodeURIComponent(u),{signal:ctrl.signal})
-      .then(function(r){ return r.json(); })
-      .then(function(j){ if(ctrl._t)clearTimeout(ctrl._t); (j&&j.contents)?tryHtml(j.contents)||tryDone():tryDone(); })
-      .catch(function(){ if(ctrl._t)clearTimeout(ctrl._t); tryDone(); });
-  })();
-  // source 3: corsproxy.io (8 s)
-  pending++;
-  (function(){
-    var ctrl=makeCtrl(8000);
-    fetch("https://corsproxy.io/?"+encodeURIComponent(u),{signal:ctrl.signal})
-      .then(function(r){ if(!r.ok) throw r.status; return r.text(); })
-      .then(function(html){ if(ctrl._t)clearTimeout(ctrl._t); tryHtml(html)||tryDone(); })
-      .catch(function(){ if(ctrl._t)clearTimeout(ctrl._t); tryDone(); });
-  })();
-  // source 4: llms.txt machine-readable description (4 s)
-  pending++;
-  (function(){
-    try{
-      var llmsUrl=new URL(u).origin+"/llms.txt";
-      var ctrl=makeCtrl(4000);
-      fetch(llmsUrl,{signal:ctrl.signal})
-        .then(function(r){ return r.ok?r.text():Promise.reject(); })
-        .then(function(txt){
-          if(ctrl._t)clearTimeout(ctrl._t);
-          var d=parseLlmsTxt(txt);
-          d?tryHtml("<meta name='description' content='"+d.replace(/'/g,"&#39;")+"'>")||tryDone():tryDone();
-        })
-        .catch(function(){ if(ctrl._t)clearTimeout(ctrl._t); tryDone(); });
-    }catch(e){ tryDone(); }
-  })();
+      .then(function(txt){ if(ctrl._t)clearTimeout(ctrl._t); return pick?pick(txt):txt; })
+      .catch(function(){ if(ctrl._t)clearTimeout(ctrl._t); return null; });
+  }
+  function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function asDoc(title,desc,body){
+    return "<title>"+esc(title)+"</title><meta name=\"description\" content=\""+esc(desc)+"\"><p>"+esc(body)+"</p>";
+  }
+  /* 跑完一档：任一路拿到高质量摘要就收工，返回 true */
+  function stage(list){
+    if(finished) return Promise.resolve(true);
+    return Promise.all(list.map(function(f){
+      return f().then(function(html){ return (html&&!finished)?tryHtml(html):false; }).catch(function(){ return false; });
+    })).then(function(rs){ return finished||rs.indexOf(true)>-1; });
+  }
+
+  /* 分档来源。之前是四路齐发，实测只有 corsproxy 还活着：直连被 CORS 挡（PWA 里），
+     allorigins 已死（两个端点都跑满 8 秒超时才失败），白白吃掉整体预算。
+     改成一档一档来，好处不只是快：
+       ① 本地存档命中就完全不用联网，也不用把地址交给任何第三方；
+       ② 扩展页里直连本来就能成（manifest 的 host_permissions 绕开了 CORS），
+          没必要每个网址都先白送给代理。代理只在直连真失败时才用。 */
+  var stages=[
+    // 第 0 档：这个页面已经存过档，正文就在本地
+    function(){
+      if(typeof snapGet!=="function") return Promise.resolve(false);
+      return snapGet(u).then(function(rec){
+        if(!rec||!rec.text) return false;
+        // 页面自己的 meta 描述优先（那是作者写的）；没有或太短时，从正文抽一段摘要，
+        // 而不是粗暴地截前 200 字——截出来常常是导航残留或半句话。
+        var desc=(rec.excerpt||"").trim();
+        if(desc.length<=35&&typeof summarizeText==="function") desc=summarizeText(rec.text,160)||rec.text.slice(0,200);
+        else if(desc.length<=35) desc=rec.text.slice(0,200);
+        return tryHtml(asDoc(rec.title||"", desc, rec.text.slice(0,1500)));
+      }).catch(function(){ return false; });
+    },
+    // 第 1 档：直连 + llms.txt（都不经第三方）
+    function(){
+      return stage([
+        function(){ return grab(u,5000); },
+        function(){
+          var origin; try{ origin=new URL(u).origin; }catch(e){ return Promise.resolve(null); }
+          return grab(origin+"/llms.txt",4000,function(txt){
+            var d=parseLlmsTxt(txt); return d?asDoc("",d,""):null;
+          });
+        }
+      ]);
+    },
+    // 第 2 档：第三方代理兜底（r.jina.ai 返回 markdown，不是 HTML）
+    function(){
+      return stage([
+        function(){ return grab("https://corsproxy.io/?url="+encodeURIComponent(u),8000); },
+        function(){ return grab("https://r.jina.ai/"+u,8000,parseJina); }
+      ]);
+    }
+  ];
+  (function next(i){
+    if(i>=stages.length&&!finished){ finished=true; clearTimeout(globalTo); finalize(); return; }
+    if(finished) return;
+    Promise.resolve(stages[i]()).then(function(ok){
+      if(ok||finished) return;
+      next(i+1);
+    }).catch(function(){ next(i+1); });
+  })(0);
 }
 function autoDescribe(url, done){
   describeUrlForSummary(url,

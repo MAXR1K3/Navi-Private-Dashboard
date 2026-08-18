@@ -22,6 +22,7 @@ function openSettings(tab){
   $("#setGlass").checked=s.glass!==false;
   if($("#setPrivacy")) $("#setPrivacy").checked=!!s.privacy;
   updateStorageUsage();
+  if(typeof updateSnapUsage==="function") updateSnapUsage();
   if($("#setHideHeader")) $("#setHideHeader").checked=!!s.hideHeaderOnScroll;
   if(typeof syncMonitorUI==="function") syncMonitorUI();
   if(typeof syncProfileEditor==="function") syncProfileEditor();
@@ -47,6 +48,19 @@ function updateStorageUsage(){
   if(fill){ fill.style.width=Math.max(2,info.pct)+"%"; fill.className=info.pct>=85?"full":info.pct>=60?"warn":""; }
   if(desc) desc.textContent=t("storageUsageDesc",{kb:info.kb,pct:info.pct});
 }
+/* 页面存档用量（IndexedDB，不占 localStorage 预算，所以单列一行） */
+function updateSnapUsage(){
+  var val=$("#snapUsageVal"); if(!val||typeof snapStats!=="function") return;
+  snapStats().then(function(st){ val.textContent=t("snapStorageVal",{n:st.count,kb:st.kb}); });
+}
+if($("#snapClearBtn")) $("#snapClearBtn").addEventListener("click", function(){
+  openConfirm(t("snapClear"), t("snapClearMsg"), t("delete"), function(){
+    snapClearAll().then(function(){
+      refreshSnapKeys().then(function(){ renderContent(); });
+      updateSnapUsage(); toast(t("snapCleared"),"ok");
+    });
+  });
+});
 $("#customizeWidgets").addEventListener("click", function(){ openSettings("dashboard"); });
 $("#brand").addEventListener("click", function(){ openSettings("general"); });
 $("#setName").addEventListener("input", function(e){ state.settings.appName=e.target.value; renderBrand(); save(); });

@@ -84,6 +84,7 @@ contentEl.addEventListener("click", function(e){
   if(e.target.closest("[data-empty-import]")){ openImport(); return; }
   if(e.target.closest("#gridMore")){ gridLoadMore(); return; }
   if(e.target.closest(".card-grip")){ e.stopPropagation(); return; }
+  var sn=e.target.closest("[data-snap-open]"); if(sn){ e.stopPropagation(); openSnapshot(sn.getAttribute("data-snap-open")); return; }
   var tag=e.target.closest("[data-tag]"); if(tag){ e.stopPropagation(); setTagFilter(tag.getAttribute("data-tag")); return; }
   var pin=e.target.closest("[data-pin]"); if(pin){ e.stopPropagation(); toggleBookmarkPinned(pin.getAttribute("data-pin")); return; }
   var edit=e.target.closest("[data-edit]"); if(edit){ e.stopPropagation(); openEdit(edit.getAttribute("data-edit")); return; }
@@ -97,7 +98,7 @@ contentEl.addEventListener("click", function(e){
 contentEl.addEventListener("auxclick", function(e){
   if(e.button!==1) return;
   var card=e.target.closest(".card"); if(!card||ui.selectMode) return;
-  if(e.target.closest(".card-pin,.tag-chip,.card-actions,.card-grip")) return;
+  if(e.target.closest(".card-pin,.tag-chip,.card-actions,.card-grip,.snap-badge")) return;
   e.preventDefault(); openBookmark(card.getAttribute("data-id"),{background:true});
 });
 // 阻止中键在卡片上触发浏览器自动滚动

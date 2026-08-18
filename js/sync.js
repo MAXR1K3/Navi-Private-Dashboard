@@ -93,6 +93,31 @@ function buildWebdavPayload(){
   }
   return payload;
 }
+/* 带超时的 fetch。没有超时的话，NAS 睡着了或者防火墙把包丢了（TCP 连上但不回应）
+   时，请求会一直挂着——状态栏永远停在"同步中"，上传按钮也一直是禁用的，
+   用户完全不知道发生了什么。实测挂 6 秒后确实还卡着。 */
+var SYNC_TIMEOUT=20000, SYNC_UPLOAD_TIMEOUT=45000;   // 上传体积可能不小，给宽一点
+function syncFetch(url, opts, ms){
+  opts=Object.assign({}, opts||{});
+  if(typeof AbortController==="undefined") return fetch(url, opts);
+  var ctrl=new AbortController(), timedOut=false;
+  var timer=setTimeout(function(){ timedOut=true; try{ ctrl.abort(); }catch(e){} }, ms||SYNC_TIMEOUT);
+  opts.signal=ctrl.signal;
+  return fetch(url, opts).then(function(r){ clearTimeout(timer); return r; },
+    function(err){
+      clearTimeout(timer);
+      throw timedOut ? new Error(t("syncTimeout",{s:Math.round((ms||SYNC_TIMEOUT)/1000)})) : err;
+    });
+}
+
+/* 这份 HTML 是不是浏览器导出的书签文件？
+   浏览器导出的文件一定带 NETSCAPE-Bookmark 声明，或者是 <DT><A HREF> 这种结构；
+   登录页、错误页、目录列表都不具备。纯函数，便于在 tools/test.js 里直接断言。 */
+function looksLikeBookmarkExport(txt){
+  txt=String(txt||"");
+  if(/NETSCAPE-Bookmark-file/i.test(txt)) return true;
+  return /<DT>\s*<A\s+[^>]*HREF/i.test(txt);
+}
 function parseRemote(txt){
   txt=String(txt||"").trim(); if(!txt) return null;
   if(txt.charAt(0)==="{"||txt.charAt(0)==="["){
@@ -110,7 +135,12 @@ function parseRemote(txt){
     }catch(e){}
     return null;
   }
-  // 退回：把 Netscape HTML 书签文件里的链接抽出来
+  // 退回：把 Netscape HTML 书签文件里的链接抽出来。
+  // 但必须先确认这确实是一份书签导出文件 —— NAS 的反向代理在会话过期时
+  // 常常对任何请求都回一个 200 的登录页，而登录页里也有 <a href>。
+  // 不加这道判断的话，一次过期就会把整个书签库替换成登录页上的几个链接，
+  // 而且状态还显示"同步成功"。
+  if(!looksLikeBookmarkExport(txt)) return null;
   try{ var doc=new DOMParser().parseFromString(txt,"text/html"), items=[];
     $all("a[href]",doc).forEach(function(a){ var href=a.getAttribute("href")||""; if(/^https?:/i.test(href)) items.push({ id:uid(), title:(a.textContent||"").trim()||href, url:href, category:"Uncategorized", description:"", tags:[] }); });
     if(items.length) return { bookmarks:items, categories:deriveCats(items) };
@@ -121,7 +151,7 @@ function syncProfile(id){
   var p=getProfile(id);
   if(!p||p.type!=="webdav"||!p.url){ setSyncStatus("local"); return; }
   setSyncStatus("syncing");
-  fetch(p.url, { headers:webdavHeaders(p), cache:"no-store", credentials:"omit" })
+  syncFetch(p.url, { headers:webdavHeaders(p), cache:"no-store", credentials:"omit" })
     .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
     .then(function(txt){
       var data=parseRemote(txt); if(!data) throw new Error(t("syncBadData"));
@@ -138,6 +168,10 @@ function syncProfile(id){
     .catch(function(err){
       var hasData=state.bookmarks.length>0 || !!loadProfileData(id);
       setSyncStatus(hasData?"cache":"failed", _syncStatus.at, String(err&&err.message||err));
+      // 读取失败同样值得解释一句：多半也是跨域没配好，而不是地址写错
+      diagnoseFetchFailure(p.url, err).then(function(better){
+        if(better) setSyncStatus(_syncStatus.state, _syncStatus.at, better);
+      }).catch(function(){});
       toast(t("syncFailed"),"err");
     });
 }
@@ -151,13 +185,13 @@ function uploadWebdavProfile(id, opts){
   setSyncStatus("syncing", _syncStatus.at);
   var payload=buildWebdavPayload();
   var body=JSON.stringify(payload,null,2);
-  return fetch(p.url, {
+  return syncFetch(p.url, {
     method:"PUT",
     headers:webdavHeaders(p, {"Content-Type":"application/json; charset=utf-8"}),
     body:body,
     cache:"no-store",
     credentials:"omit"
-  }).then(function(r){
+  }, SYNC_UPLOAD_TIMEOUT).then(function(r){
     if(!r.ok) throw new Error("HTTP "+r.status);
     cacheProfileData(id, {bookmarks:state.bookmarks, categories:state.categories});
     rememberRemoteFp(id, state.bookmarks);   // 远程现在就是我们刚写上去的内容
@@ -169,6 +203,7 @@ function uploadWebdavProfile(id, opts){
     return { count:state.bookmarks.length, bytes:body.length };
   }).catch(function(err){
     setSyncStatus("failed", _syncStatus.at, String(err&&err.message||err));
+    explainSyncFailure(p.url, err);
     if(!opts.silent) toast(t("webdavUploadFailed"),"err");
     throw err;
   });
@@ -194,12 +229,41 @@ function syncFingerprint(list){
 function rememberRemoteFp(id, list){
   var p=getProfile(id); if(!p) return;
   p.remoteFp=syncFingerprint(list);
+  // 必须落盘：这个指纹是冲突判断的基准。以前拉取路径上 saveSilently() 跑在
+  // 这一行之前，指纹只存在于内存里，一刷新就退化成"没有基准"——
+  // 而没有基准的推送会直接覆盖远程。
+  if(typeof saveSilently==="function") saveSilently();
 }
 function normUrlKey(u){ return (typeof normForDup==="function")?normForDup(u):normalizeUrl(u||"").replace(/\/+$/,"").toLowerCase(); }
 
+/* fetch 抛 TypeError 时浏览器不会告诉你到底是主机不通、还是被跨域策略挡了 ——
+   出于安全，这两种情况对页面是不可区分的，都只给一句 "Failed to fetch"。
+   但对着 NAS 调试时，这两者的处理办法完全不同，所以这里主动探一下：
+     · https 页面访问 http 地址 → 混合内容，浏览器直接拦，跟服务器无关；
+     · no-cors 探测能通 → 主机活着，问题在跨域配置（多半是反代没放行 OPTIONS 预检，
+       浏览器发 PUT 前的预检请求是不带认证的，被挡住 PUT 就永远发不出去）；
+     · 探测也不通 → 地址或网络本身的问题。 */
+function diagnoseFetchFailure(url, err){
+  var msg=String((err&&err.message)||err||"");
+  if(!/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return Promise.resolve("");
+  try{
+    if(location.protocol==="https:"&&/^http:\/\//i.test(url)) return Promise.resolve(t("syncMixedContent"));
+  }catch(e){}
+  // no-cors 不受响应头限制：只要主机有应答（哪怕 401/403）就会 resolve
+  return fetch(url,{mode:"no-cors",cache:"no-store"})
+    .then(function(){ return t("syncCorsBlocked"); })
+    .catch(function(){ return t("syncUnreachable"); });
+}
+/* 失败后把状态栏那句话换成更有用的解释（异步补，不影响调用方的控制流） */
+function explainSyncFailure(url, err){
+  diagnoseFetchFailure(url, err).then(function(better){
+    if(better&&_syncStatus.state==="failed") setSyncStatus("failed", _syncStatus.at, better);
+  }).catch(function(){});
+}
+
 /* 读取远程当前内容；404/不存在 → {missing:true} */
 function fetchRemoteData(p){
-  return fetch(p.url,{headers:webdavHeaders(p),cache:"no-store",credentials:"omit"}).then(function(r){
+  return syncFetch(p.url,{headers:webdavHeaders(p),cache:"no-store",credentials:"omit"}).then(function(r){
     if(r.status===404||r.status===410) return {missing:true};
     if(!r.ok) throw new Error("HTTP "+r.status);
     return r.text().then(function(txt){
@@ -226,19 +290,34 @@ function mergeRemoteIntoLocal(remote){
   return { bookmarks:out, categories:cats, added:added };
 }
 
+/* 推送前的决策：直接写，还是停下来交给用户。
+   单独抽成纯函数是因为这条判断错一次的代价是"另一台设备的数据被无声抹掉"，
+   而它埋在异步链路里很难测；抽出来后 tools/test.js 可以直接断言每种组合。
+     · 远程不存在        → 写（不可能覆盖到谁）
+     · 远程读不懂        → 交给用户（可能是登录页，也可能是别的东西）
+     · 没有基准指纹      → 交给用户。新设备刚填好地址时就是这种状态，
+                          此时无从判断本地是否更新，直接写等于抹掉对方
+     · 指纹和上次一致    → 写（这期间没人动过远程）
+     · 指纹变了          → 交给用户 */
+function syncPushDecision(r, remoteFp){
+  if(!r) return "conflict";
+  if(r.missing) return "upload";
+  if(r.unreadable) return "conflict";
+  if(!remoteFp) return "conflict";
+  return syncFingerprint((r.data||{}).bookmarks)===remoteFp ? "upload" : "conflict";
+}
+
 /* 上传前先比对远程指纹：一致（或远程还不存在）才直接写，否则交给用户决定 */
 function pushWithConflictCheck(id, opts){
   opts=opts||{};
   var p=getProfile(id);
   if(!p||p.type!=="webdav"||!p.url){ if(!opts.silent) toast(t("syncNoUrl"),"err"); return Promise.resolve(false); }
   return fetchRemoteData(p).then(function(r){
-    if(r.missing||!p.remoteFp) return uploadWebdavProfile(id,opts).then(function(){ return true; });
-    if(r.unreadable) return openSyncConflict(id,null,opts);
-    var fp=syncFingerprint(r.data.bookmarks);
-    if(fp===p.remoteFp) return uploadWebdavProfile(id,opts).then(function(){ return true; });
-    return openSyncConflict(id, r.data, opts);
+    if(syncPushDecision(r, p.remoteFp)==="upload") return uploadWebdavProfile(id,opts).then(function(){ return true; });
+    return openSyncConflict(id, r.unreadable?null:r.data, opts);
   }).catch(function(err){
     setSyncStatus("failed",_syncStatus.at,String(err&&err.message||err));
+    explainSyncFailure(p.url, err);
     if(!opts.silent) toast(t("webdavUploadFailed"),"err");
     return false;
   });
@@ -273,6 +352,10 @@ function resolveConflict(choice){
   }
   if(choice==="remote"){                      // 用远程覆盖本地
     if(!remote) return;
+    // 这一步会把本地整份替换掉，本地独有的书签当场消失。导入数据前会先存一份快照
+    // （设置里的「恢复上一个版本」就是读它），同步这条路以前漏了，
+    // 结果是冲突弹层里手滑点错就没法挽回。
+    if(typeof snapshotPrev==="function") snapshotPrev();
     cacheProfileData(id, remote);
     if(state.settings.activeProfile===id){ applyProfileData(remote); saveSilently(); render(); }
     rememberRemoteFp(id, remote.bookmarks); save();

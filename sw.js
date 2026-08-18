@@ -2,12 +2,12 @@
    改动任何 js/css 后请把 CACHE 版本号 +1，用户下次打开即自动更新。 */
 "use strict";
 
-var CACHE = "navi-v46";
+var CACHE = "navi-v58";
 var SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./css/app.css?v=46",
+  "./css/app.css?v=58",
   "./js/i18n.js",
   "./js/state.js",
   "./js/icons.js",
@@ -33,6 +33,8 @@ var SHELL = [
   "./js/auto-theme.js",
   "./js/palette.js",
   "./js/contextmenu.js",
+  "./js/keywords.js",
+  "./js/snapshots.js",
   "./js/contextual.js",
   "./js/cleanup.js",
   "./js/capture.js",

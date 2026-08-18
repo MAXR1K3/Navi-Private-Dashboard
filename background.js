@@ -1,4 +1,4 @@
-// Navi background.js v1.6 — queues bookmark events while the dashboard is closed,
+// Navi background.js v1.7 — queues bookmark events while the dashboard is closed,
 // and captures pages/links/images into a pending queue the dashboard drains on open.
 const api=(typeof browser!=='undefined'&&browser.bookmarks)?browser:chrome;
 const MAX_QUEUE=500;
@@ -27,6 +27,67 @@ async function buildMenus(){
   }catch(_){}
 }
 
+
+/* ===== 页面存档：在目标标签页里就地抽取正文 =====
+   关键优势是这里拿到的是「渲染后」的 DOM —— innerText 会自动忽略 CSS 隐藏的元素，
+   JS 渲染出来的内容也在，这两点是抓原始 HTML 再解析永远做不到的。 */
+function naviExtractArticle(){
+  function clean(s){ return String(s||"").replace(/[ \t]+/g," ").replace(/\n{3,}/g,"\n\n").trim(); }
+  function tlen(el){ return ((el&&el.innerText)||"").trim().length; }
+  /* 顺序即优先级：先试「一定是正文」的容器，再退到 article/main 这类可能连导航一起
+     包进来的泛容器。之前是所有选择器里取最长——结果维基百科总是选中 main，
+     把「Article / Talk / Tools / 24 languages」这些页面骨架也抽了进来。 */
+  var sels=[".mw-parser-output","#mw-content-text",".post-content",".entry-content",
+            ".article-content",".markdown-body",".post-body","article","main","[role=main]",
+            "#content",".content"];
+  var best=null;
+  for(var i=0;i<sels.length&&!best;i++){
+    var els=document.querySelectorAll(sels[i]);
+    for(var j=0;j<els.length;j++){ if(tlen(els[j])>=400&&tlen(els[j])>tlen(best)) best=els[j]; }
+  }
+  // 语义容器都找不到时，退回正文密度最高的块
+  if(!best){
+    var bestLen=0, all=document.body?document.body.querySelectorAll("div,section"):[];
+    for(var k=0;k<all.length;k++){
+      var el=all[k], txt=(el.innerText||"").trim();
+      if(txt.length<400||txt.length<=bestLen) continue;
+      var links=el.querySelectorAll("a").length;
+      if(txt.length/(1+links)<40) continue;      // 链接列表型区块跳过
+      bestLen=txt.length; best=el;
+    }
+  }
+  /* 再往下钻：只要某个子节点独占了 85% 以上的文字，说明外层只是布局壳，
+     钻进去能顺手甩掉侧栏、面包屑、页脚这类边角内容。 */
+  if(best) for(var g=0;g<6;g++){
+    var pl=tlen(best), ch=best.children, pick=null;
+    for(var c=0;c<ch.length;c++){ if(tlen(ch[c])>=pl*0.85){ pick=ch[c]; break; } }
+    if(!pick) break; best=pick;
+  }
+  var text=clean(best?best.innerText:(document.body?document.body.innerText:""));
+  var MAX=200000;                                 // 单篇上限 ~200KB，防止超长页面撑爆存储
+  var truncated=text.length>MAX;
+  if(truncated) text=text.slice(0,MAX);
+  function meta(n){ var m=document.querySelector('meta[name="'+n+'"],meta[property="'+n+'"]'); return m?(m.getAttribute("content")||""):""; }
+  return {
+    title:(document.title||"").trim(),
+    url:location.href,
+    text:text,
+    excerpt:clean(meta("description")||meta("og:description")||text.slice(0,200)).slice(0,300),
+    byline:clean(meta("author")||meta("article:author")).slice(0,80),
+    chars:text.length, truncated:truncated, at:Date.now()
+  };
+}
+
+/* 在指定标签页里执行抽取；失败（如 chrome:// 页面）返回 null */
+async function captureSnapshot(tabId){
+  if(!api.scripting||!api.scripting.executeScript||tabId==null) return null;
+  try{
+    const res=await asPromise(api.scripting.executeScript({ target:{tabId:tabId}, func:naviExtractArticle }));
+    const r=(res&&res[0]&&res[0].result)||null;
+    return (r&&r.text&&r.text.length>=200)?r:null;   // 太短的不值得存
+  }catch(_){ return null; }
+}
+
 async function enqueueCapture(item){
   if(!isWebLink(item&&item.url)) return false;
   try{
@@ -34,7 +95,7 @@ async function enqueueCapture(item){
     const q=(d&&d.naviCaptures)||[];
     // 同一 URL 已在队列里就不重复入队
     if(q.some(x=>x&&x.url===item.url)) { await refreshBadge(); return true; }
-    q.push({ url:item.url, title:item.title||'', at:Date.now() });
+    q.push({ url:item.url, title:item.title||'', at:Date.now(), snap:item.snap||null });
     await asPromise(api.storage.local.set({ naviCaptures:q.length>MAX_CAPTURES?q.slice(q.length-MAX_CAPTURES):q }));
     await refreshBadge();
     return true;
@@ -58,7 +119,9 @@ if(api.contextMenus&&api.contextMenus.onClicked){
     else if(info.menuItemId==='navi-save-image'){ url=info.srcUrl; title=(tab&&tab.title)||info.srcUrl; }
     else if(info.menuItemId==='navi-save-page'){ url=(tab&&tab.url)||info.pageUrl; title=(tab&&tab.title)||''; }
     else return;
-    await enqueueCapture({url,title});
+    // 只有「保存此页面」才可能存档：右键链接/图片时当前页并不是目标页
+    const snap=(info.menuItemId==='navi-save-page'&&tab)?await captureSnapshot(tab.id):null;
+    await enqueueCapture({url,title,snap});
   });
 }
 
@@ -68,7 +131,8 @@ if(api.commands&&api.commands.onCommand){
     try{
       const tabs=await asPromise(api.tabs.query({active:true,currentWindow:true}));
       const tab=(tabs||[])[0]; if(!tab) return;
-      await enqueueCapture({url:tab.url,title:tab.title||''});
+      const snap=await captureSnapshot(tab.id);
+      await enqueueCapture({url:tab.url,title:tab.title||'',snap});
     }catch(_){}
   });
 }

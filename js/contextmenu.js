@@ -71,6 +71,8 @@ function ctxBuildItems(){
       items.push({ icon:ICONS.edit,  label:t("editBookmark"), run:function(){ openEdit(c.id); } });
       items.push({ icon:(pinned?ICONS.pinOff:ICONS.pin), label:(pinned?t("unpin"):t("pinToTop")), run:function(){ toggleBookmarkPinned(c.id); } });
       items.push({ icon:ICONS.folder, label:t("ctxMoveTo"), view:"move" });
+      if(typeof hasSnapshot==="function"&&hasSnapshot(b.url))
+        items.push({ icon:ICONS.archive, label:t("snapRead"), run:function(){ openSnapshot(c.id); } });
       items.push({ icon:ICONS.link,   label:t("ctxCopyLink"), run:function(){ copyToClipboard(b.url); toast(t("ctxLinkCopied"),"ok"); } });
       items.push({ icon:ICONS.trash,  label:t("delete"), danger:true, run:function(){ deleteBookmark(c.id); } });
     }

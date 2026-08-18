@@ -217,6 +217,37 @@ python3 -m http.server 8767
 
 然后访问 `http://localhost:8767/`。
 
+改完代码后，有两件事建议顺手做：
+
+```bash
+node tools/test.js    # 纯逻辑回归测试（搜索打分、去重、同步合并、清理分类…），不开浏览器，秒级
+node tools/bump.js    # 发版：按 index.html 重新生成 sw.js 的 SHELL，并把三处版本号一起 +1
+```
+
+没有 NAS 也能验证同步的写入链路（预览用的 `http.server` 对 PUT 直接返 501）：
+
+```bash
+python3 tools/dav-stub.py 8788
+```
+
+然后在 Navi 里建一个 WebDAV Profile 指向 `http://127.0.0.1:8788/bookmarks.json`（用户 `navi` / 密码 `s3cret`），
+它还能注入 401 / 500 / 只读 / 预检要求认证 / 无 CORS 头 / 远端被别人改过 等故障，见文件开头的说明。
+
+**给 NAS 配反向代理时，浏览器这边的硬性要求**（实测得出，不满足就传不上去）：
+
+- `OPTIONS` 预检必须**不带认证也能通过**——浏览器发 PUT 之前会先发一个不带 Authorization 的预检请求，被 401 挡住的话 PUT 根本发不出去；
+- 允许 `PUT` 方法，并在 `Access-Control-Allow-Headers` 里放行 `Authorization` 和 `Content-Type`；
+- `Access-Control-Allow-Origin` 要回你实际访问 Navi 的那个源；
+- 如果 Navi 走 https（比如 GitHub Pages），NAS 也必须是 https——https 页面访问 http 地址会被浏览器直接拦截。
+
+以上三类失败在界面上都会给出对应的提示，而不是只显示一句 "Failed to fetch"。
+
+`tools/bump.js` 解决的是两个容易漏的手工步骤：新加的 js 文件忘记写进 SHELL，离线时就会缺模块；
+版本号（`sw.js` 的 CACHE、SHELL 里的 `app.css?v=`、`index.html` 的 link）没同步，用户会拿到半新半旧的缓存。
+
+浏览器里打开 `dev-check.html` 是另一层自检：i18n 三语键一致、悬空的元素引用、重复 ID、
+无障碍名称、配色对比度，以及上面那两件事的兜底断言。
+
 ### 安全提醒
 
 - 不要把包含个人书签数据的导出文件发给不可信的人。
@@ -436,6 +467,38 @@ python3 -m http.server 8767
 ```
 
 Then open `http://localhost:8767/`.
+
+Two things worth running after a code change:
+
+```bash
+node tools/test.js    # headless regression tests (search ranking, dedupe, sync merge, cleanup buckets…)
+node tools/bump.js    # release step: regenerate the sw.js SHELL from index.html and bump all three version stamps
+```
+
+You can exercise the sync **write** path without a NAS (the preview `http.server` answers 501 to PUT):
+
+```bash
+python3 tools/dav-stub.py 8788
+```
+
+Point a WebDAV profile at `http://127.0.0.1:8788/bookmarks.json` (user `navi`, password `s3cret`). The stub can also
+inject 401 / 500 / read-only / auth-on-preflight / no-CORS / remote-changed-by-another-device faults — see the header of the file.
+
+**What the browser requires from your reverse proxy** (measured, not guessed — uploads fail without it):
+
+- `OPTIONS` preflight must succeed **without authentication**: before a PUT the browser sends a preflight that carries no Authorization header, and a 401 there means the PUT is never sent;
+- allow the `PUT` method, and list `Authorization` and `Content-Type` in `Access-Control-Allow-Headers`;
+- return an `Access-Control-Allow-Origin` matching the origin you actually open Navi from;
+- if Navi is served over https (e.g. GitHub Pages), the NAS must be https too — browsers block https→http requests outright.
+
+All three failure classes now surface a specific explanation in the sync status line instead of a bare "Failed to fetch".
+
+`tools/bump.js` covers two easy-to-miss manual steps: a new js file that never made it into SHELL
+(the module goes missing offline), and version stamps (`CACHE` in `sw.js`, `app.css?v=` in SHELL,
+and the `index.html` link) drifting apart, which leaves users on a half-updated cache.
+
+Opening `dev-check.html` in a browser is the other layer: locale key parity, dangling element refs,
+duplicate ids, accessible names, colour contrast, plus a backstop assertion for the two items above.
 
 ### Safety Notes
 

@@ -234,19 +234,66 @@ function stripMarks(s){ try{ return String(s||"").normalize("NFD").replace(/[̀-
 function compactSearch(s){ return stripMarks(s).toLowerCase().replace(/https?:\/\//g," ").replace(/www\./g," ").replace(/[^\p{L}\p{N}]+/gu,""); }
 function looseText(s){ return stripMarks(s).toLowerCase().replace(/https?:\/\//g," ").replace(/www\./g," ").replace(/[^\p{L}\p{N}]+/gu," ").trim(); }
 function editDistance(a,b,max){ var m=a.length,n=b.length; if(Math.abs(m-n)>max) return max+1; var prev=[]; for(var j=0;j<=n;j++) prev[j]=j; for(var i=1;i<=m;i++){ var cur=[i], best=cur[0]; for(j=1;j<=n;j++){ var cost=a.charAt(i-1)===b.charAt(j-1)?0:1; cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+cost); if(cur[j]<best) best=cur[j]; } if(best>max) return max+1; prev=cur; } return prev[n]; }
-function fuzzyScore(q, hay){
-  var cq=compactSearch(q), ch=compactSearch(hay); if(!cq) return 1; if(!ch) return 0;
+/* 每条书签的检索派生数据。以前每次按键都要为每条书签重跑两遍正则（compactSearch/looseText）
+   再 split 一次——书签多了就是纯浪费，内容没变结果必然一样。
+   缓存挂在书签对象上，用内容签名判失效；属性设为不可枚举，JSON.stringify 不会把它写进
+   localStorage 和导出文件。 */
+function charMask(s){
+  var m=0;
+  for(var i=0;i<s.length;i++){
+    var c=s.charCodeAt(i);
+    if(c>=97&&c<=122) m|=1<<(c-97);
+    else if(c>=48&&c<=57) m|=1<<(26+(c-48)%6);
+    // 中日韩等字符不进掩码：掩码只用来"提前否掉不可能的比较"，
+    // 少记几个字符只会让过滤变宽松，不会漏掉真正的匹配
+  }
+  return m;
+}
+function popcount(x){ x=x-((x>>1)&0x55555555); x=(x&0x33333333)+((x>>2)&0x33333333);
+  x=(x+(x>>4))&0x0f0f0f0f; return (x*0x01010101)>>24; }
+function bookmarkSearchData(b){
+  var sig=(b.title||"")+"\u0000"+(b.url||"")+"\u0000"+(b.category||"")+"\u0000"+
+          (b.description||"")+"\u0000"+((b.tags||[]).join(","));
+  var c=b._sx;
+  if(c&&c.sig===sig) return c;
+  var hay=bookmarkHaystack(b);
+  c={ sig:sig, ch:compactSearch(hay), ht:looseText(hay).split(/\s+/).filter(Boolean) };
+  c.hm=c.ht.map(charMask);
+  try{ Object.defineProperty(b,"_sx",{value:c,writable:true,configurable:true,enumerable:false}); }
+  catch(e){ /* 冻结对象等极端情况：不缓存也能正常工作 */ }
+  return c;
+}
+/* 查询侧的派生也只算一次——它在每条书签上被重复算了 N 遍 */
+var _qCache={q:null};
+function queryData(q){
+  if(_qCache.q===q) return _qCache;
+  var cq=compactSearch(q), qt=looseText(q).split(/\s+/).filter(Boolean);
+  _qCache={ q:q, cq:cq, qt:qt, qm:qt.map(charMask) };
+  return _qCache;
+}
+function fuzzyScore(q, hay){ return fuzzyScoreData(queryData(q), { ch:compactSearch(hay), ht:looseText(hay).split(/\s+/).filter(Boolean), hm:null }); }
+function fuzzyScoreData(qd, d){
+  var cq=qd.cq, ch=d.ch; if(!cq) return 1; if(!ch) return 0;
   var exact=ch.indexOf(cq); if(exact>-1) return 1000-exact;
-  var qt=looseText(q).split(/\s+/).filter(Boolean), ht=looseText(hay).split(/\s+/).filter(Boolean), tokenScore=0;
-  if(qt.length){ var all=true; qt.forEach(function(t){ var hit=false; for(var i=0;i<ht.length;i++){ var maxd=t.length<=4?1:2;   /* 短词收紧：否则 "code" 会和每个 URL 里的 "com" 编辑距离 2 相等而全部命中 */
-        if(ht[i].indexOf(t)>-1 || (t.length>2 && editDistance(t,ht[i].slice(0,Math.max(t.length,ht[i].length)),maxd)<=maxd)){ hit=true; break; } } if(hit) tokenScore+=120; else all=false; }); if(all) return 780+tokenScore; }
+  var qt=qd.qt, ht=d.ht, hm=d.hm, tokenScore=0;
+  if(qt.length){ var all=true; qt.forEach(function(t,ti){ var hit=false, tm=qd.qm[ti];
+      for(var i=0;i<ht.length;i++){ var maxd=t.length<=3?0:(t.length<=6?1:2);   /* 3 字以内不给容错：URL 里到处是 com/net/org，"cod"↔"com" 距离 1 就能全表命中，而 3 个字母本来也不值得容错 */
+        if(ht[i].indexOf(t)>-1){ hit=true; break; }
+        // 掩码预筛：查询里有 maxd+1 个字符在这个 token 里根本不存在时，
+        // 编辑距离必然超标，不必进 O(m×n) 的 DP。这一步占了原来七成开销。
+        if(t.length>2 && (!hm || popcount(tm&~hm[i])<=maxd) &&
+           editDistance(t,ht[i].slice(0,Math.max(t.length,ht[i].length)),maxd)<=maxd){ hit=true; break; }
+      } if(hit) tokenScore+=120; else all=false; }); if(all) return 780+tokenScore; }
   // 子序列匹配：要求命中区间足够紧凑，否则像 "code" 这种常见字母组合会在
   // 长 haystack（标题+URL+分类+描述拼接）里到处"碰巧"命中，把无关书签全捞出来。
-  // 上限给得宽松，保证 githb→github 这类拼写容错仍然有效。
+  // 区间上限 2n+2：拼写容错（githb→github）本来就走上面的 token 编辑距离分支，
+  // 不靠这里放宽，所以这里只需容下 gh→github 这类紧凑缩写。
   var qi=0,gaps=0,last=-1,first=-1; for(var k=0;k<ch.length&&qi<cq.length;k++){ if(ch.charAt(k)===cq.charAt(qi)){ if(last>-1) gaps+=k-last-1; else first=k; last=k; qi++; } }
-  if(qi===cq.length && (last-first+1)<=cq.length*4+8) return Math.max(120,520-gaps);
-  // 兜底的整体编辑距离同样按词长收紧（否则 code↔com 这类 2 距离仍会全表命中）
-  if(cq.length>=3){ var md=cq.length<=4?1:2; for(var x=0;x<ht.length;x++){ if(editDistance(cq,ht[x],md)<=md) return 360; } }
+  if(qi===cq.length && (last-first+1)<=cq.length*2+2) return Math.max(120,520-gaps);
+  // 整体编辑距离兜底：同样 4 个字符起步。只在多词查询时才跑——单词查询时
+  // cq 就等于 qt[0]，容错上限也一样，这里做的事和上面的 token 分支逐字重复，
+  // 而它占掉了每次按键里一半的 editDistance 调用。
+  if(cq.length>=4&&qt.length>1){ var md=cq.length<=6?1:2; for(var x=0;x<ht.length;x++){ if(editDistance(cq,ht[x],md)<=md) return 360; } }
   return 0;
 }
 var _conceptHits=0;
@@ -270,8 +317,9 @@ function visibleBookmarks(){
     });
   }
   var groups=(typeof conceptMatchGroups==="function")?conceptMatchGroups(q):[];
+  var qd=queryData(q);
   var scored=base.map(function(b,idx){
-    var sc=fuzzyScore(q,bookmarkHaystack(b));
+    var sc=fuzzyScoreData(qd,bookmarkSearchData(b));
     // 概念命中给一个低于任何直接匹配的分值，保证直接匹配始终排在前面
     if(!sc && groups.length && bookmarkInConcepts(b,groups)) sc=60;
     return {b:b,idx:idx,score:sc};
@@ -296,7 +344,8 @@ function renderContent(){
   if(total!==0 && ui.tagFilter){ tt.innerHTML+=' <button class="tag-filter-chip" data-clear-tag="1" title="'+escapeHtml(t("tagFilterClear"))+'">#'+escapeHtml(ui.tagFilter)+ICONS.x+'</button>'; }
 
   if(total===0){ return renderEmpty("first"); }
-  if(list.length===0){ return renderEmpty("none"); }
+  // 一条卡片都没匹配上时，正文检索反而最该出场——所以空态也要挂上补充区
+  if(list.length===0){ renderEmpty("none"); return appendSnapResults(list); }
   var isFirst=!_gridRendered;
   // 视图（分类/搜索/标签/网格模式）变化时重置渲染上限
   var viewKey=ui.activeCat+"|"+ui.query+"|"+ui.tagFilter+"|"+state.view;
@@ -310,6 +359,7 @@ function renderContent(){
   if(list.length>shown.length) inner+='<div class="grid-more" id="gridMore" role="button" tabindex="0"></div>';
   contentEl.innerHTML=inner; gridEl=$("#grid"); syncSelectionUI();
   wireGridMore(list.length, shown.length);
+  appendSnapResults(list);
   if(!isFirst) requestAnimationFrame(function(){ contentEl.style.opacity=""; });
   _gridRendered=true;
 }
@@ -338,6 +388,7 @@ function cardHtml(b,i){
         escapeHtml(b.title||dom)+'</div>'+
       '<div class="url">'+escapeHtml(prettyUrl(b.url))+'</div>'+
       (b.description?'<div class="desc">'+escapeHtml(b.description)+'</div>':'')+
+      ((typeof hasSnapshot==="function"&&hasSnapshot(b.url))?'<button class="snap-badge" data-snap-open="'+escapeHtml(b.id)+'" title="'+escapeHtml(t("snapRead"))+'" aria-label="'+escapeHtml(t("snapRead"))+'">'+ICONS.archive+escapeHtml(t("snapBadge"))+'</button>':'')+
       (ui.activeCat==="All"?'<span class="cat-chip">'+escapeHtml(catLabel(b.category))+'</span>':'')+
       (b.tags&&b.tags.length?b.tags.slice(0,3).map(function(tg){ tg=String(tg); return '<span class="tag-chip'+(ui.tagFilter&&ui.tagFilter.toLowerCase()===tg.toLowerCase()?" on":"")+'" data-tag="'+escapeHtml(tg)+'" title="'+escapeHtml(t("filterByTag",{tag:tg}))+'">#'+escapeHtml(tg)+'</span>'; }).join(""):'')+
     '</div>'+      (canDrag?'<span class="card-grip" title="'+escapeHtml(t("dragReorder"))+'">'+ICONS.grip+'</span>':'')+
@@ -346,6 +397,14 @@ function cardHtml(b,i){
       '<button class="del" data-del="'+escapeHtml(b.id)+'" title="'+escapeHtml(t("delete"))+'">'+ICONS.trash+'</button>'+
     '</div>'+
   '</div>';
+}
+/* 存档正文检索走异步：查到了才补在下面，查不到这块一直是空的（CSS :empty 隐藏） */
+function appendSnapResults(list){
+  if(!ui.query||typeof scheduleSnapSearch!=="function") return;
+  var box=document.createElement("div");
+  box.className="snap-results"; box.id="snapResults";
+  contentEl.appendChild(box);
+  scheduleSnapSearch(ui.query, list);
 }
 function renderEmpty(kind){
   var h;

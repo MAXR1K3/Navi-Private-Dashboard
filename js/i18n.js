@@ -309,7 +309,7 @@ function timeAgo(ts){
       monOnline:"online", monOffline:"offline", monUnset:"not set",
       setTabGeneral:"General", setTabAppearance:"Appearance", setTabDashboard:"Dashboard", setTabServices:"Monitor & AI", setTabLog:"Activity log", setTabSync:"Sync",
       profilesSec:"Profiles & data source", activeProfile:"Active profile", activeProfileDesc:"Switch the data source shown on your dashboard.", profileAdd:"New", profileName:"Profile name", profileType:"Data source", profileLocal:"Local", profileWebdav:"WebDAV / NAS", deleteBtn:"Delete", profileDelete:"Delete this profile", profileDeleteDesc:"Remove this profile and its cached data.",
-      webdavUrl:"bookmarks.json URL", webdavUser:"Username (optional)", webdavPass:"Password (optional)", webdavAuto:"Auto-sync on open", webdavAutoDesc:"Fetch the latest on every open; otherwise use the cached copy.", webdavAutoUpload:"Upload after browser sync", webdavAutoUploadDesc:"After Chrome or Edge bookmark sync finishes, write the latest bookmarks.json to WebDAV/NAS.", syncStatusLabel:"Sync status", syncNow:"Sync now", webdavUploadNow:"Upload to NAS", webdavCorsNote:"PWA reads need CORS or a reverse proxy. The desktop extension can upload the same bookmarks.json with WebDAV PUT.",
+      webdavUrl:"bookmarks.json URL", webdavUser:"Username (optional)", webdavPass:"Password (optional)", webdavAuto:"Auto-sync on open", webdavAutoDesc:"Fetch the latest on every open; otherwise use the cached copy.", webdavAutoUpload:"Upload after browser sync", webdavAutoUploadDesc:"After Chrome or Edge bookmark sync finishes, write the latest bookmarks.json to WebDAV/NAS.", syncTimeout:"No answer within {s}s — the server may be asleep or a firewall is dropping the connection.", syncCorsBlocked:"Server reachable, but the browser is blocking it (CORS). Allow OPTIONS without auth, plus PUT and the Authorization/Content-Type headers on your reverse proxy.", syncMixedContent:"This page is https but the address is http — browsers block that. Use an https address for the NAS.", syncUnreachable:"No response from that address. Check the host, port and that you are on the same network.", syncStatusLabel:"Sync status", syncNow:"Sync now", webdavUploadNow:"Upload to NAS", webdavCorsNote:"PWA reads need CORS or a reverse proxy. The desktop extension can upload the same bookmarks.json with WebDAV PUT.",
       syncStateLocal:"Local data", syncStateRemote:"Remote · latest", syncStateCache:"Cached copy", syncStateFailed:"Sync failed", syncStateSyncing:"Syncing…",
       syncConflictTitle:"Sync conflict", syncConflictSub:"The remote file changed since you last synced.", syncConflictMsg:"You have {local} bookmark(s) here; the remote file now has {remote}. Choose how to resolve it — merging keeps both sides and never resurrects items you deleted.", syncConflictUnreadable:"The remote file couldn't be read as bookmarks. Overwrite it with your local data, or cancel and check the file.",
       syncUseRemote:"Use remote", syncUseLocal:"Use local", syncMerge:"Merge", syncMerged:"Merged — {n} added from remote", syncConflictAuto:"Remote changed — auto-upload skipped, resolve it manually", syncConflictShort:"remote changed",
@@ -382,7 +382,7 @@ function timeAgo(ts){
       monOnline:"在线", monOffline:"离线", monUnset:"未配置",
       setTabGeneral:"通用", setTabAppearance:"外观", setTabDashboard:"仪表盘", setTabServices:"监控 & AI", setTabLog:"操作日志", setTabSync:"同步",
       profilesSec:"Profile 与数据源", activeProfile:"当前 Profile", activeProfileDesc:"切换仪表盘展示的数据源。", profileAdd:"新建", profileName:"Profile 名称", profileType:"数据源", profileLocal:"本地", profileWebdav:"WebDAV / NAS", deleteBtn:"删除", profileDelete:"删除此 Profile", profileDeleteDesc:"移除此 Profile 及其缓存数据。",
-      webdavUrl:"bookmarks.json 地址", webdavUser:"用户名（可选）", webdavPass:"密码（可选）", webdavAuto:"打开时自动同步", webdavAutoDesc:"每次打开拉取最新；否则使用缓存副本。", webdavAutoUpload:"浏览器同步后上传", webdavAutoUploadDesc:"Chrome 或 Edge 书签同步完成后，把最新 bookmarks.json 写入 WebDAV/NAS。", syncStatusLabel:"同步状态", syncNow:"立即同步", webdavUploadNow:"上传到 NAS", webdavCorsNote:"PWA 读取需要 CORS 或反向代理；桌面扩展可通过 WebDAV PUT 上传同一份 bookmarks.json。",
+      webdavUrl:"bookmarks.json 地址", webdavUser:"用户名（可选）", webdavPass:"密码（可选）", webdavAuto:"打开时自动同步", webdavAutoDesc:"每次打开拉取最新；否则使用缓存副本。", webdavAutoUpload:"浏览器同步后上传", webdavAutoUploadDesc:"Chrome 或 Edge 书签同步完成后，把最新 bookmarks.json 写入 WebDAV/NAS。", syncTimeout:"{s} 秒内没有响应——服务器可能在休眠，或者被防火墙丢包了。", syncCorsBlocked:"服务器能连上，是浏览器的跨域策略挡住了。请在反向代理上放行不带认证的 OPTIONS 预检，以及 PUT 方法和 Authorization / Content-Type 请求头。", syncMixedContent:"当前页面是 https，而地址是 http，浏览器会直接拦截。请给 NAS 配一个 https 地址。", syncUnreachable:"这个地址没有响应。检查主机、端口，以及是否在同一个网络里。", syncStatusLabel:"同步状态", syncNow:"立即同步", webdavUploadNow:"上传到 NAS", webdavCorsNote:"PWA 读取需要 CORS 或反向代理；桌面扩展可通过 WebDAV PUT 上传同一份 bookmarks.json。",
       syncStateLocal:"本地数据", syncStateRemote:"远程 · 最新", syncStateCache:"缓存副本", syncStateFailed:"同步失败", syncStateSyncing:"同步中…",
       syncConflictTitle:"同步冲突", syncConflictSub:"自上次同步后，远程文件已被改动。", syncConflictMsg:"本地有 {local} 个书签，远程现在有 {remote} 个。请选择处理方式——「合并」会保留两边内容，且不会让你删掉的条目复活。", syncConflictUnreadable:"远程文件无法解析为书签数据。可以用本地数据覆盖它，或取消后先检查该文件。",
       syncUseRemote:"用远程覆盖本地", syncUseLocal:"用本地覆盖远程", syncMerge:"合并", syncMerged:"已合并 —— 从远程新增 {n} 个", syncConflictAuto:"远程有新改动，已跳过自动上传，请手动处理", syncConflictShort:"远程有改动",
@@ -455,7 +455,7 @@ function timeAgo(ts){
       monOnline:"en línea", monOffline:"desconectado", monUnset:"sin definir",
       setTabGeneral:"General", setTabAppearance:"Apariencia", setTabDashboard:"Panel", setTabServices:"Monitor e IA", setTabLog:"Registro", setTabSync:"Sincronización",
       profilesSec:"Perfiles y fuente de datos", activeProfile:"Perfil activo", activeProfileDesc:"Cambia la fuente de datos del panel.", profileAdd:"Nuevo", profileName:"Nombre del perfil", profileType:"Fuente de datos", profileLocal:"Local", profileWebdav:"WebDAV / NAS", deleteBtn:"Eliminar", profileDelete:"Eliminar este perfil", profileDeleteDesc:"Quita este perfil y sus datos en caché.",
-      webdavUrl:"URL de bookmarks.json", webdavUser:"Usuario (opcional)", webdavPass:"Contraseña (opcional)", webdavAuto:"Sincronizar al abrir", webdavAutoDesc:"Trae lo último en cada apertura; si no, usa la copia en caché.", webdavAutoUpload:"Subir tras sincronizar navegador", webdavAutoUploadDesc:"Cuando termine la sincronización de Chrome o Edge, escribe el bookmarks.json actualizado en WebDAV/NAS.", syncStatusLabel:"Estado de sincronización", syncNow:"Sincronizar", webdavUploadNow:"Subir al NAS", webdavCorsNote:"La PWA necesita CORS o un proxy inverso para leer. La extensión de escritorio puede subir el mismo bookmarks.json con WebDAV PUT.",
+      webdavUrl:"URL de bookmarks.json", webdavUser:"Usuario (opcional)", webdavPass:"Contraseña (opcional)", webdavAuto:"Sincronizar al abrir", webdavAutoDesc:"Trae lo último en cada apertura; si no, usa la copia en caché.", webdavAutoUpload:"Subir tras sincronizar navegador", webdavAutoUploadDesc:"Cuando termine la sincronización de Chrome o Edge, escribe el bookmarks.json actualizado en WebDAV/NAS.", syncTimeout:"Sin respuesta en {s}s: puede que el servidor esté suspendido o un cortafuegos esté descartando la conexión.", syncCorsBlocked:"El servidor responde, pero el navegador lo bloquea (CORS). Permite OPTIONS sin autenticación, además de PUT y las cabeceras Authorization/Content-Type en tu proxy inverso.", syncMixedContent:"Esta página es https y la dirección es http: el navegador lo bloquea. Usa una dirección https para el NAS.", syncUnreachable:"Esa dirección no responde. Revisa el host, el puerto y que estés en la misma red.", syncStatusLabel:"Estado de sincronización", syncNow:"Sincronizar", webdavUploadNow:"Subir al NAS", webdavCorsNote:"La PWA necesita CORS o un proxy inverso para leer. La extensión de escritorio puede subir el mismo bookmarks.json con WebDAV PUT.",
       syncStateLocal:"Datos locales", syncStateRemote:"Remoto · al día", syncStateCache:"Copia en caché", syncStateFailed:"Fallo de sincronización", syncStateSyncing:"Sincronizando…",
       syncConflictTitle:"Conflicto de sincronización", syncConflictSub:"El archivo remoto cambió desde tu última sincronización.", syncConflictMsg:"Aquí tienes {local} marcador(es); el remoto tiene {remote}. Elige cómo resolverlo: fusionar conserva ambos lados y nunca revive lo que borraste.", syncConflictUnreadable:"El archivo remoto no se pudo leer como marcadores. Sobrescríbelo con tus datos locales o cancela y revísalo.",
       syncUseRemote:"Usar remoto", syncUseLocal:"Usar local", syncMerge:"Fusionar", syncMerged:"Fusionado: {n} añadidos del remoto", syncConflictAuto:"El remoto cambió: subida automática omitida, resuélvelo manualmente", syncConflictShort:"remoto cambiado",
@@ -616,6 +616,43 @@ function timeAgo(ts){
       ctxOpen:"Abrir", ctxMoveTo:"Mover a categoría", ctxCopyLink:"Copiar enlace",
       ctxLinkCopied:"Enlace copiado", ctxMoved:"Movido a «{cat}»", ctxOpenCat:"Abrir categoría",
       palTip:"Paleta de comandos"
+    }
+  };
+  Object.keys(extra).forEach(function(k){ if(I18N[k]) Object.assign(I18N[k], extra[k]); });
+})();
+
+/* ===== 页面存档（离线正文快照）文案 ===== */
+(function(){
+  var extra={
+    en:{
+      snapBadge:"Archived", snapRead:"Read archive", snapOpenLive:"Open live page",
+      snapNone:"No archive saved for this page", snapSaved:"Archived {n} page(s) offline",
+      snapSavedAt:"archived {when}", snapChars:"chars", snapTruncated:"— archive truncated (page was very long) —",
+      snapDelete:"Delete archive", snapDeleteMsg:"Delete the offline copy of this page? The bookmark itself stays.",
+      snapDeleted:"Archive deleted",
+      snapStorage:"Page archives", snapStorageVal:"{n} page(s) · {kb} KB",
+      snapRelated:"Related archived pages", tagSuggestFrom:"Suggested from title and link", tagSuggestFromSnap:"Suggested from the archived text", snapFoundIn:"Also found in {n} archived page(s)", snapClear:"Delete all archives", snapClearMsg:"Delete every offline page archive? Bookmarks are not affected.",
+      snapCleared:"All archives deleted", snapHint:"Right-click a page in the browser and choose “Save this page to Navi” — the extension stores the article text so you can read it offline."
+    },
+    zh:{
+      snapBadge:"已存档", snapRead:"阅读存档", snapOpenLive:"打开原网页",
+      snapNone:"该页面没有存档", snapSaved:"已离线存档 {n} 个页面",
+      snapSavedAt:"{when}存档", snapChars:"字", snapTruncated:"—— 存档已截断（原页面过长）——",
+      snapDelete:"删除存档", snapDeleteMsg:"删除该页面的离线副本？书签本身会保留。",
+      snapDeleted:"存档已删除",
+      snapStorage:"页面存档", snapStorageVal:"{n} 个页面 · {kb} KB",
+      snapRelated:"相关的存档页面", tagSuggestFrom:"根据标题和链接推荐", tagSuggestFromSnap:"根据存档正文推荐", snapFoundIn:"另有 {n} 个页面的存档正文里提到", snapClear:"删除全部存档", snapClearMsg:"删除所有离线页面存档？不影响书签。",
+      snapCleared:"已删除全部存档", snapHint:"在浏览器里右键页面选「保存此页面到 Navi」，扩展会一并存下正文，断网也能读。"
+    },
+    es:{
+      snapBadge:"Archivada", snapRead:"Leer archivo", snapOpenLive:"Abrir página original",
+      snapNone:"Esta página no tiene archivo", snapSaved:"{n} página(s) archivada(s) sin conexión",
+      snapSavedAt:"archivada {when}", snapChars:"caracteres", snapTruncated:"— archivo truncado (la página era muy larga) —",
+      snapDelete:"Eliminar archivo", snapDeleteMsg:"¿Eliminar la copia sin conexión de esta página? El marcador se conserva.",
+      snapDeleted:"Archivo eliminado",
+      snapStorage:"Archivos de páginas", snapStorageVal:"{n} página(s) · {kb} KB",
+      snapRelated:"Páginas archivadas relacionadas", tagSuggestFrom:"Sugerido por el título y el enlace", tagSuggestFromSnap:"Sugerido por el texto archivado", snapFoundIn:"También aparece en {n} página(s) archivada(s)", snapClear:"Eliminar todos los archivos", snapClearMsg:"¿Eliminar todos los archivos sin conexión? Los marcadores no se ven afectados.",
+      snapCleared:"Todos los archivos eliminados", snapHint:"Haz clic derecho en una página y elige «Guardar esta página en Navi»: la extensión guarda el texto para leerlo sin conexión."
     }
   };
   Object.keys(extra).forEach(function(k){ if(I18N[k]) Object.assign(I18N[k], extra[k]); });

@@ -37,7 +37,10 @@
         (problems.length>40?'<li>… +'+(problems.length-40)+' more</li>':'')+'</ul>');
     out.appendChild(d);
   }
-  var txt=function(u){ return fetch(u,{cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error(u+" "+r.status); return r.text(); }); };
+  // 加时间戳绕开 Service Worker：no-store 只管浏览器缓存，SW 照样会把
+  // 预缓存里的旧文件塞回来，自检就会对着上一版的代码打分。
+  var txt=function(u){ return fetch(u+(u.indexOf("?")>-1?"&":"?")+"_="+Date.now(),{cache:"no-store"})
+    .then(function(r){ if(!r.ok) throw new Error(u+" "+r.status); return r.text(); }); };
 
   var html=await txt("index.html");
   var scripts=(html.match(/<script src="([^"]+)"/g)||[]).map(function(s){ return s.match(/src="([^"]+)"/)[1]; });
@@ -165,6 +168,25 @@
     });
   });
   render("配色对比度达标 · WCAG contrast", lowc, "正文 ≥4.5:1，可交互边界 ≥3:1（两个主题分别验证）");
+
+  /* ---- Service Worker 预缓存与版本号 ---- */
+  // 这两件事以前全靠手工核对：加了新 js 忘记进 SHELL，离线就少一个模块；
+  // 版本号三处没同步，用户会拿到半新半旧的缓存。tools/bump.js 负责生成，这里负责兜底。
+  var swTxt=await txt("sw.js"), htmlTxt=await txt("index.html");
+  var swIssues=[];
+  var vCache=(swTxt.match(/var CACHE\s*=\s*"navi-v(\d+)"/)||[])[1];
+  var vShell=(swTxt.match(/app\.css\?v=(\d+)/)||[])[1];
+  var vHtml=(htmlTxt.match(/css\/app\.css\?v=(\d+)/)||[])[1];
+  if(!vCache) swIssues.push("sw.js 里找不到 CACHE 版本号");
+  else if(!(vCache===vShell&&vCache===vHtml))
+    swIssues.push("版本号三处不一致：CACHE=v"+vCache+"，SHELL 的 css=v"+vShell+"，index.html=v"+vHtml+"（跑 node tools/bump.js 修）");
+  var htmlScripts=(htmlTxt.match(/<script src="[^"]+"/g)||[]).map(function(s){ return s.replace(/.*src="/,"").replace(/"$/,""); });
+  var shellBlock=(swTxt.match(/var SHELL = \[([\s\S]*?)\];/)||[])[1]||"";
+  var shellScripts=(shellBlock.match(/"\.\/js\/[^"]+"/g)||[]).map(function(s){ return s.replace(/^"\.\//,"").replace(/"$/,""); });
+  htmlScripts.forEach(function(s){ if(shellScripts.indexOf(s)<0) swIssues.push("SHELL 里少了 "+s+"（离线时这个模块会缺）"); });
+  shellScripts.forEach(function(s){ if(htmlScripts.indexOf(s)<0) swIssues.push("SHELL 里有多余的 "+s+"（index.html 已不再引用）"); });
+  render("SW 预缓存与版本号 · service worker shell", swIssues,
+         "SHELL 要和 index.html 的 script 一一对应；CACHE / SHELL 的 css / index.html 的 link 三处版本号必须相同。用 node tools/bump.js 一键生成");
 
   sum.innerHTML='<span class="ok">✔ '+pass+' passed</span>'+(fail?'<span class="bad">✘ '+fail+' failed</span>':'');
   document.title=(fail?"✘ ":"✔ ")+"Navi 自检";

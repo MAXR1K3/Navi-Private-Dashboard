@@ -54,6 +54,16 @@ function drainCaptures(){
       if(!q.length) return;
       try{ api.storage.local.set({naviCaptures:[]}); }catch(e){}
       applyCaptures(q);
+      // 正文快照体积大，走 IndexedDB，不进 localStorage
+      if(typeof snapPut==="function"){
+        var snaps=q.filter(function(x){ return x&&x.snap&&x.snap.text; });
+        if(snaps.length){
+          Promise.all(snaps.map(function(x){ return snapPut(x.url,x.snap); })).then(function(){
+            if(typeof refreshSnapKeys==="function") refreshSnapKeys().then(function(){ renderContent(); });
+            toast(t("snapSaved",{n:snaps.length}),"ok");
+          });
+        }
+      }
     });
   }catch(e){ _draining=false; }
 }
@@ -75,6 +85,13 @@ function handleShareTarget(){
 }
 
 function initCapture(){
+  if(typeof refreshSnapKeys==="function") refreshSnapKeys().then(function(){
+    renderContent();
+    // 删书签的路径太多，启动时统一扫掉对不上号的存档（见 snapPruneOrphans 注释）
+    if(typeof snapPruneOrphans==="function") setTimeout(snapPruneOrphans, 1500);
+    // v1 时期存的存档没有词向量，补算一次（相关页面要用）
+    if(typeof snapEnsureTerms==="function") setTimeout(snapEnsureTerms, 2500);
+  });
   handleShareTarget();
   var api=captureApi(); if(!api) return;
   pushLangToExt();

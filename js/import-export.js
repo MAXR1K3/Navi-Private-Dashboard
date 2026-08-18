@@ -146,6 +146,8 @@ function applyBackupObj(obj){
   ui.activeCat="All"; ui.selected={};
   rebuildCategories(); normalizeWidgetOrder();
   save(); applyI18n(); render();
+  // 整份数据被换掉了，旧书签的存档就成了孤儿
+  if(typeof snapPruneOrphans==="function") snapPruneOrphans();
   return true;
 }
 function importJSONFile(file){
