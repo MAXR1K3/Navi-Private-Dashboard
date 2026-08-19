@@ -2,19 +2,59 @@
 "use strict";
 
 /* ===== widgets ===== */
+/* ===== 窄屏（手机）行为 =====
+   手机上小组件全堆成单列，实测总高 2339px、第一张书签卡片在 2580px 处——
+   在一个书签导航页上，书签被压到了三屏以下。这里做两件事：
+   窄屏默认折叠仪表盘（一次点击展开，且该选择只记在这台设备上），
+   以及允许单独指定"窄屏时显示哪些组件"。 */
+function isNarrowScreen(){
+  try{ return window.matchMedia("(max-width: 640px)").matches; }catch(e){ return innerWidth<=640; }
+}
+/* 设备本地偏好：绝不能放进 state.settings —— 那份是要同步到 NAS 和其它设备的，
+   "我在手机上把仪表盘展开了"不该让桌面端也跟着变。 */
+var DEVICE_KEY="navi.device";
+function deviceGet(k){
+  try{ var d=JSON.parse(localStorage.getItem(DEVICE_KEY)||"{}"); return d[k]; }catch(e){ return undefined; }
+}
+function deviceSet(k,v){
+  try{ var d=JSON.parse(localStorage.getItem(DEVICE_KEY)||"{}"); d[k]=v; localStorage.setItem(DEVICE_KEY,JSON.stringify(d)); }catch(e){}
+}
+/* 这个组件在当前屏幕下该不该显示 */
+function widgetVisibleNow(key){
+  var s=state.settings;
+  if(!s.widgets[key]) return false;
+  if(!isNarrowScreen()) return true;
+  var m=s.widgetsMobile||{};
+  return m[key]!==false;                      // 没设过就是显示，不静默藏东西
+}
+function anyWidgetVisibleNow(){ for(var i=0;i<WKEYS.length;i++){ if(widgetVisibleNow(WKEYS[i])) return true; } return false; }
+/* 折叠与否：窄屏下优先看这台设备上的选择，没有就按设置里的默认 */
+function widgetsCollapsedNow(){
+  var s=state.settings;
+  if(isNarrowScreen()){
+    var own=deviceGet("mobileExpanded");
+    if(own===true) return false;
+    if(own===false) return true;
+    if(s.mobileCollapse!==false) return true;   // 手机上第一次打开：先让书签露出来
+  }
+  return !!s.widgetsCollapsed;
+}
+
 function anyWidgetOn(){ for(var i=0;i<WKEYS.length;i++){ if(state.settings.widgets[WKEYS[i]]) return true; } return false; }
 function renderWidgets(){
   stopClockTimer();
   if(typeof stopMonTimer==="function") stopMonTimer();
   var head=$("#widgetsHead"), wrap=$("#widgetsWrap"), s=state.settings;
   if(s.widgetsHidden || !anyWidgetOn()){ wrap.style.display="none"; return; }
-  wrap.style.display=""; head.classList.toggle("collapsed", !!s.widgetsCollapsed);
-  if(s.widgetsCollapsed){ widgetsEl.classList.add("hidden"); widgetsEl.innerHTML=""; return; }
+  var collapsed=widgetsCollapsedNow();
+  wrap.style.display=""; head.classList.toggle("collapsed", collapsed);
+  if(collapsed){ widgetsEl.classList.add("hidden"); widgetsEl.innerHTML=""; return; }
+  if(isNarrowScreen()&&!anyWidgetVisibleNow()){ widgetsEl.classList.add("hidden"); widgetsEl.innerHTML=""; return; }
   widgetsEl.classList.remove("hidden");
   normalizeWidgetOrder();
   var html="", idx=0;
   s.widgetOrder.forEach(function(key){
-    if(!s.widgets[key]) return;
+    if(!widgetVisibleNow(key)) return;
     var body, icon, title;
     if(key==="clock"){ icon=ICONS.clock; title=t("clock"); body=clockBody(); }
     else if(key==="search"){ icon=ICONS.gsearch; title=t("webSearch"); body=searchBody(); }

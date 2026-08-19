@@ -29,6 +29,13 @@ $("#search").addEventListener("keydown", function(e){
   }
 });
 $("#widgetsToggle").addEventListener("click", function(){
+  // 窄屏下用户的展开/折叠只记在这台设备，不写进会同步的 settings
+  if(typeof isNarrowScreen==="function" && isNarrowScreen()){
+    var nowCollapsed=widgetsCollapsedNow();
+    deviceSet("mobileExpanded", nowCollapsed);
+    if(nowCollapsed){ renderWidgets(); return; }
+    animateWidgetsCollapse(); return;
+  }
   if(state.settings.widgetsCollapsed){ state.settings.widgetsCollapsed=false; save(); renderWidgets(); return; }
   animateWidgetsCollapse();
 });

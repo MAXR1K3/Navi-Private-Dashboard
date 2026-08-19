@@ -9,7 +9,7 @@ const { createEnv, load } = require("./env.js");
 const ctx = createEnv();
 const failed = load(ctx, ["js/i18n.js","js/state.js","js/icons.js","js/utils.js","js/render.js",
                           "js/suggest.js","js/sync.js","js/cleanup.js","js/snapshots.js",
-                          "js/bookmarks.js","js/import-export.js","js/keywords.js"]);
+                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js"]);
 if (failed.length) { console.error("× 模块加载失败：\n  " + failed.join("\n  ")); process.exit(1); }
 
 let pass = 0, fail = 0, group = "";
@@ -162,6 +162,39 @@ const B = [mk("2","https://b.com","B"), mk("1","https://a.com","A")];   // 只�
 const C = [mk("1","https://a.com","A 改过了"), mk("2","https://b.com","B")];
 eq("纯换顺序不算改动", syncFingerprint(A), syncFingerprint(B));
 ok("改了标题就要变", syncFingerprint(A) !== syncFingerprint(C));
+
+/* ---------- 窄屏组件可见性 ---------- */
+G("widgetVisibleNow / widgetsCollapsedNow");
+ctx.state.settings.widgets={clock:true, calendar:true, monitor:false};
+ctx.state.settings.widgetsMobile={};
+// 宽屏：只看总开关
+ctx.window.matchMedia=function(){ return {matches:false, addEventListener(){}, addListener(){}}; };
+ok("宽屏下开着的组件显示", ctx.widgetVisibleNow("clock") === true);
+ok("宽屏下关掉的组件不显示", ctx.widgetVisibleNow("monitor") === false);
+// 窄屏：额外看白名单，没设过 = 显示（不静默藏东西）
+ctx.window.matchMedia=function(){ return {matches:true, addEventListener(){}, addListener(){}}; };
+ok("窄屏未设置时仍显示", ctx.widgetVisibleNow("clock") === true);
+ctx.state.settings.widgetsMobile={calendar:false};
+ok("窄屏被排除的组件不显示", ctx.widgetVisibleNow("calendar") === false);
+ok("窄屏排除不影响其它组件", ctx.widgetVisibleNow("clock") === true);
+ctx.window.matchMedia=function(){ return {matches:false, addEventListener(){}, addListener(){}}; };
+ok("同一个组件在宽屏照常显示", ctx.widgetVisibleNow("calendar") === true);
+
+// 折叠：窄屏下这台设备的选择优先于同步过来的设置
+ctx.localStorage.removeItem("navi.device");
+ctx.state.settings.widgetsCollapsed=false;
+ctx.state.settings.mobileCollapse=true;
+ctx.window.matchMedia=function(){ return {matches:true, addEventListener(){}, addListener(){}}; };
+ok("手机上首次打开默认折叠", ctx.widgetsCollapsedNow() === true);
+ctx.deviceSet("mobileExpanded", true);
+ok("用户在这台设备展开后就保持展开", ctx.widgetsCollapsedNow() === false);
+ctx.window.matchMedia=function(){ return {matches:false, addEventListener(){}, addListener(){}}; };
+ok("桌面端不受手机上的选择影响", ctx.widgetsCollapsedNow() === false);
+ctx.state.settings.widgetsCollapsed=true;
+ok("桌面端仍按自己的设置折叠", ctx.widgetsCollapsedNow() === true);
+// 设备本地偏好绝不能进入会同步的 settings
+ok("设备偏好不写进 settings", JSON.stringify(ctx.state.settings).indexOf("mobileExpanded") < 0);
+ok("设备偏好存在独立的 localStorage 键", !!ctx.localStorage.getItem("navi.device"));
 
 /* ---------- 存档导出包 ---------- */
 G("snapParseBundle");

@@ -17,6 +17,7 @@ function defaults(){
       widgetsCollapsed:false, widgetsHidden:false, clockSeconds:false, clock24h:false, worldClockMode:"stack", worldClocks:[], showHolidays:true, calendarShowDoneBadges:false, categoryLayout:"tabs", hideHeaderOnScroll:false, hideHeaderOnScrollUserSet:false,
       widgets:{ clock:true, search:true, overview:true, weather:true, netinfo:true, calendar:true, frequent:true, recent:true, notes:true, monitor:false },
       widgetOrder:["clock","search","overview","weather","netinfo","calendar","frequent","recent","notes","monitor"],
+      widgetsMobile:{}, mobileCollapse:true,   /* 窄屏：哪些组件显示（空=全显示）+ 是否默认折叠仪表盘 */
       widgetSize:{ clock:1, search:2, overview:1, weather:1, netinfo:1, calendar:1, frequent:1, recent:1, notes:2, monitor:2 },
       notes:"",
       weather:null, weatherUnit:"c", searchEngine:"google", engineUsage:{},

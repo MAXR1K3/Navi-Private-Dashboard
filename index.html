@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/app.css?v=59" />
+  <link rel="stylesheet" href="css/app.css?v=60" />
 </head>
 <body>
   <div id="bgLayer"></div>
@@ -354,6 +354,8 @@
           </div>
           <div class="set-section">
           <h4 data-i18n="widgetsSec">Widgets</h4>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="mobileCollapseLabel">Collapse dashboard on phones</div><div class="d" data-i18n="mobileCollapseDesc">On narrow screens the widgets stack into one tall column and push bookmarks several screens down. Collapsed by default; one tap opens it, and that choice stays on this device.</div></div><label class="switch"><input type="checkbox" id="setMobileCollapse" data-i18n-aria="mobileCollapseLabel"><span class="track"></span></label></div>
+          <div class="set-row"><div class="info"><div class="t" data-i18n="mobileWidgetsLabel">Widgets shown on phones</div><div class="d" data-i18n="mobileWidgetsDesc">Tap to exclude a widget on narrow screens. It stays on wider screens.</div><div class="mobile-widget-chips" id="mobileWidgetChips"></div></div></div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="clock">Clock &amp; date</div></div><label class="switch"><input type="checkbox" data-widget="clock" data-i18n-aria="clock"><span class="track"></span></label></div>
           <div class="set-row sub" data-subof="clock"><div class="info"><div class="t" data-i18n="showSeconds">Show seconds</div><div class="d" data-i18n="showSecondsDesc">Display seconds on the clock</div></div><label class="switch"><input type="checkbox" id="setSeconds" data-i18n-aria="showSeconds"><span class="track"></span></label></div>
           <div class="set-row sub" data-subof="clock"><div class="info"><div class="t" data-i18n="clock24h">24-hour time</div><div class="d" data-i18n="clock24hDesc">Show the clock in 24-hour format instead of AM/PM</div></div><label class="switch"><input type="checkbox" id="setClock24" data-i18n-aria="clock24h"><span class="track"></span></label></div>

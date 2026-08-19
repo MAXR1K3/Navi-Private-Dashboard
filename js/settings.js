@@ -23,6 +23,8 @@ function openSettings(tab){
   if($("#setPrivacy")) $("#setPrivacy").checked=!!s.privacy;
   updateStorageUsage();
   if(typeof updateSnapUsage==="function") updateSnapUsage();
+  if($("#setMobileCollapse")) $("#setMobileCollapse").checked=state.settings.mobileCollapse!==false;
+  if(typeof renderMobileWidgetChips==="function") renderMobileWidgetChips();
   if($("#setHideHeader")) $("#setHideHeader").checked=!!s.hideHeaderOnScroll;
   if(typeof syncMonitorUI==="function") syncMonitorUI();
   if(typeof syncProfileEditor==="function") syncProfileEditor();
@@ -49,6 +51,37 @@ function updateStorageUsage(){
   if(desc) desc.textContent=t("storageUsageDesc",{kb:info.kb,pct:info.pct});
 }
 /* 页面存档用量（IndexedDB，不占 localStorage 预算，所以单列一行） */
+
+/* 窄屏组件白名单 + 手机折叠开关 */
+function renderMobileWidgetChips(){
+  var box=$("#mobileWidgetChips"); if(!box) return;
+  var s=state.settings, m=s.widgetsMobile||{};
+  var on=WKEYS.filter(function(k){ return s.widgets[k]; });
+  if(!on.length){ box.innerHTML='<span class="mw-empty">'+escapeHtml(t("mobileWidgetsNone"))+'</span>'; return; }
+  box.innerHTML=on.map(function(k){
+    var shown=m[k]!==false;
+    return '<button type="button" class="mw-chip'+(shown?" on":"")+'" data-mw="'+k+'" aria-pressed="'+(shown?"true":"false")+'">'+
+      escapeHtml(widgetLabel(k))+'</button>';
+  }).join("");
+}
+function widgetLabel(k){
+  var map={clock:"clock",search:"webSearch",overview:"overviewTitle",weather:"weather",netinfo:"ipWidget",
+           calendar:"calendar",frequent:"frequentlyUsed",recent:"recentlyOpened",notes:"notesTitle",monitor:"monitorTitle"};
+  return t(map[k]||k);
+}
+if($("#mobileWidgetChips")) $("#mobileWidgetChips").addEventListener("click", function(e){
+  var c=e.target.closest("[data-mw]"); if(!c) return;
+  var k=c.getAttribute("data-mw");
+  var m=state.settings.widgetsMobile||(state.settings.widgetsMobile={});
+  m[k]=(m[k]===false);                 // false 表示窄屏隐藏
+  save(); renderMobileWidgetChips(); renderWidgets();
+});
+if($("#setMobileCollapse")) $("#setMobileCollapse").addEventListener("change", function(e){
+  state.settings.mobileCollapse=e.target.checked;
+  if(typeof deviceSet==="function") deviceSet("mobileExpanded", undefined);   // 让新默认立刻生效
+  save(); renderWidgets();
+});
+
 function updateSnapUsage(){
   var val=$("#snapUsageVal"); if(!val||typeof snapStats!=="function") return;
   snapStats().then(function(st){ val.textContent=t("snapStorageVal",{n:st.count,kb:st.kb}); });

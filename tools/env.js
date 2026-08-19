@@ -61,7 +61,14 @@ function createEnv() {
     fetch: () => Promise.reject(new Error("网络在测试里被禁用")),
     indexedDB: undefined,
     // 这些是各模块加载期就会调用的，给成空操作，避免测试互相污染
-    alert(){}, confirm(){ return true; }
+    alert(){}, confirm(){ return true; },
+    // 模块加载期会挂全局监听，给成空操作即可
+    addEventListener(){}, removeEventListener(){}, dispatchEvent(){ return true; },
+    innerWidth: 1280, innerHeight: 800, devicePixelRatio: 1,
+    getComputedStyle(){ return { getPropertyValue(){ return ""; } }; },
+    IntersectionObserver: function(){ return { observe(){}, disconnect(){}, unobserve(){} }; },
+    ResizeObserver: function(){ return { observe(){}, disconnect(){}, unobserve(){} }; },
+    MutationObserver: function(){ return { observe(){}, disconnect(){} }; }
   };
   ctx.window = ctx; ctx.globalThis = ctx; ctx.self = ctx;
   vm.createContext(ctx);
