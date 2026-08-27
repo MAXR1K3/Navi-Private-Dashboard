@@ -1,6 +1,6 @@
 // Navi background.js v1.7 — queues bookmark events while the dashboard is closed,
 // and captures pages/links/images into a pending queue the dashboard drains on open.
-const api=(typeof browser!=='undefined'&&browser.bookmarks)?browser:chrome;
+const api=(typeof browser!=='undefined'&&browser.runtime)?browser:chrome;   // Safari 两个命名空间都有，但都没有 bookmarks
 const MAX_QUEUE=500;
 const MAX_CAPTURES=200;
 
@@ -163,6 +163,11 @@ api.action.onClicked.addListener(async()=>{
   }catch(_){ api.tabs.create({url:dashUrl}); }
 });
 
+/* Safari 的扩展 API 里没有 bookmarks（苹果从不把书签暴露给扩展）。
+   下面这些监听如果不加判断，在 Safari 上会直接抛异常，
+   整个后台脚本随之挂掉——连右键保存、快捷键这些本来能用的功能也一起没了。 */
+const HAS_BOOKMARKS = !!(api && api.bookmarks && api.bookmarks.onCreated);
+
 async function enqueue(ev){
   try{
     const d=await asPromise(api.storage.local.get('naviPending'));
@@ -172,20 +177,22 @@ async function enqueue(ev){
   }catch(_){}
 }
 
-api.bookmarks.onCreated.addListener(async(id,node)=>{
-  if(!node.url) return;
-  await enqueue({type:'created',id,node});
-});
+if(HAS_BOOKMARKS){
+  api.bookmarks.onCreated.addListener(async(id,node)=>{
+    if(!node.url) return;
+    await enqueue({type:'created',id,node});
+  });
 
-api.bookmarks.onRemoved.addListener(async(id,info)=>{
-  if(info&&info.node&&!info.node.url) return;
-  await enqueue({type:'removed',id});
-});
+  api.bookmarks.onRemoved.addListener(async(id,info)=>{
+    if(info&&info.node&&!info.node.url) return;
+    await enqueue({type:'removed',id});
+  });
 
-api.bookmarks.onChanged.addListener(async(id,changes)=>{
-  await enqueue({type:'changed',id,changes});
-});
+  api.bookmarks.onChanged.addListener(async(id,changes)=>{
+    await enqueue({type:'changed',id,changes});
+  });
 
-api.bookmarks.onMoved.addListener(async(id,info)=>{
-  await enqueue({type:'moved',id,parentId:info.parentId});
-});
+  api.bookmarks.onMoved.addListener(async(id,info)=>{
+    await enqueue({type:'moved',id,parentId:info.parentId});
+  });
+}
