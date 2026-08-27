@@ -202,6 +202,13 @@ function storageRemove(key){
 }
 function runChromeSync(onDone){ runBrowserSync(onDone); }
 function runBrowserSync(onDone){
+  // 从浏览器只接收、不上报：它书签栏里那些本来就是我们镜像下去的，
+  // 再读回 Navi 会绕成一个环（镜像 -> 被当成本地新增 -> 上传 -> 再镜像下去）。
+  if(typeof isFollower==="function"&&isFollower()){
+    if(typeof toast==="function") toast(t("mirrorFollowerNoPush"),"");
+    if(onDone) onDone({added:0,updated:0,removed:0,skipped:"follower"});
+    return;
+  }
   var source=syncSource();
   if(!canReadSelectedSource()){ if(onDone) onDone("noext"); return; }
   _csSyncing=true; updateSyncUI();

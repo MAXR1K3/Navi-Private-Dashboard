@@ -9,7 +9,7 @@ const { createEnv, load } = require("./env.js");
 const ctx = createEnv();
 const failed = load(ctx, ["js/i18n.js","js/state.js","js/icons.js","js/utils.js","js/render.js",
                           "js/suggest.js","js/sync.js","js/cleanup.js","js/snapshots.js",
-                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js"]);
+                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js"]);
 if (failed.length) { console.error("× 模块加载失败：\n  " + failed.join("\n  ")); process.exit(1); }
 
 let pass = 0, fail = 0, group = "";
@@ -162,6 +162,71 @@ const B = [mk("2","https://b.com","B"), mk("1","https://a.com","A")];   // 只�
 const C = [mk("1","https://a.com","A 改过了"), mk("2","https://b.com","B")];
 eq("纯换顺序不算改动", syncFingerprint(A), syncFingerprint(B));
 ok("改了标题就要变", syncFingerprint(A) !== syncFingerprint(C));
+
+/* ---------- 书签镜像规划（写错就是删掉别人的书签） ---------- */
+G("planMirror");
+const canon = (list) => list.map(([title,url,category]) => ({title,url,category}));
+
+// 空镜像 → 全部新建
+let p = ctx.planMirror(canon([["A","https://a.com","开发"],["B","https://b.com","设计"]]), []);
+eq("空镜像时新建两个文件夹", p.addFolders.sort().join(","), "672-开发,设计".slice(4));
+eq("空镜像时新建两条", p.addItems.length, 2);
+eq("空镜像时不删任何东西", p.removeItems.length + p.removeFolders.length, 0);
+
+// 完全一致 → 什么都不做（最重要的一条：不能每次都重建一遍）
+const existing = [{id:"f1",title:"开发",items:[{id:"i1",title:"A",url:"https://a.com"}]}];
+p = ctx.planMirror(canon([["A","https://a.com","开发"]]), existing);
+ok("完全一致时是空操作", ctx.mirrorPlanIsNoop(p), JSON.stringify(p));
+
+// 标题改了 → 只更新，不重建
+p = ctx.planMirror(canon([["A 改名了","https://a.com","开发"]]), existing);
+eq("只产生一次更新", p.updateItems.length, 1);
+eq("更新指向正确的节点", p.updateItems[0].id, "i1");
+eq("不新建也不删除", p.addItems.length + p.removeItems.length, 0);
+
+// 换了分类 → 移动而不是删了重建（保留节点，书签的添加日期等不丢）
+p = ctx.planMirror(canon([["A","https://a.com","设计"]]), existing);
+eq("产生一次移动", p.moveItems.length, 1);
+eq("移动到新分类", p.moveItems[0].folder, "设计");
+eq("移动时不删除节点", p.removeItems.length, 0);
+ok("目标文件夹会被建出来", p.addFolders.indexOf("设计") > -1);
+
+// 主浏览器删掉了 → 镜像里也要删
+p = ctx.planMirror(canon([]), existing);
+eq("多余的条目被删", p.removeItems.length, 1);
+eq("空掉的文件夹被删", p.removeFolders.length, 1);
+
+// 网址等价（尾斜杠/大小写）不该被当成两条
+p = ctx.planMirror(canon([["A","https://A.com/","开发"]]), existing);
+ok("尾斜杠与大小写视为同一条", p.addItems.length === 0 && p.removeItems.length === 0, JSON.stringify(p));
+
+// 镜像里出现重复网址 → 留一条，其余清掉
+p = ctx.planMirror(canon([["A","https://a.com","开发"]]),
+  [{id:"f1",title:"开发",items:[{id:"i1",title:"A",url:"https://a.com"},{id:"i2",title:"A 副本",url:"https://a.com"}]}]);
+eq("重复项被清掉一条", p.removeItems.length, 1);
+eq("被清掉的是副本", p.removeItems[0], "i2");
+
+// 没有网址的杂项（用户手动塞进镜像文件夹的子文件夹之类）也会被清走
+p = ctx.planMirror(canon([]), [{id:"f1",title:"开发",items:[{id:"x1",title:"手动加的",url:""}]}]);
+eq("无网址的条目被清掉", p.removeItems.length, 1);
+
+// 边界
+ok("传空不炸", ctx.mirrorPlanIsNoop(ctx.planMirror([], [])));
+ok("传 null 不炸", ctx.mirrorPlanIsNoop(ctx.planMirror(null, null)));
+p = ctx.planMirror(canon([["无分类","https://c.com",""]]), []);
+eq("没有分类时归到 Uncategorized", p.addItems[0].folder, "Uncategorized");
+
+G("browserRole");
+ctx.localStorage.removeItem("navi.device");
+eq("默认不参与镜像", ctx.browserRole(), "off");
+ctx.setBrowserRole("follower");
+ok("设成从浏览器", ctx.isFollower() === true && ctx.isAnchor() === false);
+ctx.setBrowserRole("anchor");
+ok("设成主浏览器", ctx.isAnchor() === true && ctx.isFollower() === false);
+ctx.setBrowserRole("胡乱写的");
+eq("非法值退回 off", ctx.browserRole(), "off");
+// 角色是这台浏览器自己的事，绝不能同步出去
+ok("角色不写进 settings", JSON.stringify(ctx.state.settings).indexOf("browserRole") < 0);
 
 /* ---------- 窄屏组件可见性 ---------- */
 G("widgetVisibleNow / widgetsCollapsedNow");

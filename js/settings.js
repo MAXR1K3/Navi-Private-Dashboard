@@ -25,6 +25,7 @@ function openSettings(tab){
   if(typeof updateSnapUsage==="function") updateSnapUsage();
   if($("#setMobileCollapse")) $("#setMobileCollapse").checked=state.settings.mobileCollapse!==false;
   if(typeof renderMobileWidgetChips==="function") renderMobileWidgetChips();
+  if(typeof syncMirrorUI==="function") syncMirrorUI();
   if($("#setHideHeader")) $("#setHideHeader").checked=!!s.hideHeaderOnScroll;
   if(typeof syncMonitorUI==="function") syncMonitorUI();
   if(typeof syncProfileEditor==="function") syncProfileEditor();
@@ -81,6 +82,56 @@ if($("#setMobileCollapse")) $("#setMobileCollapse").addEventListener("change", f
   if(typeof deviceSet==="function") deviceSet("mobileExpanded", undefined);   // 让新默认立刻生效
   save(); renderWidgets();
 });
+
+
+/* ---- 浏览器镜像：角色与手动执行 ---- */
+function syncMirrorUI(){
+  var seg=$("#mirrorRoleSeg"); if(!seg||typeof browserRole!=="function") return;
+  var role=browserRole();
+  $all("#mirrorRoleSeg [data-role]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-role")===role); });
+  var row=$("#mirrorRunRow");
+  if(row) row.style.display=(role==="follower")?"":"none";
+  var desc=$("#mirrorRunDesc");
+  if(desc){
+    if(typeof hasChromeAPI==="function"&&!hasChromeAPI()) desc.textContent=t("mirrorNeedsExt");
+    else{
+      var last=deviceGet("mirrorLastRun");
+      desc.textContent=t("mirrorInto",{folder:MIRROR_FOLDER})+(last?(" · "+t("mirrorLastRun",{when:timeAgo(last)})):"");
+    }
+  }
+}
+if($("#mirrorRoleSeg")) $("#mirrorRoleSeg").addEventListener("click", function(e){
+  var b=e.target.closest("[data-role]"); if(!b) return;
+  setBrowserRole(b.getAttribute("data-role"));
+  syncMirrorUI();
+  toast(t("mirrorRoleSaved"),"ok");
+});
+if($("#mirrorPreviewBtn")) $("#mirrorPreviewBtn").addEventListener("click", function(){
+  runMirrorSync({dryRun:true, force:true}).then(function(r){
+    if(r.error){ toast(t("mirrorFailed",{msg:r.error}),"err"); return; }
+    if(r.skipped==="noext"){ toast(t("mirrorNeedsExt"),"err"); return; }
+    var p=r.plan||{};
+    if(!r.count){ toast(t("mirrorAlreadyInSync"),"ok"); return; }
+    openConfirm(t("mirrorPreviewTitle"),
+      t("mirrorPreviewMsg",{add:(p.addItems||[]).length, update:(p.updateItems||[]).length+(p.moveItems||[]).length,
+                            remove:(p.removeItems||[]).length, folder:MIRROR_FOLDER}),
+      t("mirrorRun"), function(){ doMirrorRun(); });
+  });
+});
+if($("#mirrorRunBtn")) $("#mirrorRunBtn").addEventListener("click", function(){ doMirrorRun(); });
+function doMirrorRun(){
+  var btn=$("#mirrorRunBtn"); if(btn) btn.disabled=true;
+  runMirrorSync({force:true, onProgress:function(done,total){
+    var d=$("#mirrorRunDesc"); if(d) d.textContent=t("mirrorProgress",{done:done,total:total});
+  }}).then(function(r){
+    if(btn) btn.disabled=false;
+    if(r.error){ toast(t("mirrorFailed",{msg:r.error}),"err"); }
+    else if(r.skipped==="noext"){ toast(t("mirrorNeedsExt"),"err"); }
+    else if(!r.count){ toast(t("mirrorAlreadyInSync"),"ok"); }
+    else toast(t("mirrorDone",{n:r.count,folder:MIRROR_FOLDER}),"ok");
+    syncMirrorUI();
+  });
+}
 
 function updateSnapUsage(){
   var val=$("#snapUsageVal"); if(!val||typeof snapStats!=="function") return;

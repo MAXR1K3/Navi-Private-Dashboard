@@ -162,6 +162,8 @@ function syncProfile(id){
       cacheProfileData(id, data);
       if(state.settings.activeProfile===id){ applyProfileData(data); saveSilently(); render(); }
       rememberRemoteFp(id, data.bookmarks);   // 记下这次拉到的远程内容指纹，供上传前比对
+      // 从浏览器：刚拿到主端的最新数据，顺势镜像进本浏览器的书签树
+      if(typeof autoMirrorIfFollower==="function") autoMirrorIfFollower("after-pull");
       setSyncStatus("remote", Date.now());
       toast(t("syncOk",{n:data.bookmarks.length}),"ok");
     })

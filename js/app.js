@@ -12,3 +12,4 @@ oplogInit(); applyI18n(); initPerformanceGuards(); render(); initAutoTheme(); in
 if(typeof initSync==="function") initSync();
 if(typeof initCapture==="function") initCapture();
 if(typeof initContextual==="function") initContextual();
+if(typeof initMirror==="function") initMirror();

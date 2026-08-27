@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-  <link rel="stylesheet" href="css/app.css?v=60" />
+  <link rel="stylesheet" href="css/app.css?v=62" />
 </head>
 <body>
   <div id="bgLayer"></div>
@@ -278,6 +278,8 @@
             <div class="field"><div class="cat-input-row"><input id="webdavUser" type="text" data-i18n-ph="webdavUser" autocomplete="off" data-i18n-aria="webdavUser" /><input id="webdavPass" type="password" data-i18n-ph="webdavPass" autocomplete="off" data-i18n-aria="webdavPass" /></div></div>
             <div class="set-row"><div class="info"><div class="t" data-i18n="webdavAuto">Auto-sync on open</div><div class="d" data-i18n="webdavAutoDesc">Fetch the latest on every open; otherwise use the cached copy.</div></div><label class="switch"><input type="checkbox" id="webdavAuto" data-i18n-aria="webdavAuto"><span class="track"></span></label></div>
             <div class="set-row" data-pwa-reader-hidden><div class="info"><div class="t" data-i18n="webdavAutoUpload">Upload after browser sync</div><div class="d" data-i18n="webdavAutoUploadDesc">After Chrome or Edge bookmark sync finishes, write the latest bookmarks.json to WebDAV/NAS.</div></div><label class="switch"><input type="checkbox" id="webdavAutoUpload" data-i18n-aria="webdavAutoUpload"><span class="track"></span></label></div>
+            <div class="set-row"><div class="info"><div class="t" data-i18n="mirrorRoleLabel">This browser&#39;s role</div><div class="d" data-i18n="mirrorRoleDesc">Pick one browser as the anchor. Other browsers mirror its bookmarks into a folder of their own and never write back. Stored on this browser only.</div></div><div class="seg sm" id="mirrorRoleSeg"><button data-role="off" data-i18n="mirrorRoleOff">Off</button><button data-role="anchor" data-i18n="mirrorRoleAnchor">Anchor</button><button data-role="follower" data-i18n="mirrorRoleFollower">Mirror</button></div></div>
+            <div class="set-row" id="mirrorRunRow"><div class="info"><div class="t" data-i18n="mirrorRunLabel">Mirror into this browser</div><div class="d" id="mirrorRunDesc"></div></div><div class="snap-usage"><button class="btn" id="mirrorPreviewBtn" data-i18n="mirrorPreview">Preview</button><button class="btn primary" id="mirrorRunBtn" data-i18n="mirrorRun">Mirror now</button></div></div>
             <div class="set-row"><div class="info"><div class="t" data-i18n="syncStatusLabel">Sync status</div><div class="d" id="syncStatusLine"></div></div><div class="row-8 wrap end"><button class="btn" id="syncNowBtn" data-i18n="syncNow">Sync now</button><button class="btn primary" id="webdavUploadBtn" data-i18n="webdavUploadNow" data-pwa-reader-hidden>Upload to NAS</button></div></div>
             <div class="d mt-1 hint-text" data-i18n="webdavCorsNote">PWA reads need CORS or a reverse proxy. The desktop extension can upload the same bookmarks.json with WebDAV PUT.</div>
           </div>
@@ -569,6 +571,7 @@
 <script src="js/settings.js"></script>
 <script src="js/menu.js"></script>
 <script src="js/chrome-sync.js"></script>
+<script src="js/mirror.js"></script>
 <script src="js/trash.js"></script>
 <script src="js/health.js"></script>
 <script src="js/suggest.js"></script>

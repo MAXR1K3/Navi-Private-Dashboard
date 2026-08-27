@@ -222,3 +222,15 @@ function renderBrand(){
   document.title=(s.appName||"Navi")+" — "+t("dashboard");
   $("#brandLogo").innerHTML = s.logo? '<img src="'+escapeHtml(s.logo)+'" alt="logo"/>' : ICONS.bookmark;
 }
+
+/* ===== 设备本地偏好 =====
+   绝不能放进 state.settings —— 那份要同步到 NAS 和其它设备。
+   "我在手机上展开了仪表盘""这台浏览器是从属角色"都是这台设备自己的事，
+   同步出去只会让几台机器互相打架。 */
+var DEVICE_KEY="navi.device";
+function deviceGet(k){
+  try{ var d=JSON.parse(localStorage.getItem(DEVICE_KEY)||"{}"); return d[k]; }catch(e){ return undefined; }
+}
+function deviceSet(k,v){
+  try{ var d=JSON.parse(localStorage.getItem(DEVICE_KEY)||"{}"); d[k]=v; localStorage.setItem(DEVICE_KEY,JSON.stringify(d)); }catch(e){}
+}

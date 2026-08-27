@@ -10,15 +10,6 @@
 function isNarrowScreen(){
   try{ return window.matchMedia("(max-width: 640px)").matches; }catch(e){ return innerWidth<=640; }
 }
-/* 设备本地偏好：绝不能放进 state.settings —— 那份是要同步到 NAS 和其它设备的，
-   "我在手机上把仪表盘展开了"不该让桌面端也跟着变。 */
-var DEVICE_KEY="navi.device";
-function deviceGet(k){
-  try{ var d=JSON.parse(localStorage.getItem(DEVICE_KEY)||"{}"); return d[k]; }catch(e){ return undefined; }
-}
-function deviceSet(k,v){
-  try{ var d=JSON.parse(localStorage.getItem(DEVICE_KEY)||"{}"); d[k]=v; localStorage.setItem(DEVICE_KEY,JSON.stringify(d)); }catch(e){}
-}
 /* 这个组件在当前屏幕下该不该显示 */
 function widgetVisibleNow(key){
   var s=state.settings;
