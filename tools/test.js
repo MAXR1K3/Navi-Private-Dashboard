@@ -9,7 +9,7 @@ const { createEnv, load } = require("./env.js");
 const ctx = createEnv();
 const failed = load(ctx, ["js/i18n.js","js/state.js","js/icons.js","js/utils.js","js/render.js",
                           "js/suggest.js","js/sync.js","js/cleanup.js","js/snapshots.js",
-                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js"]);
+                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js","js/menu.js"]);
 if (failed.length) { console.error("× 模块加载失败：\n  " + failed.join("\n  ")); process.exit(1); }
 
 let pass = 0, fail = 0, group = "";
@@ -39,6 +39,21 @@ if (typeof ctx.cardViewClass === "function") {
 if (typeof ctx.viewBtnLabel === "function") {
   eq("双列模式明确读出当前选择", ctx.viewBtnLabel("list"), "Current view: List");
   eq("紧凑模式明确读出当前选择", ctx.viewBtnLabel("compact"), "Current view: Compact");
+}
+
+/* ---------- 手机更多菜单分组 ---------- */
+G("mobile more menu groups");
+ok("提供更多菜单动作分组函数", typeof ctx.moreMenuGroup === "function");
+if (typeof ctx.moreMenuGroup === "function") {
+  eq("导入属于导入导出组", ctx.moreMenuGroup("import"), "transfer");
+  eq("导出属于导入导出组", ctx.moreMenuGroup("export"), "transfer");
+  eq("摘要属于 AI 工具组", ctx.moreMenuGroup("summaries"), "ai");
+  eq("分类建议属于 AI 工具组", ctx.moreMenuGroup("suggest"), "ai");
+  ["widgets","addcat","health","healthIssues","cleanup","trash"].forEach(function(action){
+    eq(action+" 属于维护组", ctx.moreMenuGroup(action), "maintenance");
+  });
+  eq("清空全部独占危险区", ctx.moreMenuGroup("clear"), "danger");
+  eq("未知动作不会误入任何组", ctx.moreMenuGroup("unknown"), "");
 }
 
 /* ---------- 搜索打分 ---------- */

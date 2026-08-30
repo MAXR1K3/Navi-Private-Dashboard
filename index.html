@@ -58,19 +58,39 @@
         </button>
         <div class="menu-wrap more-picker">
           <button class="btn icon" id="moreBtn" data-i18n-title="more" aria-label="more" aria-haspopup="menu" aria-controls="moreMenu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg></button>
-          <div class="menu" id="moreMenu">
-            <button data-act="widgets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> <span id="widgetsToggleLabel">Hide widgets</span></button>
-            <button data-act="import" class="more-only-mobile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M20 21H4a2 2 0 0 1-2-2v-3"/></svg> <span data-i18n="import">Import</span></button>
-            <button data-act="export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m8 13 4-4 4 4"/><path d="M4 3h16a2 2 0 0 1 2 2v3"/></svg> <span data-i18n="exportBm">Export bookmarks</span></button>
-            <button data-act="addcat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M12 11v4M10 13h4"/></svg> <span data-i18n="newCategory">New category</span></button>
-            <button data-act="summaries"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/><path d="M5 4v4M3 6h4"/></svg> <span data-i18n="summarizeMissing">Summarize descriptions</span></button>
-            <button data-act="suggest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 1 6 6c0 2.2-1.2 3.6-2.4 4.8-.7.7-1.1 1.4-1.3 2.2H9.7c-.2-.8-.6-1.5-1.3-2.2C7.2 12.6 6 11.2 6 9a6 6 0 0 1 6-6z"/><path d="M9.5 19h5M10.5 22h3"/></svg> <span data-i18n="aiSuggest">AI category suggestions</span></button>
-            <button data-act="health"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8-4-16-3 8H2"/></svg> <span data-i18n="healthCheck">Check links</span></button>
-            <button data-act="healthIssues"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg> <span data-i18n="healthIssues">Invalid links</span></button>
-            <button data-act="cleanup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v5M14 11v5"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> <span data-i18n="cleanTitle">Tidy up bookmarks</span></button>
-            <button data-act="trash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v5M14 11v5"/></svg> <span data-i18n="trash">Trash</span></button>
-            <hr/>
-            <button class="danger-item" data-act="clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> <span data-i18n="clearAll">Clear everything</span></button>
+          <div class="more-sheet-backdrop" id="moreBackdrop"></div>
+          <div class="menu more-menu" id="moreMenu" role="menu" data-i18n-aria="moreSheetTitle">
+            <div class="more-sheet-head"><span class="more-sheet-grip" aria-hidden="true"></span><strong data-i18n="moreSheetTitle">Tools &amp; management</strong><button type="button" class="more-sheet-close" data-menu-close data-i18n-aria="close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+            <section class="menu-group" data-menu-group="transfer" role="group" aria-labelledby="moreTransferTitle">
+              <div class="menu-group-title" id="moreTransferTitle" data-i18n="menuTransfer">Import &amp; export</div>
+              <div class="menu-group-actions">
+                <button role="menuitem" data-act="import" class="more-only-mobile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M20 21H4a2 2 0 0 1-2-2v-3"/></svg> <span data-i18n="import">Import</span></button>
+                <button role="menuitem" data-act="export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="m8 13 4-4 4 4"/><path d="M4 3h16a2 2 0 0 1 2 2v3"/></svg> <span data-i18n="exportBm">Export bookmarks</span></button>
+              </div>
+            </section>
+            <section class="menu-group" data-menu-group="ai" role="group" aria-labelledby="moreAiTitle">
+              <div class="menu-group-title" id="moreAiTitle" data-i18n="menuAi">AI tools</div>
+              <div class="menu-group-actions">
+                <button role="menuitem" data-act="summaries"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/><path d="M5 4v4M3 6h4"/></svg> <span data-i18n="summarizeMissing">Summarize descriptions</span></button>
+                <button role="menuitem" data-act="suggest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 1 6 6c0 2.2-1.2 3.6-2.4 4.8-.7.7-1.1 1.4-1.3 2.2H9.7c-.2-.8-.6-1.5-1.3-2.2C7.2 12.6 6 11.2 6 9a6 6 0 0 1 6-6z"/><path d="M9.5 19h5M10.5 22h3"/></svg> <span data-i18n="aiSuggest">AI category suggestions</span></button>
+              </div>
+            </section>
+            <section class="menu-group" data-menu-group="maintenance" role="group" aria-labelledby="moreMaintenanceTitle">
+              <div class="menu-group-title" id="moreMaintenanceTitle" data-i18n="menuMaintenance">Maintenance</div>
+              <div class="menu-group-actions">
+                <button role="menuitem" data-act="widgets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> <span id="widgetsToggleLabel">Hide widgets</span></button>
+                <button role="menuitem" data-act="addcat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M12 11v4M10 13h4"/></svg> <span data-i18n="newCategory">New category</span></button>
+                <button role="menuitem" data-act="health"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8-4-16-3 8H2"/></svg> <span data-i18n="healthCheck">Check links</span></button>
+                <button role="menuitem" data-act="healthIssues"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg> <span data-i18n="healthIssues">Invalid links</span></button>
+                <button role="menuitem" data-act="cleanup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v5M14 11v5"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> <span data-i18n="cleanTitle">Tidy up bookmarks</span></button>
+                <button role="menuitem" data-act="trash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v5M14 11v5"/></svg> <span data-i18n="trash">Trash</span></button>
+              </div>
+            </section>
+            <hr class="menu-separator"/>
+            <section class="menu-group menu-group-danger" data-menu-group="danger" role="group" aria-labelledby="moreDangerTitle">
+              <div class="menu-group-title" id="moreDangerTitle" data-i18n="menuDanger">Danger zone</div>
+              <div class="menu-group-actions"><button role="menuitem" class="danger-item" data-act="clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> <span data-i18n="clearAll">Clear everything</span></button></div>
+            </section>
           </div>
         </div>
       </div>

@@ -86,11 +86,39 @@ function animateWidgetsCollapse(){
   }, 340);
 }
 
-var moreMenu=$("#moreMenu");
-function closeMenu(){ moreMenu.classList.remove("open"); $("#moreBtn").setAttribute("aria-expanded","false"); }
-$("#moreBtn").addEventListener("click", function(e){ e.stopPropagation(); closeViewMenu(false); $("#widgetsToggleLabel").textContent=state.settings.widgetsHidden?t("showWidgets"):t("hideWidgets"); var opening=!moreMenu.classList.contains("open"); moreMenu.classList.toggle("open",opening); this.setAttribute("aria-expanded",opening?"true":"false"); });
+function moreMenuGroup(action){
+  if(action==="import"||action==="export") return "transfer";
+  if(action==="summaries"||action==="suggest") return "ai";
+  if(["widgets","addcat","health","healthIssues","cleanup","trash"].indexOf(action)>-1) return "maintenance";
+  return action==="clear"?"danger":"";
+}
+var moreMenu=$("#moreMenu"), moreBackdrop=$("#moreBackdrop"), moreBtn=$("#moreBtn");
+function visibleMoreItems(){ return $all("[data-act]",moreMenu).filter(function(item){ return item.offsetParent!==null; }); }
+function closeMenu(restoreFocus){
+  moreMenu.classList.remove("open"); moreBackdrop.classList.remove("open"); moreBtn.setAttribute("aria-expanded","false"); document.body.classList.remove("more-sheet-open");
+  if(restoreFocus) moreBtn.focus();
+}
+function openMenu(){
+  closeViewMenu(false); $("#widgetsToggleLabel").textContent=state.settings.widgetsHidden?t("showWidgets"):t("hideWidgets");
+  moreMenu.classList.add("open"); moreBackdrop.classList.add("open"); moreBtn.setAttribute("aria-expanded","true"); document.body.classList.add("more-sheet-open");
+  var first=visibleMoreItems()[0]; if(first) first.focus();
+}
+moreBtn.addEventListener("click", function(e){ e.stopPropagation(); if(moreMenu.classList.contains("open")) closeMenu(false); else openMenu(); });
+moreBackdrop.addEventListener("click", function(){ closeMenu(true); });
 document.addEventListener("click", function(e){ if(clickFullyOutside(e,".more-picker")) closeMenu(); if(clickFullyOutside(e,".view-picker")) closeViewMenu(false); });
-moreMenu.addEventListener("click", function(e){ var btn=e.target.closest("[data-act]"); if(!btn) return; closeMenu(); var act=btn.getAttribute("data-act"); if(act==="import") openImport(); else if(act==="export") exportBookmarks(); else if(act==="addcat") addCategory(); else if(act==="summaries") summarizeMissingDescriptions(); else if(act==="trash") openTrash(); else if(act==="cleanup") openCleanup(); else if(act==="health") healthCheckAll(); else if(act==="healthIssues") openHealthIssues(); else if(act==="suggest") openSuggest(); else if(act==="widgets"){ state.settings.widgetsHidden=!state.settings.widgetsHidden; save(); renderWidgets(); } else if(act==="clear"){ openConfirm(t("clearTitle"), t("clearMsg"), t("deleteAll"), function(){ state.bookmarks=[]; state.categories=[]; ui.activeCat="All"; ui.selected={}; save(); render(); toast(t("allCleared"),"ok"); }); } });
+moreMenu.addEventListener("click", function(e){
+  if(e.target.closest("[data-menu-close]")){ closeMenu(true); return; }
+  var btn=e.target.closest("[data-act]"); if(!btn) return; closeMenu(true); var act=btn.getAttribute("data-act"); if(act==="import") openImport(); else if(act==="export") exportBookmarks(); else if(act==="addcat") addCategory(); else if(act==="summaries") summarizeMissingDescriptions(); else if(act==="trash") openTrash(); else if(act==="cleanup") openCleanup(); else if(act==="health") healthCheckAll(); else if(act==="healthIssues") openHealthIssues(); else if(act==="suggest") openSuggest(); else if(act==="widgets"){ state.settings.widgetsHidden=!state.settings.widgetsHidden; save(); renderWidgets(); } else if(act==="clear"){ openConfirm(t("clearTitle"), t("clearMsg"), t("deleteAll"), function(){ state.bookmarks=[]; state.categories=[]; ui.activeCat="All"; ui.selected={}; save(); render(); toast(t("allCleared"),"ok"); }); }
+});
+moreMenu.addEventListener("keydown", function(e){
+  if(e.key==="Escape"){ e.preventDefault(); closeMenu(true); return; }
+  if(e.key==="Tab"){ closeMenu(false); return; }
+  var items=visibleMoreItems(), i=items.indexOf(document.activeElement), next=null;
+  if(e.key==="Home") next=items[0]; else if(e.key==="End") next=items[items.length-1];
+  else if(e.key==="ArrowDown"||e.key==="ArrowRight") next=items[(i+1+items.length)%items.length];
+  else if(e.key==="ArrowUp"||e.key==="ArrowLeft") next=items[(i-1+items.length)%items.length];
+  if(next){ e.preventDefault(); next.focus(); }
+});
 
 window.addEventListener("focus", function(){
   if(state.settings.widgetsCollapsed || state.settings.widgetsHidden || !anyWidgetOn()) return;
