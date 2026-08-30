@@ -667,6 +667,13 @@
   .wx-unit{ display:flex; gap:3px; } .wx-unit button{ font-size:var(--fs-xs); font-weight:700; border:1px solid var(--border); background:var(--surface-2); color:var(--text-soft); border-radius:var(--radius-xs); padding:2px 7px; cursor:pointer; } .wx-unit button.on{ background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
   .wx-set{ display:flex; gap:7px; margin-top:8px; } .wx-set input{ flex:1; height:36px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--surface-2); color:var(--text); padding:0 11px; font-size:var(--fs-md); outline:none; min-width:0; } .wx-set input:focus{ border-color:var(--accent); }
   .wx-msg{ font-size:var(--fs-md); color:var(--text-soft); line-height:1.5; }
+  .widget-setup{ display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:54px; padding:10px 11px; border:1px dashed var(--border-strong); border-radius:var(--radius-md); background:var(--surface-2); }
+  .widget-setup p, .widget-setup-open p{ margin:0; color:var(--text-soft); font-size:var(--fs-sm); line-height:1.45; }
+  .widget-setup .setup-cta{ flex:0 0 auto; height:38px; color:var(--accent); border-color:var(--accent); background:var(--surface); }
+  .widget-setup-open{ display:flex; flex-direction:column; gap:9px; padding:9px 10px; border:1px dashed var(--border-strong); border-radius:var(--radius-md); background:var(--surface-2); }
+  .widget-setup-open .setup-close{ align-self:flex-end; min-height:32px; padding:4px 2px; }
+  .world-clock.unconfigured{ gap:9px; }
+  @media(max-width:640px){ .widget-setup{ align-items:flex-start; flex-direction:column; } .widget-setup .setup-cta{ width:100%; height:44px; justify-content:center; } }
   .wx-panel{ margin-top:12px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface-2); padding:10px; display:flex; flex-direction:column; gap:8px; }
   .wx-panel-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:var(--fs-sm); color:var(--text-soft); }
   .wx-panel-head b{ color:var(--text); font-size:var(--fs-sm); }

@@ -56,6 +56,33 @@ if (typeof ctx.moreMenuGroup === "function") {
   eq("未知动作不会误入任何组", ctx.moreMenuGroup("unknown"), "");
 }
 
+/* ---------- 未配置小组件渐进披露 ---------- */
+G("unconfigured widget disclosure");
+ctx.state.settings.worldClocks = [];
+ctx.ui.worldClockSetup = false;
+let wcCollapsed = ctx.worldClockBody(new Date("2026-08-31T12:00:00Z"));
+ok("未配置世界时钟只显示添加入口", wcCollapsed.indexOf('data-clock-setup') > -1);
+ok("未点击时不渲染世界时钟表单", wcCollapsed.indexOf('id="worldClockForm"') < 0);
+ok("未配置时不显示无意义的布局切换", wcCollapsed.indexOf('data-clock-mode') < 0);
+ctx.ui.worldClockSetup = true;
+let wcExpanded = ctx.worldClockBody(new Date("2026-08-31T12:00:00Z"));
+ok("点击后才渲染世界时钟表单", wcExpanded.indexOf('id="worldClockForm"') > -1);
+
+ctx.state.settings.weather = null;
+ctx.weatherCache = null;
+ctx.ui.weatherPanel = "";
+ctx.ui.geoTried = false;
+let wxCollapsed = ctx.weatherBody();
+ok("未配置天气只显示设置入口", wxCollapsed.indexOf('data-wact="openWeatherSetup"') > -1);
+ok("未点击时不渲染天气搜索表单", wxCollapsed.indexOf('id="wxSearchForm"') < 0);
+ok("未配置天气不显示假加载骨架", wxCollapsed.indexOf('wx-skel') < 0);
+ctx.ensureWeather();
+ok("未点击 CTA 前不会主动请求定位", ctx.ui.geoTried === false);
+ctx.ui.weatherPanel = "search";
+let wxExpanded = ctx.weatherBody();
+ok("点击后才渲染天气搜索表单", wxExpanded.indexOf('id="wxSearchForm"') > -1);
+ctx.ui.weatherPanel = "";
+
 /* ---------- 搜索打分 ---------- */
 G("fuzzyScore");
 const { fuzzyScore } = ctx;

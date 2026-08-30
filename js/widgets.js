@@ -189,6 +189,9 @@ function worldClockList(){
   if(!Array.isArray(state.settings.worldClocks)) state.settings.worldClocks=[];
   return state.settings.worldClocks;
 }
+function widgetSetupPrompt(description, action, attr){
+  return '<div class="widget-setup"><p>'+escapeHtml(description)+'</p><button type="button" class="btn setup-cta" '+attr+'>'+escapeHtml(action)+'</button></div>';
+}
 function findTimeZone(q){
   q=String(q||"").trim().toLowerCase(); if(!q) return "";
   if(q==="utc"||q==="gmt") return "UTC";
@@ -207,15 +210,22 @@ function findTimeZone(q){
 }
 function worldClockBody(now){
   var clocks=worldClockList(), mode=state.settings.worldClockMode==="compact"?"compact":"stack";
-  var rows=clocks.length?clocks.map(function(c){
+  var form='<form class="wc-add" id="worldClockForm"><input name="tz" type="text" list="tzOptions" placeholder="'+escapeHtml(t("worldClockPh"))+'" aria-label="'+escapeHtml(t("worldClockPh"))+'" autocomplete="off" /><datalist id="tzOptions">'+worldClockOptions().map(function(o){ return '<option value="'+escapeHtml(o.value)+'">'+escapeHtml(o.label)+'</option>'; }).join("")+'</datalist><button type="submit">'+escapeHtml(t("addClock"))+'</button></form>';
+  if(!clocks.length){
+    var setup=ui.worldClockSetup
+      ? '<div class="widget-setup-open"><p>'+escapeHtml(t("worldClockEmpty"))+'</p>'+form+'<button type="button" class="link-btn setup-close" data-clock-setup-close>'+escapeHtml(t("close"))+'</button></div>'
+      : widgetSetupPrompt(t("worldClockEmpty"),t("worldClockSetup"),'data-clock-setup');
+    return '<div class="world-clock unconfigured"><div class="wc-head"><b>'+escapeHtml(t("worldClock"))+'</b></div>'+setup+'</div>';
+  }
+  var rows=clocks.map(function(c){
     var tz=typeof c==="string"?c:c.tz, id=escapeHtml(tz), label=escapeHtml(tzCity(tz));
     if(mode==="compact") return '<div class="wc-chip" data-tz="'+id+'"><b>'+escapeHtml(tzTime(tz,now))+'</b><span>'+label+'</span><button type="button" data-clock-remove="'+id+'" title="'+escapeHtml(t("removeClock"))+'">×</button></div>';
     return '<div class="wc-row" data-tz="'+id+'"><div><b>'+label+'</b><small>'+escapeHtml(tzLabel(tz))+'</small></div><span>'+escapeHtml(tzTime(tz,now))+'</span><em>'+escapeHtml(tzOffsetLabel(tz,now))+'</em><button type="button" data-clock-remove="'+id+'" title="'+escapeHtml(t("removeClock"))+'">×</button></div>';
-  }).join(""):'<div class="wc-empty">'+escapeHtml(t("worldClockEmpty"))+'</div>';
+  }).join("");
   return '<div class="world-clock">'+
     '<div class="wc-head"><b>'+escapeHtml(t("worldClock"))+'</b><div class="wc-mode"><button type="button" data-clock-mode="stack" class="'+(mode==="stack"?"on":"")+'">'+escapeHtml(t("clockStack"))+'</button><button type="button" data-clock-mode="compact" class="'+(mode==="compact"?"on":"")+'">'+escapeHtml(t("clockCompact"))+'</button></div></div>'+
     '<div class="wc-list '+mode+'" id="worldClockList">'+rows+'</div>'+
-    '<form class="wc-add" id="worldClockForm"><input name="tz" type="text" list="tzOptions" placeholder="'+escapeHtml(t("worldClockPh"))+'" aria-label="'+escapeHtml(t("worldClockPh"))+'" autocomplete="off" /><datalist id="tzOptions">'+worldClockOptions().map(function(o){ return '<option value="'+escapeHtml(o.value)+'">'+escapeHtml(o.label)+'</option>'; }).join("")+'</datalist><button type="submit">'+escapeHtml(t("addClock"))+'</button></form>'+
+    form+
   '</div>';
 }
 function refreshWorldClockDom(){
@@ -310,6 +320,10 @@ function weatherSearchPanel(){
 }
 function weatherBody(){
   var s=state.settings;
+  if(!s.weather){
+    if(ui.weatherPanel==="search") return weatherSearchPanel();
+    return widgetSetupPrompt(t("setLocation"),t("weatherSetup"),'data-wact="openWeatherSetup"');
+  }
   if(weatherCache&&weatherCache.data){
     var d=weatherCache.data, info=WMO[d.code]||["",""], unit=s.weatherUnit==="f"?"°F":"°C";
     return '<div class="wx"><div class="emoji">'+info[1]+'</div><div><div class="temp">'+Math.round(d.temp)+unit+'</div><div class="desc">'+escapeHtml(info[0])+'</div><div class="loc">'+escapeHtml(s.weather?s.weather.label:"")+'</div></div></div>'+
@@ -328,13 +342,13 @@ function ensureWeather(){
   var s=state.settings;
   if(weatherCache&&weatherCache.data){ var key=s.weather?(s.weather.lat+","+s.weather.lon+","+s.weatherUnit):""; if(weatherCache.key===key&&(Date.now()-weatherCache.ts)<15*60*1000) return; }
   if(s.weather){ fetchWeather(s.weather.lat, s.weather.lon); return; }
-  if(!ui.geoTried){
-    ui.geoTried=true;
-    if(navigator.geolocation){
-      navigator.geolocation.getCurrentPosition(function(pos){ state.settings.weather={lat:pos.coords.latitude,lon:pos.coords.longitude,label:t("useMyLocation")}; save(); fetchWeather(state.settings.weather.lat,state.settings.weather.lon); },
-        function(){ weatherCache={error:"locate"}; refreshWeatherDom(); }, {timeout:8000,maximumAge:600000});
-    } else { weatherCache={error:"locate"}; refreshWeatherDom(); }
-  } else if(!weatherCache){ weatherCache={error:"locate"}; refreshWeatherDom(); }
+}
+function requestWeatherLocation(){
+  ui.geoTried=true;
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(function(pos){ state.settings.weather={lat:pos.coords.latitude,lon:pos.coords.longitude,label:t("useMyLocation")}; ui.weatherPanel=""; save(); fetchWeather(state.settings.weather.lat,state.settings.weather.lon); },
+      function(){ weatherCache={error:"locate"}; ui.weatherPanel="search"; refreshWeatherDom(); }, {timeout:8000,maximumAge:600000});
+  } else { weatherCache={error:"locate"}; ui.weatherPanel="search"; refreshWeatherDom(); }
 }
 function fetchWeather(lat,lon){
   var s=state.settings, key=lat+","+lon+","+s.weatherUnit;
@@ -648,6 +662,8 @@ widgetsEl.addEventListener("click", function(e){
   var favAdd=e.target.closest("[data-fav-add]"); if(favAdd){ openAdd({favorite:true}); return; }
   var favToggle=e.target.closest("[data-fav-toggle]"); if(favToggle){ e.stopPropagation(); toggleFavoriteBookmark(favToggle.getAttribute("data-fav-toggle")); return; }
   var listClear=e.target.closest("[data-list-clear]"); if(listClear&&!listClear.disabled){ clearWidgetList(listClear.getAttribute("data-list-clear")); return; }
+  var clockSetup=e.target.closest("[data-clock-setup]"); if(clockSetup){ ui.worldClockSetup=true; refreshWorldClockDom(); setTimeout(function(){ var input=$("#worldClockForm input"); if(input) input.focus(); },0); return; }
+  var clockSetupClose=e.target.closest("[data-clock-setup-close]"); if(clockSetupClose){ ui.worldClockSetup=false; refreshWorldClockDom(); return; }
   var clockMode=e.target.closest("[data-clock-mode]"); if(clockMode){ state.settings.worldClockMode=clockMode.getAttribute("data-clock-mode")==="compact"?"compact":"stack"; save(); refreshWorldClockDom(); return; }
   var clockRemove=e.target.closest("[data-clock-remove]"); if(clockRemove){ removeWorldClock(clockRemove.getAttribute("data-clock-remove")); return; }
   var open=e.target.closest("[data-open]"); if(open){ openBookmark(open.getAttribute("data-open"),(e.metaKey||e.ctrlKey)?{background:true}:null); return; }
@@ -658,7 +674,7 @@ widgetsEl.addEventListener("click", function(e){
   var cal=e.target.closest("[data-cal]"); if(cal){ var a=cal.getAttribute("data-cal"); if(a==="prev"){ ui.calMonth--; if(ui.calMonth<0){ui.calMonth=11;ui.calYear--;} } else if(a==="next"){ ui.calMonth++; if(ui.calMonth>11){ui.calMonth=0;ui.calYear++;} } else { var td=new Date(); ui.calMonth=td.getMonth(); ui.calYear=td.getFullYear(); ui.calSelected=calDateKey(td); } refreshCalDom(); return; }
   var unit=e.target.closest("[data-unit]"); if(unit){ state.settings.weatherUnit=unit.getAttribute("data-unit"); save(); if(state.settings.weather) fetchWeather(state.settings.weather.lat,state.settings.weather.lon); return; }
   var wloc=e.target.closest("[data-wloc]"); if(wloc){ selectWeatherResult(+wloc.getAttribute("data-wloc")); return; }
-  var wact=e.target.closest("[data-wact]"); if(wact){ var act=wact.getAttribute("data-wact"); if(act==="geo"){ ui.geoTried=false; ui.weatherPanel=""; weatherSearchResults=[]; weatherSearchQuery=""; weatherCache=null; state.settings.weather=null; save(); refreshWeatherDom(); ensureWeather(); } else if(act==="retry"){ weatherCache=null; ui.geoTried=false; refreshWeatherDom(); ensureWeather(); } else if(act==="forecast"){ ui.weatherPanel=ui.weatherPanel==="forecast"?"":"forecast"; refreshWeatherDom(); } else if(act==="changeWeather"){ ui.weatherPanel=ui.weatherPanel==="search"?"":"search"; refreshWeatherDom(); } else if(act==="closePanel"){ ui.weatherPanel=""; refreshWeatherDom(); } else if(act==="ipretry"){ netInfoCache=null; refreshNetInfoDom(); ensureNetInfo(); } return; }
+  var wact=e.target.closest("[data-wact]"); if(wact){ var act=wact.getAttribute("data-wact"); if(act==="openWeatherSetup"){ ui.weatherPanel="search"; refreshWeatherDom(); setTimeout(function(){ var input=$("#wxSearchCity"); if(input) input.focus(); },0); } else if(act==="geo"){ weatherSearchResults=[]; weatherSearchQuery=""; weatherCache=null; state.settings.weather=null; ui.weatherPanel="search"; save(); refreshWeatherDom(); requestWeatherLocation(); } else if(act==="retry"){ weatherCache=null; ui.geoTried=false; refreshWeatherDom(); ensureWeather(); } else if(act==="forecast"){ ui.weatherPanel=ui.weatherPanel==="forecast"?"":"forecast"; refreshWeatherDom(); } else if(act==="changeWeather"){ ui.weatherPanel=ui.weatherPanel==="search"?"":"search"; refreshWeatherDom(); } else if(act==="closePanel"){ ui.weatherPanel=""; refreshWeatherDom(); } else if(act==="ipretry"){ netInfoCache=null; refreshNetInfoDom(); ensureNetInfo(); } return; }
 });
 widgetsEl.addEventListener("submit", function(e){
   if(e.target.id==="wxForm"||e.target.id==="wxSearchForm"){ e.preventDefault(); var inp=e.target.querySelector("input"); var city=inp&&inp.value.trim(); if(city) geocodeCity(city); }
