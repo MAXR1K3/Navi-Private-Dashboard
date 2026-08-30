@@ -4,7 +4,7 @@
 /* ===== i18n ===== */
 var I18N = {
   en:{
-    customizeTitle:"Customize name & logo", searchPh:"Search bookmarks…", theme:"Toggle theme", view:"Card view", viewGrid:"Grid", viewList:"List", viewCompact:"Compact", switchView:"Switch to {view} view",
+    customizeTitle:"Customize name & logo", searchPh:"Search bookmarks…", theme:"Toggle theme", view:"Card view", viewGrid:"Grid", viewList:"List", viewCompact:"Compact", chooseView:"Choose card view", currentView:"Current view: {view}",
     select:"Select", import:"Import", add:"Add", settings:"Settings", more:"More",
     hideWidgets:"Hide widgets", showWidgets:"Show widgets", exportBm:"Export bookmarks", summarizeMissing:"Summarize descriptions", summariesDone:"Descriptions updated for {n} bookmark(s)", newCategory:"New category", clearAll:"Clear everything",
     dataBackup:"Data & backup", exportJsonLabel:"Export bookmarks.json", exportJsonDesc:"Download a JSON backup of bookmarks, categories, and settings. API keys and WebDAV passwords are excluded.", exportBtn:"Export", importJsonLabel:"Import bookmarks.json", importJsonDesc:"Restore from a JSON backup file (replaces current data)", importBtnLabel:"Import", restorePrevLabel:"Restore previous version", restorePrevDesc:"Revert to the snapshot saved before the last import/restore", restoreBtn:"Restore",
@@ -74,7 +74,7 @@ var I18N = {
     autoSyncDesc:"Auto-syncs every 30 min while active"
   },
   zh:{
-    customizeTitle:"自定义名称和图标", searchPh:"搜索书签…", theme:"切换主题", view:"卡片视图", viewGrid:"网格", viewList:"双列", viewCompact:"紧凑", switchView:"切换到{view}视图",
+    customizeTitle:"自定义名称和图标", searchPh:"搜索书签…", theme:"切换主题", view:"卡片视图", viewGrid:"卡片", viewList:"双列", viewCompact:"紧凑", chooseView:"选择卡片视图", currentView:"当前视图：{view}",
     select:"选择", import:"导入", add:"添加", settings:"设置", more:"更多",
     hideWidgets:"隐藏小组件", showWidgets:"显示小组件", exportBm:"导出书签", summarizeMissing:"生成描述摘要", summariesDone:"已更新 {n} 个书签描述", newCategory:"新建分类", clearAll:"清除全部",
     dataBackup:"数据与备份", exportJsonLabel:"导出 bookmarks.json", exportJsonDesc:"下载书签、分类和设置的 JSON 备份；不包含 API Key 与 WebDAV 密码。", exportBtn:"导出", importJsonLabel:"导入 bookmarks.json", importJsonDesc:"从 JSON 备份文件恢复（会替换当前数据）", importBtnLabel:"导入", restorePrevLabel:"恢复上一个版本", restorePrevDesc:"回到上次导入/恢复前保存的快照", restoreBtn:"恢复",
@@ -144,7 +144,7 @@ var I18N = {
     autoSyncDesc:"活跃时每 30 分钟自动同步"
   },
   es:{
-    customizeTitle:"Personalizar nombre y logo", searchPh:"Buscar marcadores…", theme:"Cambiar tema", view:"Vista de tarjetas", viewGrid:"Cuadrícula", viewList:"Lista", viewCompact:"Compacta", switchView:"Cambiar a vista {view}",
+    customizeTitle:"Personalizar nombre y logo", searchPh:"Buscar marcadores…", theme:"Cambiar tema", view:"Vista de tarjetas", viewGrid:"Tarjetas", viewList:"Dos columnas", viewCompact:"Compacta", chooseView:"Elegir vista de tarjetas", currentView:"Vista actual: {view}",
     select:"Seleccionar", import:"Importar", add:"Añadir", settings:"Ajustes", more:"Más",
     hideWidgets:"Ocultar widgets", showWidgets:"Mostrar widgets", exportBm:"Exportar marcadores", summarizeMissing:"Resumir descripciones", summariesDone:"Descripciones actualizadas para {n} marcador(es)", newCategory:"Nueva categoría", clearAll:"Borrar todo",
     dataBackup:"Datos y copia de seguridad", exportJsonLabel:"Exportar bookmarks.json", exportJsonDesc:"Descarga una copia JSON de marcadores, categorías y ajustes. Se excluyen las claves API y contraseñas WebDAV.", exportBtn:"Exportar", importJsonLabel:"Importar bookmarks.json", importJsonDesc:"Restaurar desde un archivo JSON (reemplaza los datos actuales)", importBtnLabel:"Importar", restorePrevLabel:"Restaurar versión anterior", restorePrevDesc:"Volver a la instantánea previa a la última importación/restauración", restoreBtn:"Restaurar",

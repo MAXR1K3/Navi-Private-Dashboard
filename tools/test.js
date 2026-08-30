@@ -22,14 +22,14 @@ const eq = (name, got, want) => ok(name, got === want, "期望 " + JSON.stringif
 
 /* ---------- 卡片展示模式 ---------- */
 G("card view modes");
-ok("提供三模式循环函数", typeof ctx.nextCardView === "function");
+ok("提供视图值归一化函数", typeof ctx.normalizeCardView === "function");
 ok("提供视图样式映射函数", typeof ctx.cardViewClass === "function");
-ok("提供下一视图提示函数", typeof ctx.viewBtnLabel === "function");
-if (typeof ctx.nextCardView === "function") {
-  eq("网格之后是双列", ctx.nextCardView("grid"), "list");
-  eq("双列之后是紧凑", ctx.nextCardView("list"), "compact");
-  eq("紧凑之后回到网格", ctx.nextCardView("compact"), "grid");
-  eq("未知模式安全回到网格", ctx.nextCardView("unknown"), "grid");
+ok("提供当前视图提示函数", typeof ctx.viewBtnLabel === "function");
+if (typeof ctx.normalizeCardView === "function") {
+  eq("网格模式保持不变", ctx.normalizeCardView("grid"), "grid");
+  eq("双列模式保持不变", ctx.normalizeCardView("list"), "list");
+  eq("紧凑模式保持不变", ctx.normalizeCardView("compact"), "compact");
+  eq("未知模式安全回到网格", ctx.normalizeCardView("unknown"), "grid");
 }
 if (typeof ctx.cardViewClass === "function") {
   eq("网格不追加样式类", ctx.cardViewClass("grid"), "");
@@ -37,7 +37,8 @@ if (typeof ctx.cardViewClass === "function") {
   eq("紧凑追加 compact 样式类", ctx.cardViewClass("compact"), " compact");
 }
 if (typeof ctx.viewBtnLabel === "function") {
-  eq("双列模式提示下一步切到紧凑", ctx.viewBtnLabel("list"), "Switch to Compact view");
+  eq("双列模式明确读出当前选择", ctx.viewBtnLabel("list"), "Current view: List");
+  eq("紧凑模式明确读出当前选择", ctx.viewBtnLabel("compact"), "Current view: Compact");
 }
 
 /* ---------- 搜索打分 ---------- */

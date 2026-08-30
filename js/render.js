@@ -9,15 +9,24 @@ var RENDER_BASE=160, RENDER_STEP=120, _renderLimit=160, _lastViewKey="", _gridMo
 function counts(){ var m={All:state.bookmarks.length}; state.categories.forEach(function(c){ m[c]=0; }); state.bookmarks.forEach(function(b){ m[b.category]=(m[b.category]||0)+1; }); return m; }
 function catLabel(c){ return c==="Uncategorized"? t("uncategorized") : c; }
 
-function nextCardView(view){ return view==="grid"?"list":view==="list"?"compact":"grid"; }
-function cardViewClass(view){ return view==="list"?" list2":view==="compact"?" compact":""; }
-function cardViewLabel(view){ return t(view==="list"?"viewList":view==="compact"?"viewCompact":"viewGrid"); }
-function viewBtnLabel(view){ return t("switchView",{view:cardViewLabel(nextCardView(view===undefined?state.view:view))}); }
-function viewBtnIcon(){ var next=nextCardView(state.view); return next==="list"?ICONS.list2:next==="compact"?ICONS.compact:ICONS.grid; }
+function normalizeCardView(view){ return view==="list"||view==="compact"||view==="grid"?view:"grid"; }
+function cardViewClass(view){ view=normalizeCardView(view); return view==="list"?" list2":view==="compact"?" compact":""; }
+function cardViewLabel(view){ view=normalizeCardView(view); return t(view==="list"?"viewList":view==="compact"?"viewCompact":"viewGrid"); }
+function viewBtnLabel(view){ return t("currentView",{view:cardViewLabel(view===undefined?state.view:view)}); }
+function viewBtnIcon(view){ view=normalizeCardView(view===undefined?state.view:view); return view==="list"?ICONS.list2:view==="compact"?ICONS.compact:ICONS.grid; }
+function syncViewMenu(){
+  var menu=$("#viewMenu"), current=normalizeCardView(state.view);
+  if(!menu) return;
+  $all("[data-view]",menu).forEach(function(option){
+    var selected=option.getAttribute("data-view")===current;
+    option.setAttribute("aria-checked",selected?"true":"false");
+    option.setAttribute("tabindex",selected?"0":"-1");
+  });
+}
 function syncViewButton(){
   var btn=$("#viewBtn"), label=viewBtnLabel();
   if(!btn) return;
-  btn.innerHTML=viewBtnIcon(); btn.title=label; btn.setAttribute("aria-label",label);
+  btn.innerHTML=viewBtnIcon(); btn.title=label; btn.setAttribute("aria-label",label); syncViewMenu();
 }
 function pinnedCats(){ if(!state.settings.pinnedCategories) state.settings.pinnedCategories={}; return state.settings.pinnedCategories; }
 function isCatPinned(cat){ return !!pinnedCats()[cat]; }
