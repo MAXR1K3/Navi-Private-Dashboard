@@ -114,9 +114,15 @@ function normalizeDashboardPayload(obj, opts){
   out.settings=obj.settings&&typeof obj.settings==="object" ? mergeDashboardSettings(state.settings, obj.settings, opts) : null;
   return out;
 }
+function redactedBackupSettings(){
+  var settings=clonePlain(state.settings||{});
+  settings.aiKey="";
+  if(Array.isArray(settings.profiles)) settings.profiles.forEach(function(profile){ if(profile) profile.pass=""; });
+  return settings;
+}
 function buildBackup(){
   return { schema:"navi-bookmarks", version:3, app:state.settings.appName||"Navi", exportedAt:new Date().toISOString(),
-    theme:state.theme, view:state.view, bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, calendarEvents:state.calendarEvents, settings:state.settings };
+    theme:state.theme, view:state.view, bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, calendarEvents:state.calendarEvents, settings:redactedBackupSettings() };
 }
 function downloadBlob(text, mime, name){
   var blob=new Blob([text],{type:mime}), a=document.createElement("a");

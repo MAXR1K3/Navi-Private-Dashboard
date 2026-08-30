@@ -248,6 +248,46 @@ eq("非法值退回 off", ctx.browserRole(), "off");
 // 角色是这台浏览器自己的事，绝不能同步出去
 ok("角色不写进 settings", JSON.stringify(ctx.state.settings).indexOf("browserRole") < 0);
 
+/* ---------- 书签优先：仪表盘默认折叠 + 一次性迁移 ---------- */
+G("bookmarks-first dashboard");
+const freshDashboard = ctx.defaults();
+ok("新安装默认折叠仪表盘，让书签先进入首屏",
+   freshDashboard.settings.widgetsCollapsed === true);
+const previousDashboardSettings = ctx.state.settings;
+ctx.state.settings = Object.assign({}, freshDashboard.settings, { widgetsCollapsed:false });
+delete ctx.state.settings.bookmarksFirstVersion;
+const canMigrateBookmarksFirst = typeof ctx.migrateBookmarksFirst === "function";
+ok("提供旧配置的一次性书签优先迁移", canMigrateBookmarksFirst);
+if (canMigrateBookmarksFirst) {
+  ok("旧配置第一次迁移会折叠仪表盘",
+     ctx.migrateBookmarksFirst({}) === true && ctx.state.settings.widgetsCollapsed === true);
+  ctx.state.settings.widgetsCollapsed = false; // 模拟用户迁移后主动展开
+  ok("迁移标记存在后不再覆盖用户选择",
+     ctx.migrateBookmarksFirst(ctx.state.settings) === false && ctx.state.settings.widgetsCollapsed === false);
+}
+ctx.state.settings = previousDashboardSettings;
+
+/* ---------- 完整 JSON 备份默认脱敏 ---------- */
+G("backup credential redaction");
+const previousBackupSettings = ctx.state.settings;
+ctx.state.settings = Object.assign({}, previousBackupSettings, {
+  appName:"Private Navi",
+  aiKey:"sk-private-test",
+  profiles:[
+    {id:"local",name:"Local",type:"local"},
+    {id:"nas",name:"NAS",type:"webdav",url:"https://nas.example/bookmarks.json",user:"max",pass:"dav-private-test"}
+  ]
+});
+const safeBackup = ctx.buildBackup();
+eq("JSON 备份不导出 AI Key", safeBackup.settings.aiKey, "");
+ok("JSON 备份不导出任何 WebDAV 密码",
+   safeBackup.settings.profiles.every(function(profile){ return !profile.pass; }),
+   JSON.stringify(safeBackup.settings.profiles));
+eq("脱敏后仍保留普通设置", safeBackup.settings.appName, "Private Navi");
+eq("生成脱敏备份不会清空当前 AI Key", ctx.state.settings.aiKey, "sk-private-test");
+eq("生成脱敏备份不会清空当前 WebDAV 密码", ctx.state.settings.profiles[1].pass, "dav-private-test");
+ctx.state.settings = previousBackupSettings;
+
 /* ---------- 窄屏组件可见性 ---------- */
 G("widgetVisibleNow / widgetsCollapsedNow");
 ctx.state.settings.widgets={clock:true, calendar:true, monitor:false};

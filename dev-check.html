@@ -199,6 +199,44 @@
   render("紧凑卡片响应式密度 · compact responsive columns", layoutIssues,
     "宽屏固定 4 列；375px 保持 4 列；320px 自动降为 3 列，避免挤压");
 
+  /* ---- mobile category rail: one row, scrollable, management via long press ---- */
+  function categoryRailMetrics(frameWidth){
+    return new Promise(function(resolve,reject){
+      var frame=document.createElement("iframe"), tabs="";
+      for(var i=0;i<7;i++) tabs+='<div class="tab"><span class="lbl">Category '+i+'</span><span class="count">3</span><span class="cat-rename">e</span><span class="x">x</span></div>';
+      frame.style.cssText="position:fixed;left:-10000px;top:0;width:"+frameWidth+"px;height:180px;border:0;opacity:0;pointer-events:none";
+      frame.onload=function(){
+        try{
+          var doc=frame.contentDocument, rail=doc.getElementById("categoryFixture");
+          var railStyle=frame.contentWindow.getComputedStyle(rail);
+          var editStyle=frame.contentWindow.getComputedStyle(rail.querySelector(".cat-rename"));
+          var deleteStyle=frame.contentWindow.getComputedStyle(rail.querySelector(".x"));
+          resolve({ wrap:railStyle.flexWrap, overflowX:railStyle.overflowX,
+                    height:rail.getBoundingClientRect().height,
+                    scrollWidth:rail.scrollWidth, clientWidth:rail.clientWidth,
+                    editDisplay:editStyle.display, deleteDisplay:deleteStyle.display });
+        }catch(e){ reject(e); }
+        finally{ frame.remove(); }
+      };
+      frame.onerror=function(){ frame.remove(); reject(new Error("category fixture iframe load failed")); };
+      var cssUrl=new URL("css/app.css?_="+Date.now(),location.href).href;
+      frame.srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="'+cssUrl+'"></head><body><div id="categoryFixture" class="tabs">'+tabs+'</div></body></html>';
+      document.body.appendChild(frame);
+    });
+  }
+  var categoryIssues=[];
+  try{
+    var phoneRail=await categoryRailMetrics(375), desktopRail=await categoryRailMetrics(1000);
+    if(phoneRail.wrap!=="nowrap") categoryIssues.push("375px 分类条应保持单行，实际 flex-wrap="+phoneRail.wrap);
+    if(phoneRail.overflowX!=="auto"&&phoneRail.overflowX!=="scroll") categoryIssues.push("375px 分类条应允许横向滚动，实际 overflow-x="+phoneRail.overflowX);
+    if(phoneRail.height>44) categoryIssues.push("375px 分类条不应换行增高，实际 "+Math.round(phoneRail.height)+"px");
+    if(phoneRail.scrollWidth<=phoneRail.clientWidth) categoryIssues.push("375px 分类条内容超宽时没有形成可滚动区域");
+    if(phoneRail.editDisplay!=="none"||phoneRail.deleteDisplay!=="none") categoryIssues.push("375px 应隐藏内联编辑/删除，改用长按菜单");
+    if(desktopRail.editDisplay==="none"||desktopRail.deleteDisplay==="none") categoryIssues.push("桌面端仍应保留内联分类管理入口");
+  }catch(e){ categoryIssues.push("分类条夹具运行失败："+e.message); }
+  render("手机分类单行横滑 · mobile category rail", categoryIssues,
+    "375px 保持一行并可横滑；编辑与删除走长按菜单，桌面入口不受影响");
+
   /* ---- Service Worker 预缓存与版本号 ---- */
   // 这两件事以前全靠手工核对：加了新 js 忘记进 SHELL，离线就少一个模块；
   // 版本号三处没同步，用户会拿到半新半旧的缓存。tools/bump.js 负责生成，这里负责兜底。

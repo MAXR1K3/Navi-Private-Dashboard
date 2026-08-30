@@ -155,7 +155,7 @@ Navi 默认把数据保存在当前浏览器的 `localStorage` 中。
 建议整理完成后定期备份：
 
 - “更多 -> 导出书签”导出通用浏览器书签 HTML。
-- `设置 -> 通用 -> 数据与备份` 导出完整 `bookmarks.json`，包含书签、分类和设置。
+- `设置 -> 通用 -> 数据与备份` 导出 `bookmarks.json`，包含书签、分类和设置，但不包含 AI Key 与 WebDAV 密码；恢复后需重新填写凭据。
 - 使用 WebDAV/NAS Profile 保存远程副本。
 
 API Key 只保存在当前浏览器本地。启用云端 AI 时，相关书签标题、URL、描述和可读取到的网页内容可能会发送给你选择的 AI 服务商。
@@ -406,7 +406,7 @@ That means:
 Recommended backup options:
 
 - Use "More -> Export bookmarks" for a browser-compatible bookmarks HTML file.
-- Use `Settings -> General -> Data & backup` for a full `bookmarks.json` backup with bookmarks, categories, and settings.
+- Use `Settings -> General -> Data & backup` for a `bookmarks.json` backup with bookmarks, categories, and settings. AI keys and WebDAV passwords are excluded and must be entered again after restore.
 - Use a WebDAV/NAS profile for a remote copy.
 
 API keys are stored only in the current browser. When a cloud AI provider is enabled, bookmark titles, URLs, descriptions, and readable page content may be sent to the provider you selected.

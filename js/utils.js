@@ -69,9 +69,9 @@ function load(){
     if(!Array.isArray(state.settings.widgetOrder)) state.settings.widgetOrder=d.settings.widgetOrder.slice();
     if(state.settings.calendarShowDoneBadges==null) state.settings.calendarShowDoneBadges=false;
     if(state.settings.worldClockMode!=="compact") state.settings.worldClockMode="stack";
-    var migrated=migratePowerProfile();
+    var migrated=migratePowerProfile(), bookmarksFirstMigrated=migrateBookmarksFirst(s.settings||{});
     normalizeWidgetOrder();
-    rebuildCategories(); if(migrated) save(); return;
+    rebuildCategories(); if(migrated||bookmarksFirstMigrated) save(); return;
   } }catch(e){} }
   seed();
 }
@@ -93,6 +93,13 @@ function migratePowerProfile(){
     changed=true;
   }
   return changed;
+}
+function migrateBookmarksFirst(savedSettings){
+  var previous=Number(savedSettings&&savedSettings.bookmarksFirstVersion)||0;
+  if(previous>=BOOKMARKS_FIRST_VERSION) return false;
+  state.settings.widgetsCollapsed=true;
+  state.settings.bookmarksFirstVersion=BOOKMARKS_FIRST_VERSION;
+  return true;
 }
 function normalizeWidgetOrder(){
   var seen={}, o=[];

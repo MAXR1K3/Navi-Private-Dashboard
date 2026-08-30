@@ -26,7 +26,7 @@ function oplogRestore(snap){
 }
 
 /* ===== diff helpers ===== */
-var OPLOG_VOLATILE={ engineUsage:1, weather:1, chromeSyncLastSync:1, chromeSyncCount:1, browserSyncLastSync:1, browserSyncCounts:1, powerProfileVersion:1, lowPower:1, animations:1, widgetsCollapsed:1, widgetsHidden:1, profiles:1, activeProfile:1 };
+var OPLOG_VOLATILE={ engineUsage:1, weather:1, chromeSyncLastSync:1, chromeSyncCount:1, browserSyncLastSync:1, browserSyncCounts:1, powerProfileVersion:1, bookmarksFirstVersion:1, lowPower:1, animations:1, widgetsCollapsed:1, widgetsHidden:1, profiles:1, activeProfile:1 };
 function bmContentEq(a,b){
   return a.title===b.title && a.url===b.url && a.category===b.category && a.description===b.description &&
     ((a.tags||[]).join(""))===((b.tags||[]).join(""));

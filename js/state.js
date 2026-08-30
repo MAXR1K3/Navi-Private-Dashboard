@@ -4,6 +4,7 @@
 /* ===== state ===== */
 var KEY = "navi.dashboard.v3";
 var POWER_PROFILE_VERSION = 2;
+var BOOKMARKS_FIRST_VERSION = 1;
 var WKEYS = ["clock","search","overview","weather","netinfo","calendar","frequent","recent","notes","monitor"];
 function defaultBrowserSyncSource(){
   if(typeof navigator!=="undefined" && /Edg\//.test(navigator.userAgent||"")) return "edge";
@@ -14,7 +15,7 @@ function defaults(){
     bookmarks:[], categories:[], trash:[], calendarEvents:[], opLog:[], theme:"light", view:"grid",
     settings:{
       appName:"Navi", tagline:"", logo:null, lang:"en", motionMode:"low", lowPower:true, animations:false,
-      widgetsCollapsed:false, widgetsHidden:false, clockSeconds:false, clock24h:false, worldClockMode:"stack", worldClocks:[], showHolidays:true, calendarShowDoneBadges:false, categoryLayout:"tabs", hideHeaderOnScroll:false, hideHeaderOnScrollUserSet:false,
+      widgetsCollapsed:true, widgetsHidden:false, clockSeconds:false, clock24h:false, worldClockMode:"stack", worldClocks:[], showHolidays:true, calendarShowDoneBadges:false, categoryLayout:"tabs", hideHeaderOnScroll:false, hideHeaderOnScrollUserSet:false,
       widgets:{ clock:true, search:true, overview:true, weather:true, netinfo:true, calendar:true, frequent:true, recent:true, notes:true, monitor:false },
       widgetOrder:["clock","search","overview","weather","netinfo","calendar","frequent","recent","notes","monitor"],
       widgetsMobile:{}, mobileCollapse:true,   /* 窄屏：哪些组件显示（空=全显示）+ 是否默认折叠仪表盘 */
@@ -28,7 +29,7 @@ function defaults(){
       autoThemeCoords:null,
       profiles:[{ id:"local", name:"Local", type:"local" }], activeProfile:"local",
       contextual:{ on:false, workStart:9, workEnd:18, eveStart:18, eveEnd:23 }, categoryScenes:{},
-      powerProfileVersion:POWER_PROFILE_VERSION
+      powerProfileVersion:POWER_PROFILE_VERSION, bookmarksFirstVersion:BOOKMARKS_FIRST_VERSION
     }
   };
 }
