@@ -455,7 +455,7 @@
   .lang-code{ font-size:var(--fs-xs); font-weight:800; letter-spacing:.5px; }
   @media(max-width:1180px){ .header-inner{ grid-template-columns:minmax(154px,200px) minmax(180px,1fr) auto; gap:12px; } #selectBtn,#importBtn,#addBtn{ width:40px; padding:0; } .btn .lbl{ display:none !important; } }
   /* ===== Mobile / PWA: header = brand + search; actions become a bottom bar ===== */
-  @media(max-width:720px){
+  @media(max-width:720px), (orientation:landscape) and (max-height:500px) and (max-width:950px){
     :root{ --header-h:61px; }
     .header-inner{ grid-template-columns:auto minmax(0,1fr); gap:10px; padding:10px 14px; }
     .search{ display:block; margin:0; }            /* keep search visible (most-used tool) */
@@ -505,7 +505,7 @@
   .menu-group, .menu-group-actions{ display:contents; }
   .menu-group-title, .more-sheet-head, .more-sheet-backdrop{ display:none; }
   .more-only-mobile{ display:none !important; }
-  @media(max-width:720px){
+  @media(max-width:720px), (orientation:landscape) and (max-height:500px) and (max-width:950px){
     .more-only-mobile{ display:flex !important; }
     body.more-sheet-open{ overflow:hidden; }
     .more-picker .more-sheet-backdrop{ display:block; position:fixed; inset:0; z-index:61; background:rgba(16,24,40,.48); opacity:0; pointer-events:none; transition:opacity .2s var(--ease); }
@@ -1049,6 +1049,26 @@
     .modal.wide{ max-width:min(620px,calc(100vw - 28px)); }
     .drawer-item{ grid-template-columns:18px minmax(0,1fr) 34px 20px 20px; }
     .drawer-item .cnt{ width:34px; }
+  }
+  /* Phone landscape: keep the compact bottom navigation and single-line
+     category rail even when the CSS width is wider than a portrait breakpoint. */
+  @media (orientation:landscape) and (max-height:500px) and (max-width:950px){
+    .layout,.widgets-wrap{ padding-left:12px; padding-right:12px; }
+    .tabs{
+      flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; padding-bottom:2px;
+      scrollbar-width:none; -webkit-overflow-scrolling:touch;
+      overscroll-behavior-inline:contain; scroll-snap-type:x proximity;
+    }
+    .tabs::-webkit-scrollbar{ display:none; }
+    .tabs .tab{ flex:0 0 auto; scroll-snap-align:start; }
+    .tabs .tab .cat-grip,
+    .tabs .tab .cat-rename,
+    .tabs .tab .x{ display:none !important; }
+    #settingsOverlay{ padding:10px 12px; }
+    #settingsOverlay .modal{ max-height:calc(100dvh - 20px); }
+  }
+  @media(max-width:720px), (orientation:landscape) and (max-height:500px) and (max-width:950px){
+    .layout{ padding-bottom:calc(76px + env(safe-area-inset-bottom,0px)); }
   }
   @media(max-width:640px){
     .layout,.widgets-wrap{ padding-left:12px; padding-right:12px; }

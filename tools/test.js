@@ -4,7 +4,8 @@
    代理返回的 markdown 解析、清理分类、存档片段。DOM / 视觉不在这层，那部分靠 dev-check.html。
    用法：node tools/test.js */
 "use strict";
-const { createEnv, load } = require("./env.js");
+const fs = require("fs"), path = require("path");
+const { createEnv, load, root } = require("./env.js");
 
 const ctx = createEnv();
 const failed = load(ctx, ["js/i18n.js","js/state.js","js/icons.js","js/utils.js","js/render.js",
@@ -19,6 +20,12 @@ function ok(name, cond, detail) {
   fail++; console.log("  ✘ [" + group + "] " + name + (detail ? "\n      " + detail : ""));
 }
 const eq = (name, got, want) => ok(name, got === want, "期望 " + JSON.stringify(want) + "，实际 " + JSON.stringify(got));
+
+/* ---------- PWA 横屏 ---------- */
+G("PWA orientation");
+const webManifest = JSON.parse(fs.readFileSync(path.join(root,"manifest.webmanifest"),"utf8"));
+ok("PWA 不再强制竖屏", !webManifest.orientation || webManifest.orientation === "any" || webManifest.orientation === "natural",
+   "当前 orientation=" + JSON.stringify(webManifest.orientation));
 
 /* ---------- 卡片展示模式 ---------- */
 G("card view modes");
