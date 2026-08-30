@@ -71,6 +71,18 @@ ok("点击后才渲染世界时钟表单", wcExpanded.indexOf('id="worldClockFor
 ctx.state.settings.weather = null;
 ctx.weatherCache = null;
 ctx.ui.weatherPanel = "";
+
+/* ---------- 键盘重排 ---------- */
+G("keyboard reorder");
+ok("提供不依赖 DOM 的重排函数", typeof ctx.reorderListItem === "function");
+if (typeof ctx.reorderListItem === "function") {
+  eq("向前移动一位", ctx.reorderListItem(["a","b","c"],1,"earlier").join(""), "bac");
+  eq("向后移动一位", ctx.reorderListItem(["a","b","c"],1,"later").join(""), "acb");
+  eq("移到开头", ctx.reorderListItem(["a","b","c"],2,"start").join(""), "cab");
+  eq("首项不能继续前移", ctx.reorderListItem(["a","b","c"],0,"earlier").join(""), "abc");
+  eq("末项不能继续后移", ctx.reorderListItem(["a","b","c"],2,"later").join(""), "abc");
+  eq("非法索引保持原顺序", ctx.reorderListItem(["a","b","c"],9,"start").join(""), "abc");
+}
 ctx.ui.geoTried = false;
 let wxCollapsed = ctx.weatherBody();
 ok("未配置天气只显示设置入口", wxCollapsed.indexOf('data-wact="openWeatherSetup"') > -1);

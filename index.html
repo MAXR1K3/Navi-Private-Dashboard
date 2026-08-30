@@ -25,10 +25,10 @@
         <button class="search-cmd" id="searchCmdBtn" type="button" data-i18n-title="palTip" data-i18n-aria="palTip"><span class="sc-ico"></span><kbd id="searchCmdKbd">⌘K</kbd></button>
       </div>
       <div class="actions">
-        <button class="btn icon" id="langBtn" title="Language"><span class="lang-code" id="langCode">EN</span></button>
-        <button class="btn icon" id="themeBtn" data-i18n-title="theme" aria-label="theme"></button>
+        <button class="btn icon" id="langBtn" data-i18n-title="language" data-i18n-aria="language"><span class="lang-code" id="langCode">EN</span></button>
+        <button class="btn icon" id="themeBtn" data-i18n-title="theme" data-i18n-aria="theme"></button>
         <div class="menu-wrap view-picker">
-          <button class="btn icon" id="viewBtn" data-i18n-title="view" aria-label="view" aria-haspopup="menu" aria-controls="viewMenu" aria-expanded="false"></button>
+          <button class="btn icon" id="viewBtn" data-i18n-title="view" data-i18n-aria="view" aria-haspopup="menu" aria-controls="viewMenu" aria-expanded="false"></button>
           <div class="menu view-menu" id="viewMenu" role="menu" data-i18n-aria="chooseView">
             <button type="button" role="menuitemradio" aria-checked="false" tabindex="-1" data-view="grid">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -57,7 +57,7 @@
           <span class="lbl" data-i18n="add">Add</span>
         </button>
         <div class="menu-wrap more-picker">
-          <button class="btn icon" id="moreBtn" data-i18n-title="more" aria-label="more" aria-haspopup="menu" aria-controls="moreMenu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg></button>
+          <button class="btn icon" id="moreBtn" data-i18n-title="more" data-i18n-aria="more" aria-haspopup="menu" aria-controls="moreMenu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg></button>
           <div class="more-sheet-backdrop" id="moreBackdrop"></div>
           <div class="menu more-menu" id="moreMenu" role="menu" data-i18n-aria="moreSheetTitle">
             <div class="more-sheet-head"><span class="more-sheet-grip" aria-hidden="true"></span><strong data-i18n="moreSheetTitle">Tools &amp; management</strong><button type="button" class="more-sheet-close" data-menu-close data-i18n-aria="close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
@@ -133,7 +133,7 @@
   </div>
 
   <div class="overlay" id="bmOverlay">
-    <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bmTitle">
       <div class="modal-head"><h2 id="bmTitle">Add bookmark</h2><p data-i18n="bmSub">Save a page to your dashboard.</p></div>
       <div class="modal-body">
         <div class="field"><label for="bmUrl" data-i18n="urlLabel">URL</label><input id="bmUrl" type="text" placeholder="https://example.com" /></div>
@@ -169,7 +169,7 @@
   </div>
 
   <div class="overlay" id="promptOverlay">
-    <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="promptTitle">
       <div class="modal-head"><h2 id="promptTitle">Category</h2></div>
       <div class="modal-body">
         <div class="field"><input id="promptInput" type="text" aria-labelledby="promptTitle" /></div>
@@ -187,7 +187,7 @@
   </div>
 
   <div class="overlay" id="confirmOverlay">
-    <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
       <div class="modal-head"><h2 id="confirmTitle"></h2></div>
       <div class="modal-body"><p class="msg" id="confirmMsg"></p></div>
       <div class="modal-foot"><button class="btn" data-close data-i18n="cancel">Cancel</button><button class="btn danger" id="confirmOk">Delete</button></div>
@@ -195,8 +195,8 @@
   </div>
 
   <div class="overlay" id="summaryOverlay">
-    <div class="modal wide" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2 data-i18n="summaryTitle">Generate bookmark descriptions</h2><p data-i18n="summarySub">Use page content and AI when available, then keep each description concise.</p></div>
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
+      <div class="modal-head"><h2 id="summaryTitle" data-i18n="summaryTitle">Generate bookmark descriptions</h2><p data-i18n="summarySub">Use page content and AI when available, then keep each description concise.</p></div>
       <div class="modal-body">
         <div class="field">
           <label data-i18n="summaryScope">Scope</label>
@@ -226,19 +226,19 @@
   </div>
 
   <div class="overlay" id="settingsOverlay">
-    <div class="modal wide" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2 data-i18n="settingsTitle">Settings</h2><p data-i18n="settingsSub">Personalize your dashboard.</p></div>
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-head"><h2 id="settingsTitle" data-i18n="settingsTitle">Settings</h2><p data-i18n="settingsSub">Personalize your dashboard.</p></div>
       <div class="modal-body">
-        <div class="set-tabs" id="setTabs">
-          <button class="on" data-settab="general" data-i18n="setTabGeneral">General</button>
-          <button data-settab="sync" data-i18n="setTabSync">Sync</button>
-          <button data-settab="appearance" data-i18n="setTabAppearance">Appearance</button>
-          <button data-settab="dashboard" data-i18n="setTabDashboard">Dashboard</button>
-          <button data-settab="services" data-i18n="setTabServices">Monitor &amp; AI</button>
-          <button data-settab="log" data-i18n="setTabLog">Activity log</button>
+        <div class="set-tabs" id="setTabs" role="tablist" aria-orientation="horizontal" data-i18n-aria="settingsSections">
+          <button class="on" id="setTabGeneral" role="tab" aria-selected="true" aria-controls="setPanelGeneral" tabindex="0" data-settab="general" data-i18n="setTabGeneral">General</button>
+          <button id="setTabSync" role="tab" aria-selected="false" aria-controls="setPanelSync" tabindex="-1" data-settab="sync" data-i18n="setTabSync">Sync</button>
+          <button id="setTabAppearance" role="tab" aria-selected="false" aria-controls="setPanelAppearance" tabindex="-1" data-settab="appearance" data-i18n="setTabAppearance">Appearance</button>
+          <button id="setTabDashboard" role="tab" aria-selected="false" aria-controls="setPanelDashboard" tabindex="-1" data-settab="dashboard" data-i18n="setTabDashboard">Dashboard</button>
+          <button id="setTabServices" role="tab" aria-selected="false" aria-controls="setPanelServices" tabindex="-1" data-settab="services" data-i18n="setTabServices">Monitor &amp; AI</button>
+          <button id="setTabLog" role="tab" aria-selected="false" aria-controls="setPanelLog" tabindex="-1" data-settab="log" data-i18n="setTabLog">Activity log</button>
         </div>
         <div class="set-tab-wrap">
-        <div class="set-tab on" data-tab="general">
+        <div class="set-tab on" id="setPanelGeneral" role="tabpanel" aria-labelledby="setTabGeneral" data-tab="general">
         <div class="set-section" id="chromeSyncSection" data-pwa-reader-hidden>
           <h4 data-i18n="browserSync">Browser bookmark sync</h4>
           <div class="set-row">
@@ -298,7 +298,7 @@
           <div class="set-row"><div class="info"><div class="t" data-i18n="privacyMode">Privacy mode</div><div class="d" data-i18n="privacyModeDesc">Stop automatic external requests: no site icons from Google, no page fetching for auto-descriptions. Weather, IP and online wallpapers stay under their own settings.</div></div><label class="switch"><input type="checkbox" id="setPrivacy" data-i18n-aria="privacyMode"><span class="track"></span></label></div>
         </div>
         </div><!-- /general -->
-        <div class="set-tab" data-tab="sync">
+        <div class="set-tab" id="setPanelSync" role="tabpanel" aria-labelledby="setTabSync" data-tab="sync" hidden>
         <div class="set-section">
           <h4 data-i18n="profilesSec">Profiles &amp; data source</h4>
           <div class="set-row">
@@ -322,14 +322,14 @@
           <div class="set-row"><div class="info"><div class="t" data-i18n="profileDelete">Delete this profile</div><div class="d" data-i18n="profileDeleteDesc">Remove this profile and its cached data.</div></div><button class="btn danger" id="profileDelete" data-i18n="deleteBtn">Delete</button></div>
         </div>
         </div><!-- /sync -->
-        <div class="set-tab" data-tab="appearance">
+        <div class="set-tab" id="setPanelAppearance" role="tabpanel" aria-labelledby="setTabAppearance" data-tab="appearance" hidden>
         <div class="set-section">
           <h4 data-i18n="appearance">Appearance</h4>
           <div class="field mt-2"><label for="setName" data-i18n="pageName">Page name</label><input id="setName" type="text" placeholder="Navi" /></div>
           <div class="field"><label for="setTag" data-i18n="subtitle">Subtitle</label><input id="setTag" type="text" /></div>
           <div class="set-row">
             <div class="logo-row"><div class="logo-preview" id="setLogoPreview"></div><div class="info"><div class="t" data-i18n="logo">Logo</div><div class="d" data-i18n="logoDesc">PNG, JPG or SVG</div></div></div>
-            <div class="row-8"><button class="btn" id="setLogoUpload" data-i18n="upload">Upload</button><button class="btn" id="setLogoRemove" title="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
+            <div class="row-8"><button class="btn" id="setLogoUpload" data-i18n="upload">Upload</button><button class="btn" id="setLogoRemove" data-i18n-title="reset" data-i18n-aria="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
           </div>
           <div class="set-row"><div class="info"><div class="t" data-i18n="motionProfile">Motion profile</div><div class="d" data-i18n="motionProfileDesc">Choose battery-first or smooth low-cost animation</div></div>
             <div class="seg sm motion-seg" id="motionSeg"><button data-motion="low" data-i18n="motionLow">Low power</button><button data-motion="smooth" data-i18n="motionSmooth">Smooth</button></div>
@@ -348,10 +348,10 @@
             <div class="seg sm" id="bgTypeSeg"><button data-bgtype="gradient" data-i18n="bgGradient">Gradient</button><button data-bgtype="image" data-i18n="bgImage">Image</button><button data-bgtype="live" data-i18n="bgLive">Live</button><button data-bgtype="wallpaper" data-i18n="bgWallpaper">Wallpaper</button></div>
           </div>
           <div class="bg-live-row" id="bgLiveRow">
-            <button class="bg-swatch" data-live="aurora" title="Aurora"><span class="sw-aurora"></span></button>
-            <button class="bg-swatch" data-live="sunset" title="Sunset"><span class="sw-sunset"></span></button>
-            <button class="bg-swatch" data-live="ocean" title="Ocean"><span class="sw-ocean"></span></button>
-            <button class="bg-swatch" data-live="mesh" title="Mesh"><span class="sw-mesh"></span></button>
+            <button class="bg-swatch" data-live="aurora" data-i18n-title="bgAurora" data-i18n-aria="bgAurora"><span class="sw-aurora"></span></button>
+            <button class="bg-swatch" data-live="sunset" data-i18n-title="bgSunset" data-i18n-aria="bgSunset"><span class="sw-sunset"></span></button>
+            <button class="bg-swatch" data-live="ocean" data-i18n-title="bgOcean" data-i18n-aria="bgOcean"><span class="sw-ocean"></span></button>
+            <button class="bg-swatch" data-live="mesh" data-i18n-title="bgMesh" data-i18n-aria="bgMesh"><span class="sw-mesh"></span></button>
           </div>
 	          <div class="bg-wall-row" id="bgWallRow" style="display:none">
 	            <button class="bg-cat" data-wallcat="nature" data-i18n="wpNature">Nature</button>
@@ -372,11 +372,11 @@
 	          </div>
 	          <div class="set-row" id="bgWallDownloadRow" style="display:none"><div class="info"><div class="t" data-i18n="bgDownloadWallpaper">Download current wallpaper</div><div class="d" data-i18n="bgDownloadWallpaperDesc">Save the online wallpaper currently shown.</div></div><button class="btn" id="bgDownloadWall" data-i18n="bgDownloadWallpaperBtn">Download</button></div>
 	          <div class="set-row"><div class="info"><div class="t" data-i18n="bgImage">Image</div><div class="d" data-i18n="bgImageDesc">Use your own photo as wallpaper</div></div>
-            <div class="row-8"><button class="btn" id="bgUpload" data-i18n="upload">Upload</button><button class="btn" id="bgRemove" title="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
+            <div class="row-8"><button class="btn" id="bgUpload" data-i18n="upload">Upload</button><button class="btn" id="bgRemove" data-i18n-title="reset" data-i18n-aria="reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div>
           </div>
         </div>
         </div><!-- /appearance -->
-        <div class="set-tab" data-tab="dashboard">
+        <div class="set-tab" id="setPanelDashboard" role="tabpanel" aria-labelledby="setTabDashboard" data-tab="dashboard" hidden>
         <div class="set-section">
           <h4 data-i18n="categoriesSec">Categories</h4>
           <div class="set-row"><div class="info"><div class="t" data-i18n="categoryStyle">Category style</div></div>
@@ -409,7 +409,7 @@
           <div class="set-row"><div class="info"><div class="t" data-i18n="monitorWidget">Status monitor</div><div class="d" data-i18n="monitorWidgetDesc">NAS metrics and service up/down on your dashboard</div></div><label class="switch"><input type="checkbox" data-widget="monitor" data-i18n-aria="monitorWidget"><span class="track"></span></label></div>
         </div>
         </div><!-- /dashboard -->
-        <div class="set-tab" data-tab="services">
+        <div class="set-tab" id="setPanelServices" role="tabpanel" aria-labelledby="setTabServices" data-tab="services" hidden>
         <div class="set-section">
           <h4 data-i18n="aiSection">AI suggestions</h4>
           <div class="set-row"><div class="info"><div class="t" data-i18n="aiProvider">Suggestion engine</div><div class="d" data-i18n="aiKeyDesc">Optional: use Claude or OpenAI for smarter suggestions.</div></div>
@@ -445,7 +445,7 @@
           </div>
         </div>
         </div><!-- /services -->
-        <div class="set-tab" data-tab="log">
+        <div class="set-tab" id="setPanelLog" role="tabpanel" aria-labelledby="setTabLog" data-tab="log" hidden>
         <div class="set-section">
           <h4 data-i18n="logSection">Activity log</h4>
           <div class="set-row"><div class="info"><div class="t" data-i18n="logFilterLabel">Show</div><div class="d" data-i18n="logSectionDesc">Every change is recorded and can be undone.</div></div>
@@ -466,8 +466,8 @@
   </div>
 
   <div class="overlay" id="conflictOverlay">
-    <div class="modal" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2 data-i18n="syncConflictTitle">Sync conflict</h2><p data-i18n="syncConflictSub">The remote file changed since you last synced.</p></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="conflictTitle">
+      <div class="modal-head"><h2 id="conflictTitle" data-i18n="syncConflictTitle">Sync conflict</h2><p data-i18n="syncConflictSub">The remote file changed since you last synced.</p></div>
       <div class="modal-body"><p class="msg" id="conflictBody"></p></div>
       <div class="modal-foot">
         <button class="btn" data-close data-i18n="cancel">Cancel</button>
@@ -480,16 +480,16 @@
   </div>
 
   <div class="overlay" id="importOverlay">
-    <div class="modal wide" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2 data-i18n="importTitle">Import browser bookmarks</h2><p id="importSub"></p></div>
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+      <div class="modal-head"><h2 id="importTitle" data-i18n="importTitle">Import browser bookmarks</h2><p id="importSub"></p></div>
       <div class="modal-body" id="importBody"></div>
       <div class="modal-foot" id="importFoot"></div>
     </div>
   </div>
 
   <div class="overlay" id="trashOverlay">
-    <div class="modal wide" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2 data-i18n="trash">Trash</h2><p data-i18n="trashSub">Deleted bookmarks are kept here until they expire.</p></div>
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="trashTitle">
+      <div class="modal-head"><h2 id="trashTitle" data-i18n="trash">Trash</h2><p data-i18n="trashSub">Deleted bookmarks are kept here until they expire.</p></div>
       <div class="modal-body scroll">
         <div class="trash-head-row">
           <label class="tr-ret"><span data-i18n="retention">Keep deleted items</span> <select id="trashRet" class="sel" data-i18n-aria="logRetention"></select></label>
@@ -502,7 +502,7 @@
   </div>
 
   <div class="overlay" id="snapOverlay">
-    <div class="modal wide" role="dialog" aria-modal="true">
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="snapTitle">
       <div class="modal-head"><h2 id="snapTitle"></h2><p id="snapMeta"></p></div>
       <div class="modal-body scroll snap-reader" id="snapBody"></div>
       <div class="snap-related" id="snapRelated"></div>
@@ -516,8 +516,8 @@
   </div>
 
   <div class="overlay" id="cleanOverlay">
-    <div class="modal wide" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2 data-i18n="cleanTitle">Tidy up bookmarks</h2><p data-i18n="cleanSub">Duplicates, never-opened, long-unused and invalid links — review and move them to the trash.</p></div>
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="cleanTitle">
+      <div class="modal-head"><h2 id="cleanTitle" data-i18n="cleanTitle">Tidy up bookmarks</h2><p data-i18n="cleanSub">Duplicates, never-opened, long-unused and invalid links — review and move them to the trash.</p></div>
       <div class="modal-body scroll">
         <div class="health-head-row">
           <div class="seg sm" id="cleanFilter">
@@ -548,8 +548,8 @@
   </div>
 
   <div class="overlay" id="healthOverlay">
-    <div class="modal wide" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2 data-i18n="healthIssues">Invalid links</h2><p data-i18n="healthIssuesSub">Review links marked invalid or uncertain after checking.</p></div>
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="healthTitle">
+      <div class="modal-head"><h2 id="healthTitle" data-i18n="healthIssues">Invalid links</h2><p data-i18n="healthIssuesSub">Review links marked invalid or uncertain after checking.</p></div>
       <div class="modal-body scroll">
         <div class="health-head-row">
           <div class="seg sm" id="healthIssueFilter">
@@ -566,8 +566,8 @@
   </div>
 
   <div class="overlay" id="suggestOverlay">
-    <div class="modal wide" role="dialog" aria-modal="true">
-      <div class="modal-head"><h2 data-i18n="aiSuggest">AI category suggestions</h2><p data-i18n="suggSub">Based on title, URL, domain and description. Nothing changes until you apply.</p></div>
+    <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="suggestTitle">
+      <div class="modal-head"><h2 id="suggestTitle" data-i18n="aiSuggest">AI category suggestions</h2><p data-i18n="suggSub">Based on title, URL, domain and description. Nothing changes until you apply.</p></div>
       <div class="modal-body scroll"><div class="sugg-list" id="suggestBody"></div></div>
       <div class="modal-foot">
         <button class="btn" id="suggToggleBtn" data-i18n="suggToggle">Toggle all</button>
@@ -590,7 +590,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
       <span data-i18n="undo">撤销</span>
     </button>
-    <button class="qu-close" id="quickUndoClose" aria-label="关闭">&#x2715;</button>
+    <button class="qu-close" id="quickUndoClose" data-i18n-aria="close">&#x2715;</button>
   </div>
 
 <script src="js/i18n.js"></script>

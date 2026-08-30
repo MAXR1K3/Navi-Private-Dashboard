@@ -249,13 +249,20 @@ function validSetTab(tab){
 }
 function setActiveSetTab(tab){
   tab=validSetTab(tab)?tab:"general";
-  $all("#setTabs [data-settab]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-settab")===tab); });
-  $all(".set-tab").forEach(function(p){ p.classList.toggle("on", p.getAttribute("data-tab")===tab); });
+  $all("#setTabs [data-settab]").forEach(function(b){ var on=b.getAttribute("data-settab")===tab; b.classList.toggle("on",on); b.setAttribute("aria-selected",on?"true":"false"); b.tabIndex=on?0:-1; });
+  $all(".set-tab").forEach(function(p){ var on=p.getAttribute("data-tab")===tab; p.classList.toggle("on",on); p.hidden=!on; });
   var wrap=$(".set-tab-wrap"); if(wrap) wrap.scrollTop=0;
   if(tab==="log" && typeof renderOpLog==="function") renderOpLog();
   if(tab==="sync" && typeof syncProfileEditor==="function") syncProfileEditor();
 }
 $("#setTabs").addEventListener("click", function(e){ var b=e.target.closest("[data-settab]"); if(b) setActiveSetTab(b.getAttribute("data-settab")); });
+$("#setTabs").addEventListener("keydown", function(e){
+  var tabs=$all("[data-settab]",this), current=e.target.closest("[data-settab]"), i=tabs.indexOf(current), next=null;
+  if(e.key==="Home") next=tabs[0]; else if(e.key==="End") next=tabs[tabs.length-1];
+  else if(e.key==="ArrowRight"||e.key==="ArrowDown") next=tabs[(i+1+tabs.length)%tabs.length];
+  else if(e.key==="ArrowLeft"||e.key==="ArrowUp") next=tabs[(i-1+tabs.length)%tabs.length];
+  if(next){ e.preventDefault(); setActiveSetTab(next.getAttribute("data-settab")); next.focus(); }
+});
 
 var _settingsScrollGuardReady=false;
 function wireSettingsScrollGuard(){

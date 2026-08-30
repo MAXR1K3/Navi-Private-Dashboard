@@ -111,7 +111,9 @@ contentEl.addEventListener("keydown", function(e){
   if(e.target.id==="gridMore" && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); gridLoadMore(); return; }
   var card=e.target.closest(".card"); if(!card||e.target!==card) return; // 仅在卡片本体聚焦时响应，避免与编辑/删除按钮冲突
   var id=card.getAttribute("data-id");
-  if(e.key==="Enter"||e.key===" "){
+  if(e.key==="ContextMenu"||(e.shiftKey&&e.key==="F10")){
+    e.preventDefault(); var r=card.getBoundingClientRect(); if(typeof openCardMenu==="function") openCardMenu(id,{x:r.left+Math.min(28,r.width/2),y:r.top+Math.min(28,r.height/2)});
+  } else if(e.key==="Enter"||e.key===" "){
     e.preventDefault();
     if(ui.selectMode) toggleSelect(id); else openBookmark(id);
   } else if(e.key.indexOf("Arrow")===0){

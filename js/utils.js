@@ -12,6 +12,13 @@ function cleanCatName(v){ return String(v||"").replace(/\s+/g," ").trim(); }
 function chromeSafeCatName(s){ return cleanCatName(String(s||"").replace(/[<>:"/\\|?*]/g," ").substring(0,60)); }
 function isReservedCat(v){ var c=cleanCatName(v).toLowerCase(); return c==="all"||c==="全部"||c==="todos"; }
 function uniqueCatName(v, oldName){ var c=cleanCatName(v); if(!c||isReservedCat(c)) return ""; for(var i=0;i<state.categories.length;i++){ if(state.categories[i]!==oldName && state.categories[i].toLowerCase()===c.toLowerCase()) return ""; } return c; }
+function reorderListItem(list,index,action){
+  var out=Array.isArray(list)?list.slice():[];
+  index=Number(index); if(index<0||index>=out.length||Math.floor(index)!==index) return out;
+  var to=action==="start"?0:action==="earlier"?index-1:action==="later"?index+1:index;
+  to=Math.max(0,Math.min(out.length-1,to)); if(to===index) return out;
+  var item=out.splice(index,1)[0]; out.splice(to,0,item); return out;
+}
 function cssEscape(s){ if(window.CSS&&CSS.escape) return CSS.escape(String(s)); return String(s).replace(/[^a-zA-Z0-9_-]/g,function(ch){ return "\\"+ch; }); }
 function getDomain(u){ try{ return new URL(normalizeUrl(u)).hostname.replace(/^www\./,""); }catch(e){ return (u||"").replace(/^https?:\/\//,"").replace(/^www\./,"").split(/[/?#]/)[0]; } }
 function prettyUrl(u){ try{ var o=new URL(normalizeUrl(u)); var p=(o.pathname+o.search).replace(/\/$/,""); return o.hostname.replace(/^www\./,"")+(p&&p!=="/"?p:""); }catch(e){ return u; } }

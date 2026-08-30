@@ -76,7 +76,7 @@ function tabsInner(c){
   return html;
 }
 function tabHtml(cat,n,active,removable){
-  return '<div class="tab'+(active?" active":"")+'" data-cat="'+escapeHtml(cat)+'" tabindex="0" role="tab" aria-selected="'+(active?"true":"false")+'" title="'+escapeHtml(catLabel(cat))+(removable?" — "+t("renameCat",{cat:catLabel(cat)}):"")+'">'+
+  return '<div class="tab'+(active?" active":"")+'" data-cat="'+escapeHtml(cat)+'" tabindex="0" role="tab" aria-selected="'+(active?"true":"false")+'" aria-keyshortcuts="Shift+F10" title="'+escapeHtml(catLabel(cat))+(removable?" — "+t("renameCat",{cat:catLabel(cat)}):"")+'">'+
     (removable?'<span class="cat-grip" data-cat-grip title="'+escapeHtml(t("dragReorder"))+'">'+ICONS.grip+'</span>':'')+
     '<span class="lbl"'+categoryColorStyle(cat)+'>'+escapeHtml(cat==="All"?allLabel():catLabel(cat))+'</span>'+
     '<span class="count">'+n+'</span>'+
@@ -122,7 +122,9 @@ function closeDrawerOverlay(){ var d=$("#drawer"), bd=$("#drawerBackdrop"); if(d
   // 键盘可达：Enter/Space 激活；方向键在标签/抽屉项之间移动焦点
   el.addEventListener("keydown", function(e){
     var item=e.target.closest("[data-cat],[data-addcat]"); if(!item) return;
-    if(e.key==="Enter"||e.key===" "){
+    if((e.key==="ContextMenu"||(e.shiftKey&&e.key==="F10"))&&item.hasAttribute("data-cat")&&item.getAttribute("data-cat")!=="All"){
+      e.preventDefault(); var r=item.getBoundingClientRect(); if(typeof openCatMenu==="function") openCatMenu(item.getAttribute("data-cat"),{x:r.left+Math.min(28,r.width/2),y:r.top+Math.min(28,r.height/2)});
+    } else if(e.key==="Enter"||e.key===" "){
       e.preventDefault();
       if(item.hasAttribute("data-addcat")) addCategory();
       else setActiveCat(item.getAttribute("data-cat"));
@@ -396,7 +398,7 @@ function cardHtml(b,i){
   var canDrag=(!ui.selectMode && !ui.query);
   var delay=state.settings.animations?(' style="animation-delay:'+(Math.min(i,28)*0.022).toFixed(3)+'s"'):'';
   var desc=b.description||"", pinned=!!b.pinned;
-  return '<div class="card'+(ui.selected[b.id]?" selected":"")+(pinned?" pinned":"")+'" data-id="'+escapeHtml(b.id)+'" data-desc="'+escapeHtml(desc)+'" tabindex="0" role="link" aria-label="'+escapeHtml(b.title||dom)+'"'+delay+'>'+
+  return '<div class="card'+(ui.selected[b.id]?" selected":"")+(pinned?" pinned":"")+'" data-id="'+escapeHtml(b.id)+'" data-desc="'+escapeHtml(desc)+'" tabindex="0" role="link" aria-label="'+escapeHtml(b.title||dom)+'" aria-keyshortcuts="Enter Shift+F10"'+delay+'>'+
     '<div class="check">'+ICONS.check+'</div>'+
     '<button class="card-pin'+(pinned?" on":"")+'" data-pin="'+escapeHtml(b.id)+'" title="'+escapeHtml(pinned?t("unpin"):t("pinToTop"))+'" aria-label="'+escapeHtml(pinned?t("unpin"):t("pinToTop"))+'" aria-pressed="'+(pinned?"true":"false")+'">'+(pinned?ICONS.pinFill:ICONS.pin)+'</button>'+
     '<div class="fav" style="--c:'+hue+'"><span class="letter">'+escapeHtml(letter)+'</span>'+(fav?'<img class="fav-img" loading="lazy" alt="" src="'+escapeHtml(fav)+'"/>':'')+'</div>'+

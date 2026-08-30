@@ -23,6 +23,25 @@ function ctxFallbackCopy(text){
   }catch(e){}
 }
 
+/* ===== keyboard-accessible reorder ===== */
+function reorderBookmarkVisible(id, action){
+  if(ui.query) return false;
+  var ids=visibleBookmarks().map(function(b){ return b.id; }), at=ids.indexOf(id); if(at<0) return false;
+  var ordered=reorderListItem(ids,at,action); if(ordered[at]===ids[at]&&ordered.indexOf(id)===at) return false;
+  var inView={}, by={}; ids.forEach(function(x){ inView[x]=true; }); state.bookmarks.forEach(function(b){ by[b.id]=b; });
+  var queue=ordered.slice(); state.bookmarks=state.bookmarks.map(function(b){ return inView[b.id]?by[queue.shift()]:b; });
+  save(); renderContent(); toast(t("ctxReordered"),"ok");
+  setTimeout(function(){ var card=gridEl&&$('.card[data-id="'+cssEscape(id)+'"]',gridEl); if(card) card.focus(); },0);
+  return true;
+}
+function reorderCategoryByName(cat, action){
+  var at=state.categories.indexOf(cat); if(at<0) return false;
+  var ordered=reorderListItem(state.categories,at,action); if(ordered.indexOf(cat)===at) return false;
+  state.categories=ordered; save(); renderCategories(); toast(t("ctxCategoryReordered"),"ok");
+  setTimeout(function(){ var item=$('[data-cat="'+cssEscape(cat)+'"]',$("#catsBar"))||$('[data-cat="'+cssEscape(cat)+'"]',$("#drawer")); if(item) item.focus(); },0);
+  return true;
+}
+
 /* ===== move a bookmark to another category（带撤销） ===== */
 function moveBookmarkTo(id, cat){
   var b=byId(id); if(!b){ return; }
@@ -74,6 +93,12 @@ function ctxBuildItems(){
       if(typeof hasSnapshot==="function"&&hasSnapshot(b.url))
         items.push({ icon:ICONS.archive, label:t("snapRead"), run:function(){ openSnapshot(c.id); } });
       items.push({ icon:ICONS.link,   label:t("ctxCopyLink"), run:function(){ copyToClipboard(b.url); toast(t("ctxLinkCopied"),"ok"); } });
+      if(!ui.query){
+        var visibleIds=visibleBookmarks().map(function(item){ return item.id; }), bi=visibleIds.indexOf(c.id);
+        if(bi>0) items.push({ icon:ICONS.chevL, label:t("ctxMoveEarlier"), run:function(){ reorderBookmarkVisible(c.id,"earlier"); } });
+        if(bi<visibleIds.length-1) items.push({ icon:ICONS.chevR, label:t("ctxMoveLater"), run:function(){ reorderBookmarkVisible(c.id,"later"); } });
+        if(bi>0) items.push({ icon:ICONS.pin, label:t("ctxMoveStart"), run:function(){ reorderBookmarkVisible(c.id,"start"); } });
+      }
       items.push({ icon:ICONS.trash,  label:t("delete"), danger:true, run:function(){ deleteBookmark(c.id); } });
     }
   } else if(c.kind==="cat" && ctxState.view==="scene"){
@@ -91,6 +116,10 @@ function ctxBuildItems(){
     items.push({ icon:(catPinned?ICONS.pinOff:ICONS.pin), label:(catPinned?t("unpinCategory"):t("pinCategory")), run:function(){ toggleCategoryPinned(cat); } });
     if(typeof categoryScene==="function")
       items.push({ icon:ICONS.clock, label:t("sceneAssign"), view:"scene" });
+    var ci=state.categories.indexOf(cat);
+    if(ci>0) items.push({ icon:ICONS.chevL, label:t("ctxMoveEarlier"), run:function(){ reorderCategoryByName(cat,"earlier"); } });
+    if(ci<state.categories.length-1) items.push({ icon:ICONS.chevR, label:t("ctxMoveLater"), run:function(){ reorderCategoryByName(cat,"later"); } });
+    if(ci>0) items.push({ icon:ICONS.pin, label:t("ctxMoveStart"), run:function(){ reorderCategoryByName(cat,"start"); } });
     items.push({ icon:ICONS.trash,  label:t("deleteCategory"), danger:true, run:function(){ deleteCategory(cat); } });
   }
   ctxState.items=items;

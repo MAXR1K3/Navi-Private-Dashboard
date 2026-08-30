@@ -105,6 +105,38 @@
   render("弹层都有 ID（closeAll 才能关掉）· overlays have ids", noId,
     "ui-core.js 的 closeAll() 按 .overlay 遍历，没有 ID 的弹层关不掉");
 
+  /* ---- dialogs expose an accessible name ---- */
+  var unnamedDialogs=[];
+  Array.prototype.forEach.call(doc.querySelectorAll('[role="dialog"]'), function(d){
+    if(d.hasAttribute("aria-label")) return;
+    var by=d.getAttribute("aria-labelledby"), label=by&&doc.getElementById(by);
+    if(!label) unnamedDialogs.push("#"+(d.closest(".overlay")&&d.closest(".overlay").id||"dynamic-dialog"));
+  });
+  render("对话框都有可访问名称 · dialogs have accessible names", unnamedDialogs,
+    "每个 role=dialog 需用 aria-labelledby 关联可见标题，或提供 aria-label");
+
+  /* ---- settings use the ARIA tabs pattern ---- */
+  var tabProblems=[], tablist=doc.getElementById("setTabs"), tabs=tablist?Array.prototype.slice.call(tablist.querySelectorAll("[data-settab]")):[];
+  if(!tablist||tablist.getAttribute("role")!=="tablist") tabProblems.push("#setTabs 缺少 role=tablist");
+  tabs.forEach(function(tab){
+    var key=tab.getAttribute("data-settab"), panelId=tab.getAttribute("aria-controls"), panel=panelId&&doc.getElementById(panelId);
+    if(tab.getAttribute("role")!=="tab") tabProblems.push(key+" 缺少 role=tab");
+    if(!tab.hasAttribute("aria-selected")) tabProblems.push(key+" 缺少 aria-selected");
+    if(!tab.id||!panel||panel.getAttribute("role")!=="tabpanel"||panel.getAttribute("aria-labelledby")!==tab.id) tabProblems.push(key+" 的 tab/tabpanel 关联不完整");
+  });
+  render("设置分类使用标准标签页语义 · settings tabs semantics", tabProblems,
+    "tablist → tab[aria-controls] → tabpanel[aria-labelledby]");
+
+  /* ---- every close route uses the focus-restoring helper ---- */
+  var focusRestoreProblems=[];
+  if((sources["js/ui-core.js"]||"").indexOf('e.target.classList.remove("open")')>-1) focusRestoreProblems.push("遮罩点击直接移除 open，绕过 closeOverlay() 的焦点归还");
+  render("弹层关闭统一归还焦点 · modal close restores focus", focusRestoreProblems);
+
+  /* ---- fixed labels that must follow the selected language ---- */
+  var fixedLabelProblems=[], quickClose=doc.getElementById("quickUndoClose");
+  if(quickClose&&quickClose.getAttribute("data-i18n-aria")!=="close") fixedLabelProblems.push("#quickUndoClose 的关闭标签未接入 i18n");
+  render("固定控件的无障碍标签可本地化 · fixed labels are localized", fixedLabelProblems);
+
   /* ---- every form control has an accessible name (P0) ---- */
   var forIds={}; Array.prototype.forEach.call(doc.querySelectorAll("label[for]"), function(l){ forIds[l.getAttribute("for")]=1; });
   var nameless=[];

@@ -71,7 +71,7 @@ document.addEventListener("click", function(e){
   if(e.target.closest("[data-close]")){ closeAll(); return; }
   if(e.target.classList&&e.target.classList.contains("overlay")&&_pressEl===e.target){
     if(e.target.id==="summaryOverlay"&&typeof summaryUi!=="undefined"&&summaryUi.running) return;
-    e.target.classList.remove("open");
+    closeOverlay(e.target.id);
   }
 });
 document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ closeAll(); closeMenu(); } });

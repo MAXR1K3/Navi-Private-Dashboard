@@ -38,7 +38,7 @@ var I18N = {
     cleanTitle:"Tidy up bookmarks", cleanSub:"Duplicates, never-opened, long-unused and invalid links — review and move them to the trash.", cleanAll:"All", cleanDup:"Duplicates", cleanDead:"Invalid", cleanNever:"Never opened", cleanStale:"Long unused", cleanStaleAfter:"Count as unused after", cleanEmpty:"Nothing to tidy up — your bookmarks look clean.", cleanFilteredEmpty:"Nothing in this group.", cleanTrash:"Move to trash", cleanTrashN:"Move {n} to trash", cleanTrashed:"Moved {n} to trash", cleanPermanentMsg:"Trash retention is off, so this deletes {n} bookmark(s) permanently. Continue?", cleanReasonDup:"Duplicate of “{name}”", cleanReasonDead:"Link appears invalid", cleanReasonNever:"Never opened", cleanReasonStale:"Not opened in {days} days",
     sceneTitle:"Time-aware ordering", sceneDesc:"During work hours or evenings, bring the matching categories to the front. Right-click a category to assign it.", sceneHours:"Work hours", sceneFrom:"From", sceneTo:"To", sceneWork:"Work time", sceneLeisure:"Leisure time", sceneNone:"No preference", sceneAssign:"Prioritise at…", sceneBoosting:"{scene} · {n} bookmark(s) first", sceneTurnOff:"Stop prioritising for now", sceneMuted:"Ordering restored for this session",
     conceptNote:"+{n} related by topic", conceptTip:"These match the topic of your search rather than the exact words.",
-    settingsTitle:"Settings", settingsSub:"Personalize your dashboard.", appearance:"Appearance", language:"Language",
+    settingsTitle:"Settings", settingsSub:"Personalize your dashboard.", settingsSections:"Settings sections", appearance:"Appearance", language:"Language", reset:"Reset", bgAurora:"Aurora", bgSunset:"Sunset", bgOcean:"Ocean", bgMesh:"Mesh",
     pageName:"Page name", subtitle:"Subtitle", logo:"Logo", logoDesc:"PNG, JPG, SVG or GIF (animated) — replaces the icon", upload:"Upload",
     lowPower:"Low power mode", lowPowerDesc:"Pause decorative effects while browsing",
     motionProfile:"Motion profile", motionProfileDesc:"Choose battery-first or smooth low-cost animation", motionLow:"Low power", motionSmooth:"Smooth",
@@ -108,7 +108,7 @@ var I18N = {
     cleanTitle:"整理书签", cleanSub:"重复、从未打开、长期未用与失效的链接 —— 检查后移入回收站。", cleanAll:"全部", cleanDup:"重复", cleanDead:"失效", cleanNever:"从未打开", cleanStale:"长期未用", cleanStaleAfter:"多久未打开算闲置", cleanEmpty:"没有需要整理的内容 —— 书签很干净。", cleanFilteredEmpty:"该分组下没有内容。", cleanTrash:"移入回收站", cleanTrashN:"移入回收站（{n}）", cleanTrashed:"已移入回收站 {n} 个", cleanPermanentMsg:"回收站保留天数为 0，这会永久删除 {n} 个书签。继续吗？", cleanReasonDup:"与「{name}」重复", cleanReasonDead:"链接疑似失效", cleanReasonNever:"从未打开过", cleanReasonStale:"已 {days} 天未打开",
     sceneTitle:"时段感知排序", sceneDesc:"工作时段或晚间，把对应分类的书签排到前面。右键分类可指派时段。", sceneHours:"工作时段", sceneFrom:"从", sceneTo:"到", sceneWork:"工作时段", sceneLeisure:"休闲时段", sceneNone:"不指定", sceneAssign:"此刻优先…", sceneBoosting:"{scene} · {n} 个书签优先", sceneTurnOff:"本次不再优先", sceneMuted:"已恢复默认排序（仅本次）",
     conceptNote:"+{n} 个主题相关", conceptTip:"这些是按主题相关匹配的，并非字面命中搜索词。",
-    settingsTitle:"设置", settingsSub:"个性化你的面板。", appearance:"外观", language:"语言",
+    settingsTitle:"设置", settingsSub:"个性化你的面板。", settingsSections:"设置分类", appearance:"外观", language:"语言", reset:"重置", bgAurora:"极光", bgSunset:"日落", bgOcean:"海洋", bgMesh:"网格",
     pageName:"页面名称", subtitle:"副标题", logo:"图标", logoDesc:"PNG、JPG、SVG 或 GIF（支持动图）—— 替换图标", upload:"上传",
     lowPower:"低功耗模式", lowPowerDesc:"浏览时暂停装饰动画和高开销磨砂效果",
     motionProfile:"动效模式", motionProfileDesc:"选择优先省电，或启用低开销丝滑动效", motionLow:"低功耗", motionSmooth:"丝滑动效",
@@ -178,7 +178,7 @@ var I18N = {
     cleanTitle:"Ordenar marcadores", cleanSub:"Duplicados, nunca abiertos, sin uso y enlaces inválidos: revísalos y muévelos a la papelera.", cleanAll:"Todos", cleanDup:"Duplicados", cleanDead:"Inválidos", cleanNever:"Nunca abiertos", cleanStale:"Sin uso", cleanStaleAfter:"Considerar sin uso tras", cleanEmpty:"Nada que ordenar: tus marcadores están limpios.", cleanFilteredEmpty:"Nada en este grupo.", cleanTrash:"Mover a la papelera", cleanTrashN:"Mover {n} a la papelera", cleanTrashed:"{n} movidos a la papelera", cleanPermanentMsg:"La papelera está desactivada, así que esto borra {n} marcador(es) para siempre. ¿Continuar?", cleanReasonDup:"Duplicado de «{name}»", cleanReasonDead:"El enlace parece inválido", cleanReasonNever:"Nunca abierto", cleanReasonStale:"Sin abrir desde hace {days} días",
     sceneTitle:"Orden según la hora", sceneDesc:"En horario laboral o por la noche, adelanta las categorías correspondientes. Clic derecho en una categoría para asignarla.", sceneHours:"Horario laboral", sceneFrom:"Desde", sceneTo:"Hasta", sceneWork:"Horario laboral", sceneLeisure:"Tiempo libre", sceneNone:"Sin preferencia", sceneAssign:"Priorizar en…", sceneBoosting:"{scene} · {n} marcador(es) primero", sceneTurnOff:"No priorizar por ahora", sceneMuted:"Orden restaurado en esta sesión",
     conceptNote:"+{n} por tema", conceptTip:"Coinciden con el tema de tu búsqueda, no con las palabras exactas.",
-    settingsTitle:"Ajustes", settingsSub:"Personaliza tu panel.", appearance:"Apariencia", language:"Idioma",
+    settingsTitle:"Ajustes", settingsSub:"Personaliza tu panel.", settingsSections:"Secciones de ajustes", appearance:"Apariencia", language:"Idioma", reset:"Restablecer", bgAurora:"Aurora", bgSunset:"Atardecer", bgOcean:"Océano", bgMesh:"Malla",
     pageName:"Nombre de la página", subtitle:"Subtítulo", logo:"Logo", logoDesc:"PNG, JPG, SVG o GIF (animado): reemplaza el icono", upload:"Subir",
     lowPower:"Modo de bajo consumo", lowPowerDesc:"Pausa efectos decorativos mientras navegas",
     motionProfile:"Perfil de movimiento", motionProfileDesc:"Elige ahorro de batería o animación fluida eficiente", motionLow:"Bajo consumo", motionSmooth:"Fluido",
@@ -602,19 +602,19 @@ function timeAgo(ts){
     en:{
       ctxActions:"Actions", ctxCancel:"Cancel", back:"Back",
       ctxOpen:"Open", ctxMoveTo:"Move to category", ctxCopyLink:"Copy link",
-      ctxLinkCopied:"Link copied", ctxMoved:"Moved to “{cat}”", ctxOpenCat:"Open category",
+      ctxLinkCopied:"Link copied", ctxMoved:"Moved to “{cat}”", ctxOpenCat:"Open category", ctxMoveEarlier:"Move earlier", ctxMoveLater:"Move later", ctxMoveStart:"Move to start", ctxReordered:"Bookmark order updated", ctxCategoryReordered:"Category order updated",
       palTip:"Command palette"
     },
     zh:{
       ctxActions:"操作", ctxCancel:"取消", back:"返回",
       ctxOpen:"打开", ctxMoveTo:"移动到分类", ctxCopyLink:"复制链接",
-      ctxLinkCopied:"链接已复制", ctxMoved:"已移动到“{cat}”", ctxOpenCat:"打开分类",
+      ctxLinkCopied:"链接已复制", ctxMoved:"已移动到“{cat}”", ctxOpenCat:"打开分类", ctxMoveEarlier:"向前移动", ctxMoveLater:"向后移动", ctxMoveStart:"移到开头", ctxReordered:"已更新书签顺序", ctxCategoryReordered:"已更新分类顺序",
       palTip:"命令面板"
     },
     es:{
       ctxActions:"Acciones", ctxCancel:"Cancelar", back:"Atrás",
       ctxOpen:"Abrir", ctxMoveTo:"Mover a categoría", ctxCopyLink:"Copiar enlace",
-      ctxLinkCopied:"Enlace copiado", ctxMoved:"Movido a «{cat}»", ctxOpenCat:"Abrir categoría",
+      ctxLinkCopied:"Enlace copiado", ctxMoved:"Movido a «{cat}»", ctxOpenCat:"Abrir categoría", ctxMoveEarlier:"Mover antes", ctxMoveLater:"Mover después", ctxMoveStart:"Mover al inicio", ctxReordered:"Orden de marcadores actualizado", ctxCategoryReordered:"Orden de categorías actualizado",
       palTip:"Paleta de comandos"
     }
   };
