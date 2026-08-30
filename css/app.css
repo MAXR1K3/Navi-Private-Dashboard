@@ -789,6 +789,8 @@
     .grid .card{ content-visibility:auto; contain-intrinsic-block-size:96px; }
     .grid.list .card{ contain-intrinsic-block-size:54px; }
     .grid.list2 .card{ content-visibility:visible; contain-intrinsic-block-size:auto; }
+    /* Compact pin badges sit just outside the card corner, so avoid paint containment here. */
+    .grid.compact .card{ content-visibility:visible; contain-intrinsic-block-size:auto; }
   }
   .card:hover{ transform:translateY(-3px); box-shadow:var(--shadow-pop); border-color:var(--border-strong); }
   .card:active{ cursor:grabbing; }
@@ -855,6 +857,30 @@
     opacity:1;
   }
   .grid.list2 .meta .cat-chip{ order:0; margin-top:3px; }
+
+  /* compact view: a calm, balanced four-column bookmark grid */
+  .grid.compact{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+  .grid.compact .card{ min-height:48px; align-items:center; gap:9px; padding:8px 10px; border-radius:var(--radius-md); animation-name:floatIn; }
+  .grid.compact .card:hover{ transform:translateY(-1px); }
+  .grid.compact .fav{ width:28px; height:28px; border-radius:var(--radius-xs); }
+  .grid.compact .fav .letter{ font-size:var(--fs-sm); }
+  .grid.compact .fav img{ padding:5px; }
+  .grid.compact .meta{ min-width:0; }
+  .grid.compact .meta .name{ max-width:100%; font-size:var(--fs-sm); font-weight:650; line-height:1.25; }
+  .grid.compact .meta .url,
+  .grid.compact .meta .desc,
+  .grid.compact .meta .cat-chip,
+  .grid.compact .meta .tag-chip,
+  .grid.compact .meta .snap-badge{ display:none !important; }
+  .grid.compact .card-actions{ top:50%; right:5px; padding:3px 2px 3px 18px; border-radius:var(--radius-sm); background:linear-gradient(90deg,transparent,var(--surface) 18px); transform:translate(4px,-50%); }
+  .grid.compact .card:hover .card-actions,
+  .grid.compact .card:focus-within .card-actions{ opacity:1; transform:translateY(-50%); }
+  .grid.compact .card-actions button{ width:26px; height:26px; }
+  .grid.compact .card-grip{ position:absolute; left:9px; top:50%; z-index:4; width:30px; height:30px; border:1px solid var(--border); background:var(--surface); opacity:0; transform:translateY(-50%); }
+  .grid.compact .card:hover .card-grip{ opacity:.96; transform:translateY(-50%); }
+  .grid.compact .card-grip:hover{ transform:translateY(-50%) scale(1.04); }
+  .grid.compact .card-grip:active{ transform:translateY(-50%) scale(.96); }
+  .grid.compact .drag-placeholder{ min-height:48px; border-radius:var(--radius-md); }
 
   .check{ position:absolute; top:11px; left:11px; width:22px; height:22px; border-radius:var(--radius-xs); border:2px solid var(--border-strong); background:var(--surface); display:none; place-items:center; z-index:2; transition:background .12s,border-color .12s,transform .12s; }
   .check svg{ width:13px; height:13px; color:#fff; opacity:0; transform:scale(.6); transition:opacity .12s,transform .12s; }
@@ -1014,6 +1040,15 @@
     .grid.list2 .meta .name{ font-size:var(--fs-sm); font-weight:700; max-width:100%; white-space:normal; -webkit-line-clamp:2; display:-webkit-box; -webkit-box-orient:vertical; overflow:hidden; text-align:center; }
     .grid.list2 .meta .url,.grid.list2 .meta .desc,.grid.list2 .meta .cat-chip,.grid.list2 .meta .tag-chip{ display:none !important; }
     .grid.list2 .card-grip,.grid.list2 .card-actions{ display:none !important; }
+    .grid.compact{ grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); gap:6px; }
+    .grid.compact .card{ min-height:68px; flex-direction:column; justify-content:center; align-items:center; gap:5px; padding:7px 6px; border-radius:var(--radius-md); text-align:center; }
+    .grid.compact .fav{ width:30px; height:30px; }
+    .grid.compact .meta{ width:100%; }
+    .grid.compact .meta .name{ font-size:var(--fs-xs); font-weight:700; line-height:1.2; text-align:center; }
+    .grid.compact .card-grip,.grid.compact .card-actions{ display:none !important; }
+    body.select-mode .grid.compact .fav{ visibility:hidden; }
+    body.select-mode .grid.compact .check{ top:11px; left:50%; transform:translateX(-50%); }
+    body.select-mode .grid.compact .card.selected .check{ transform:translateX(-50%) scale(1.05); }
   }
 
 /* ===== 回收站 / 撤销 / 健康状态 / 标签 / AI 建议 ===== */
@@ -1095,6 +1130,10 @@ body.no-select, body.no-select *{ user-select:none !important; -webkit-user-sele
   .card-grip{ opacity:.5; }
   .w-grip{ opacity:.5; }
   .card .card-actions{ opacity:1; }
+}
+@media (hover:none) and (pointer:coarse){
+  .grid.compact .card-grip,
+  .grid.compact .card-actions{ display:none !important; pointer-events:none; }
 }
 /* 图标防裁切：所有按钮/菜单内 svg 不参与 flex 压缩，保持自身尺寸 */
 button svg, .menu button svg, .btn svg, .toast svg{ flex:0 0 auto; min-width:0; }
@@ -1340,6 +1379,8 @@ body.pwa-reader .quick-undo-bar .qu-close{ width:20px; height:20px; font-size:va
   body.select-mode .card-pin{ display:none; }
   .grid.list .card-pin, .grid.list2 .card-pin{ top:6px; left:6px; width:20px; height:20px; }
   .grid.list .card-pin svg, .grid.list2 .card-pin svg{ width:12px; height:12px; transform:translateY(.5px); }
+  .grid.compact .card-pin{ top:-5px; left:-5px; z-index:5; width:24px; height:24px; border-radius:var(--radius-full); transform:none; }
+  .grid.compact .card-pin svg{ width:11px; height:11px; }
   .tag-filter-chip{ display:inline-flex; align-items:center; gap:3px; vertical-align:middle; margin-left:8px; font-size:var(--fs-sm); font-weight:700; padding:3px 6px 3px 9px; border-radius:var(--radius-full); background:var(--accent-soft); color:var(--accent); border:0; cursor:pointer; font-family:inherit; }
   .tag-filter-chip:hover{ background:var(--accent); color:#fff; }
   .tag-filter-chip svg{ width:13px; height:13px; }

@@ -9,7 +9,16 @@ var RENDER_BASE=160, RENDER_STEP=120, _renderLimit=160, _lastViewKey="", _gridMo
 function counts(){ var m={All:state.bookmarks.length}; state.categories.forEach(function(c){ m[c]=0; }); state.bookmarks.forEach(function(b){ m[b.category]=(m[b.category]||0)+1; }); return m; }
 function catLabel(c){ return c==="Uncategorized"? t("uncategorized") : c; }
 
-function viewBtnIcon(){ return state.view==="list"?ICONS.grid:ICONS.list2; }
+function nextCardView(view){ return view==="grid"?"list":view==="list"?"compact":"grid"; }
+function cardViewClass(view){ return view==="list"?" list2":view==="compact"?" compact":""; }
+function cardViewLabel(view){ return t(view==="list"?"viewList":view==="compact"?"viewCompact":"viewGrid"); }
+function viewBtnLabel(view){ return t("switchView",{view:cardViewLabel(nextCardView(view===undefined?state.view:view))}); }
+function viewBtnIcon(){ var next=nextCardView(state.view); return next==="list"?ICONS.list2:next==="compact"?ICONS.compact:ICONS.grid; }
+function syncViewButton(){
+  var btn=$("#viewBtn"), label=viewBtnLabel();
+  if(!btn) return;
+  btn.innerHTML=viewBtnIcon(); btn.title=label; btn.setAttribute("aria-label",label);
+}
 function pinnedCats(){ if(!state.settings.pinnedCategories) state.settings.pinnedCategories={}; return state.settings.pinnedCategories; }
 function isCatPinned(cat){ return !!pinnedCats()[cat]; }
 function categoryColor(cat){
@@ -28,7 +37,7 @@ function render(){
   var effectiveTheme = (state.theme==="auto" && typeof resolveTheme==="function") ? resolveTheme() : state.theme;
   document.documentElement.setAttribute("data-theme", effectiveTheme==="auto"?"light":effectiveTheme);
   $("#themeBtn").innerHTML = themeBtnIcon();
-  $("#viewBtn").innerHTML = viewBtnIcon();
+  syncViewButton();
   // Fallback dropdown -> tabs (dropdown option removed)
   if(state.settings.categoryLayout==="dropdown"){ state.settings.categoryLayout="tabs"; save(); }
   // Sync auto-theme checkbox in settings panel
@@ -351,7 +360,7 @@ function renderContent(){
   var viewKey=ui.activeCat+"|"+ui.query+"|"+ui.tagFilter+"|"+state.view;
   if(viewKey!==_lastViewKey){ _renderLimit=RENDER_BASE; _lastViewKey=viewKey; }
   var shown=list.length>_renderLimit?list.slice(0,_renderLimit):list;
-  var cls="grid"+(state.view==="list"?" list2":"")+(ui.query?" searching":"")+(isFirst?" fresh":"");
+  var cls="grid"+cardViewClass(state.view)+(ui.query?" searching":"")+(isFirst?" fresh":"");
   if(!isFirst) contentEl.style.opacity="0";
   var inner='<div class="'+cls+'" id="grid">';
   shown.forEach(function(b,i){ inner+=cardHtml(b,i); });

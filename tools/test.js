@@ -20,6 +20,26 @@ function ok(name, cond, detail) {
 }
 const eq = (name, got, want) => ok(name, got === want, "期望 " + JSON.stringify(want) + "，实际 " + JSON.stringify(got));
 
+/* ---------- 卡片展示模式 ---------- */
+G("card view modes");
+ok("提供三模式循环函数", typeof ctx.nextCardView === "function");
+ok("提供视图样式映射函数", typeof ctx.cardViewClass === "function");
+ok("提供下一视图提示函数", typeof ctx.viewBtnLabel === "function");
+if (typeof ctx.nextCardView === "function") {
+  eq("网格之后是双列", ctx.nextCardView("grid"), "list");
+  eq("双列之后是紧凑", ctx.nextCardView("list"), "compact");
+  eq("紧凑之后回到网格", ctx.nextCardView("compact"), "grid");
+  eq("未知模式安全回到网格", ctx.nextCardView("unknown"), "grid");
+}
+if (typeof ctx.cardViewClass === "function") {
+  eq("网格不追加样式类", ctx.cardViewClass("grid"), "");
+  eq("双列沿用现有 list2 样式类", ctx.cardViewClass("list"), " list2");
+  eq("紧凑追加 compact 样式类", ctx.cardViewClass("compact"), " compact");
+}
+if (typeof ctx.viewBtnLabel === "function") {
+  eq("双列模式提示下一步切到紧凑", ctx.viewBtnLabel("list"), "Switch to Compact view");
+}
+
 /* ---------- 搜索打分 ---------- */
 G("fuzzyScore");
 const { fuzzyScore } = ctx;

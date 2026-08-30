@@ -169,6 +169,36 @@
   });
   render("配色对比度达标 · WCAG contrast", lowc, "正文 ≥4.5:1，可交互边界 ≥3:1（两个主题分别验证）");
 
+  /* ---- compact grid responsive density ---- */
+  function compactColumns(frameWidth){
+    return new Promise(function(resolve,reject){
+      var frame=document.createElement("iframe"), cards="";
+      for(var i=0;i<8;i++) cards+='<div class="card"><div class="fav"></div><div class="meta"><div class="name">Bookmark</div></div></div>';
+      frame.style.cssText="position:fixed;left:-10000px;top:0;width:"+frameWidth+"px;height:180px;border:0;opacity:0;pointer-events:none";
+      frame.onload=function(){
+        try{
+          var grid=frame.contentDocument.getElementById("compactFixture");
+          var tracks=frame.contentWindow.getComputedStyle(grid).gridTemplateColumns.trim();
+          resolve(tracks?tracks.split(/\s+/).length:0);
+        }catch(e){ reject(e); }
+        finally{ frame.remove(); }
+      };
+      frame.onerror=function(){ frame.remove(); reject(new Error("fixture iframe load failed")); };
+      var cssUrl=new URL("css/app.css?_="+Date.now(),location.href).href;
+      frame.srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="'+cssUrl+'"></head><body><div id="compactFixture" class="grid compact">'+cards+'</div></body></html>';
+      document.body.appendChild(frame);
+    });
+  }
+  var layoutIssues=[];
+  try{
+    var wideCols=await compactColumns(1200), phoneCols=await compactColumns(375), narrowCols=await compactColumns(320);
+    if(wideCols!==4) layoutIssues.push("1200px 应为 4 列，实际 "+wideCols+" 列");
+    if(phoneCols!==4) layoutIssues.push("375px 应为 4 列，实际 "+phoneCols+" 列");
+    if(narrowCols!==3) layoutIssues.push("320px 应自动降为 3 列，实际 "+narrowCols+" 列");
+  }catch(e){ layoutIssues.push("布局夹具运行失败："+e.message); }
+  render("紧凑卡片响应式密度 · compact responsive columns", layoutIssues,
+    "宽屏固定 4 列；375px 保持 4 列；320px 自动降为 3 列，避免挤压");
+
   /* ---- Service Worker 预缓存与版本号 ---- */
   // 这两件事以前全靠手工核对：加了新 js 忘记进 SHELL，离线就少一个模块；
   // 版本号三处没同步，用户会拿到半新半旧的缓存。tools/bump.js 负责生成，这里负责兜底。
