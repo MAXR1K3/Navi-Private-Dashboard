@@ -1,0 +1,30 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Logic tests
+        run: node tools/test.js
+      - name: JavaScript syntax
+        run: |
+          for file in background.js sw.js js/*.js tools/*.js; do
+            node --check "$file"
+          done
+      - name: Real browser E2E
+        run: |
+          chrome_bin="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
+          test -n "$chrome_bin"
+          CHROME_BIN="$chrome_bin" node tools/e2e.js

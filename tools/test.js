@@ -27,6 +27,10 @@ const webManifest = JSON.parse(fs.readFileSync(path.join(root,"manifest.webmanif
 ok("PWA 不再强制竖屏", !webManifest.orientation || webManifest.orientation === "any" || webManifest.orientation === "natural",
    "当前 orientation=" + JSON.stringify(webManifest.orientation));
 
+G("browser E2E infrastructure");
+ok("仓库包含真实浏览器 E2E 入口", fs.existsSync(path.join(root,"tools/e2e.js")));
+ok("GitHub Actions 会运行验证", fs.existsSync(path.join(root,".github/workflows/verify.yml")));
+
 /* ---------- 卡片展示模式 ---------- */
 G("card view modes");
 ok("提供视图值归一化函数", typeof ctx.normalizeCardView === "function");
