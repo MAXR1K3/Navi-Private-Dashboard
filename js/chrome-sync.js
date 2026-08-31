@@ -328,7 +328,7 @@ function updateSyncUI(){
 function downloadText(fn, txt){ var a=document.createElement("a"); a.href="data:text/plain;charset=utf-8,"+encodeURIComponent(txt); a.download=fn; document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); }, 100); }
 function extensionBackgroundText(){
   return [
-    "// Navi background.js v1.5 — queues bookmark events while the dashboard is closed.",
+    "// Navi background.js v1.8 — queues bookmark events while the dashboard is closed.",
     "const api=(typeof browser!=='undefined'&&browser.bookmarks)?browser:chrome;",
     "const MAX_QUEUE=500;",
     "function asPromise(v){ return v&&typeof v.then==='function'?v:Promise.resolve(v); }",
@@ -351,7 +351,7 @@ function extensionBackgroundText(){
   ].join("\n");
 }
 function downloadExtFiles(){
-  var mf=JSON.stringify({ manifest_version:3, name:"Navi — Private Bookmark Dashboard", version:"1.5", description:"Private bookmark dashboard with browser bookmark sync and WebDAV bookmarks.json upload. Open from the toolbar icon.", permissions:["bookmarks","storage","tabs"], host_permissions:["http://*/*","https://*/*"], action:{ default_title:"Navi", default_icon:{ "16":"icons/icon-192.png","32":"icons/icon-192.png","48":"icons/icon-192.png","128":"icons/icon-512.png" } }, icons:{ "192":"icons/icon-192.png","512":"icons/icon-512.png" }, background:{service_worker:"background.js"} }, null, 2);
+  var mf=JSON.stringify({ manifest_version:3, name:"Navi — Private Bookmark Dashboard", version:"1.8", description:"Private bookmark dashboard with browser bookmark sync and WebDAV bookmarks.json upload. Open from the toolbar icon.", permissions:["bookmarks","storage"], host_permissions:["http://*/*","https://*/*"], action:{ default_title:"Navi", default_icon:{ "16":"icons/icon-192.png","32":"icons/icon-192.png","48":"icons/icon-192.png","128":"icons/icon-512.png" } }, icons:{ "192":"icons/icon-192.png","512":"icons/icon-512.png" }, background:{service_worker:"background.js"} }, null, 2);
   downloadText("manifest.json", mf);
   setTimeout(function(){ downloadText("background.js", extensionBackgroundText()); }, 250);
 }

@@ -1,4 +1,4 @@
-// Navi background.js v1.7 — queues bookmark events while the dashboard is closed,
+// Navi background.js v1.8 — queues bookmark events while the dashboard is closed,
 // and captures pages/links/images into a pending queue the dashboard drains on open.
 const api=(typeof browser!=='undefined'&&browser.runtime)?browser:chrome;   // Safari 两个命名空间都有，但都没有 bookmarks
 const MAX_QUEUE=500;

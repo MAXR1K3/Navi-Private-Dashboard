@@ -44,6 +44,20 @@ Navi 是一个本地优先的私人书签导航页。它可以作为桌面首页
 
 扩展同步会读取浏览器书签并生成 Navi 面板数据，不会反向修改浏览器原生书签。
 
+### 扩展权限说明
+
+Navi 的扩展清单只声明实际使用的权限：
+
+| 权限 | 用途 |
+| --- | --- |
+| `bookmarks` | 读取浏览器书签；只有你主动启用“镜像端”后，才会写入并维护浏览器书签栏内专属的 `Navi` 文件夹。 |
+| `storage` | 在扩展后台暂存右键收藏、快捷键收藏、书签变更队列和菜单语言。 |
+| `contextMenus` | 提供“保存页面 / 链接 / 图片到 Navi”的右键菜单。 |
+| `scripting` | 仅在你触发“保存此页面”时，从当前页面提取已渲染的正文以生成本地存档；没有常驻内容脚本。 |
+| `http://*/*`、`https://*/*` | 访问用户自行配置的 WebDAV/NAS、内网监控和书签网址，并完成链接检查、页面摘要、天气与可选 AI 请求。目标域名由用户数据决定，无法预先列成固定白名单。 |
+
+扩展不请求 `tabs`、浏览历史、Cookie、下载或 `file://` 访问。代码仍会用 Tabs API 打开/聚焦 Navi，但这类操作本身不需要 `tabs` 权限；现有 HTTP/HTTPS 主机权限已经覆盖普通网页标签所需的 URL 与标题信息。主机范围不包含 `chrome://`、`edge://` 等浏览器内部页面。
+
 #### 方式三：作为手机 PWA
 
 把项目部署到 HTTPS 静态网站后，在手机浏览器中打开并选择“添加到主屏幕”。PWA 支持离线访问，适合手机端长期使用。
@@ -180,7 +194,8 @@ PWA 依赖 Service Worker 缓存。如果你修改了代码但手机端仍显示
 
 ```text
 index.html              页面结构、弹窗、设置面板
-css/app.css             样式、响应式布局、PWA/移动端适配
+css/app.css             核心样式、响应式布局、PWA/移动端适配
+css/menus.css           视图菜单、更多操作与上下文动作面板
 js/state.js             默认状态、设置、localStorage key
 js/i18n.js              多语言文案
 js/utils.js             通用工具、保存读取、主题和语言应用
@@ -191,6 +206,8 @@ js/import-export.js     书签 HTML 和 JSON 导入导出
 js/chrome-sync.js       Chrome、Edge、Safari 来源同步
 js/sync.js              WebDAV/NAS Profile 同步
 js/settings.js          设置面板和设置项绑定
+js/menu.js              顶栏主操作、搜索和小组件开关
+js/action-menus.js      视图选择器与更多操作面板
 js/widgets.js           时钟、天气、日历、常用、最近、概览等小组件
 js/monitor.js           内网监控小组件
 js/health.js            链接健康检查与异常链接列表
@@ -221,7 +238,8 @@ python3 -m http.server 8767
 
 ```bash
 node tools/test.js    # 纯逻辑回归测试（搜索打分、去重、同步合并、清理分类…），不开浏览器，秒级
-node tools/bump.js    # 发版：按 index.html 重新生成 sw.js 的 SHELL，并把三处版本号一起 +1
+node tools/e2e.js     # 启动隔离的真实 Chrome，验证主要交互流程
+node tools/bump.js    # 发版：按 index.html 重新生成 sw.js 的 SHELL，并统一递增样式与缓存版本
 ```
 
 没有 NAS 也能验证同步的写入链路（预览用的 `http.server` 对 PUT 直接返 501）：
@@ -242,8 +260,8 @@ python3 tools/dav-stub.py 8788
 
 以上三类失败在界面上都会给出对应的提示，而不是只显示一句 "Failed to fetch"。
 
-`tools/bump.js` 解决的是两个容易漏的手工步骤：新加的 js 文件忘记写进 SHELL，离线时就会缺模块；
-版本号（`sw.js` 的 CACHE、SHELL 里的 `app.css?v=`、`index.html` 的 link）没同步，用户会拿到半新半旧的缓存。
+`tools/bump.js` 解决的是两个容易漏的手工步骤：新加的 js 或 css 文件忘记写进 SHELL，离线时就会缺模块；
+`sw.js` 的 CACHE、SHELL 和 `index.html` 中各样式表的版本没同步时，用户会拿到半新半旧的缓存。
 
 浏览器里打开 `dev-check.html` 是另一层自检：i18n 三语键一致、悬空的元素引用、重复 ID、
 无障碍名称、配色对比度，以及上面那两件事的兜底断言。
@@ -294,6 +312,20 @@ Use the extension mode if you want Navi to read native browser bookmarks.
 6. Go to `Settings -> Sync` to configure browser bookmark sync and WebDAV/NAS.
 
 Extension sync reads browser bookmarks and turns them into Navi dashboard data. It does not write changes back to the browser's native bookmarks.
+
+### Extension Permissions
+
+The extension manifest declares only permissions used by current features:
+
+| Permission | Why Navi needs it |
+| --- | --- |
+| `bookmarks` | Reads native browser bookmarks. Navi writes only inside its dedicated `Navi` folder, and only after you explicitly enable follower mirroring. |
+| `storage` | Keeps background queues for context-menu captures, keyboard captures, bookmark events, and the menu language. |
+| `contextMenus` | Adds “Save page / link / image to Navi” to the browser context menu. |
+| `scripting` | Extracts rendered article text only when you invoke “Save this page” so the archive can stay local; there is no always-on content script. |
+| `http://*/*`, `https://*/*` | Reaches user-configured WebDAV/NAS and monitor endpoints, arbitrary bookmark URLs for health checks and summaries, weather services, and optional AI APIs. Those origins come from user data and cannot be reduced to a fixed allowlist. |
+
+Navi does not request `tabs`, browsing-history, cookie, download, or `file://` access. It still uses the Tabs API to open or focus its dashboard, but those operations do not require the `tabs` permission; existing HTTP/HTTPS host access already covers the URL and title fields used for normal web tabs. Browser-internal pages such as `chrome://` and `edge://` are outside the host scope.
 
 #### Option 3: Use It As A Mobile PWA
 
@@ -431,7 +463,8 @@ The PWA uses Service Worker caching. If a phone still shows an old version after
 
 ```text
 index.html              Page structure, modals, settings panels
-css/app.css             Styles, responsive layout, PWA/mobile adaptation
+css/app.css             Core styles, responsive layout, PWA/mobile adaptation
+css/menus.css           View, more-actions, and context-menu presentation
 js/state.js             Default state, settings, localStorage key
 js/i18n.js              UI translations
 js/utils.js             Shared helpers, persistence, theme and language application
@@ -442,6 +475,8 @@ js/import-export.js     Bookmarks HTML and JSON import/export
 js/chrome-sync.js       Chrome, Edge, and Safari source sync
 js/sync.js              WebDAV/NAS profile sync
 js/settings.js          Settings panel bindings
+js/menu.js              Header actions, search, and widget toggle
+js/action-menus.js      View selector and grouped more-actions menu
 js/widgets.js           Clock, weather, calendar, favorites, recent, overview, and more
 js/monitor.js           Network monitor widget
 js/health.js            Link health checks and invalid-link review
@@ -472,7 +507,8 @@ Two things worth running after a code change:
 
 ```bash
 node tools/test.js    # headless regression tests (search ranking, dedupe, sync merge, cleanup buckets…)
-node tools/bump.js    # release step: regenerate the sw.js SHELL from index.html and bump all three version stamps
+node tools/e2e.js     # launch an isolated real Chrome and exercise the main interaction flows
+node tools/bump.js    # release step: regenerate the sw.js SHELL and bump every stylesheet/cache version together
 ```
 
 You can exercise the sync **write** path without a NAS (the preview `http.server` answers 501 to PUT):
@@ -493,9 +529,9 @@ inject 401 / 500 / read-only / auth-on-preflight / no-CORS / remote-changed-by-a
 
 All three failure classes now surface a specific explanation in the sync status line instead of a bare "Failed to fetch".
 
-`tools/bump.js` covers two easy-to-miss manual steps: a new js file that never made it into SHELL
-(the module goes missing offline), and version stamps (`CACHE` in `sw.js`, `app.css?v=` in SHELL,
-and the `index.html` link) drifting apart, which leaves users on a half-updated cache.
+`tools/bump.js` covers two easy-to-miss manual steps: a new js or css file that never made it into SHELL
+(the module goes missing offline), and the `CACHE`, SHELL, and `index.html` stylesheet versions drifting apart,
+which leaves users on a half-updated cache.
 
 Opening `dev-check.html` in a browser is the other layer: locale key parity, dangling element refs,
 duplicate ids, accessible names, colour contrast, plus a backstop assertion for the two items above.

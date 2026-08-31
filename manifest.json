@@ -1,12 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Navi — Private Bookmark Dashboard",
-  "version": "1.7",
+  "version": "1.8",
   "description": "Private bookmark dashboard with browser bookmark sync, WebDAV upload and offline page archiving. Open from the toolbar icon, or right-click any page to save it.",
   "permissions": [
     "bookmarks",
     "storage",
-    "tabs",
     "contextMenus",
     "scripting"
   ],

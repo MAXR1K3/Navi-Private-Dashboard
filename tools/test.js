@@ -27,6 +27,22 @@ const webManifest = JSON.parse(fs.readFileSync(path.join(root,"manifest.webmanif
 ok("PWA 不再强制竖屏", !webManifest.orientation || webManifest.orientation === "any" || webManifest.orientation === "natural",
    "当前 orientation=" + JSON.stringify(webManifest.orientation));
 
+G("extension least privilege");
+const extensionManifest = JSON.parse(fs.readFileSync(path.join(root,"manifest.json"),"utf8"));
+const requiredExtensionPermissions = ["bookmarks","contextMenus","scripting","storage"];
+eq("扩展只声明已审计的 API 权限",
+   (extensionManifest.permissions||[]).slice().sort().join(","),
+   requiredExtensionPermissions.slice().sort().join(","));
+ok("扩展不再请求可读取全部标签信息的 tabs 权限", !(extensionManifest.permissions||[]).includes("tabs"));
+eq("主机访问仅限普通 HTTP/HTTPS 网页",
+   (extensionManifest.host_permissions||[]).slice().sort().join(","),
+   ["http://*/*","https://*/*"].sort().join(","));
+ok("扩展不请求 file 或笼统 all_urls 访问",
+   !(extensionManifest.host_permissions||[]).some(function(origin){ return origin==="<all_urls>"||origin.indexOf("file:")===0; }));
+const readmeText = fs.readFileSync(path.join(root,"README.md"),"utf8");
+ok("README 中文说明扩展权限", readmeText.indexOf("### 扩展权限说明")>-1);
+ok("README English explains extension permissions", readmeText.indexOf("### Extension Permissions")>-1);
+
 G("browser E2E infrastructure");
 ok("仓库包含真实浏览器 E2E 入口", fs.existsSync(path.join(root,"tools/e2e.js")));
 ok("GitHub Actions 会运行验证", fs.existsSync(path.join(root,".github/workflows/verify.yml")));
