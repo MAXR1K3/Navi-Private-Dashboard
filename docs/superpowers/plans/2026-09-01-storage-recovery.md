@@ -199,7 +199,6 @@ NaviStorage.persist(state)     // boolean
 NaviStorage.getLastGood()      // Promise<revision|null>
 NaviStorage.restore(raw)       // Promise<boolean>
 NaviStorage.clearAll()         // Promise<void>
-NaviStorage.flushRevisions()   // Promise<void>, deterministic browser verification
 ```
 
 - [ ] **Step 1: Write failing persistence and retention tests**
@@ -397,7 +396,7 @@ function clearNaviData(){
 }
 ```
 
-The final `NaviStorage` object must expose `persist`, `getLastGood`, `restore`, `clearAll`, `flushRevisions`, and `selectRecoveryRevisions` with the names listed above.
+The final `NaviStorage` object must expose `persist`, `getLastGood`, `restore`, `clearAll`, and `selectRecoveryRevisions` with the names listed above.
 
 - [ ] **Step 6: Route existing saves through `NaviStorage`**
 
@@ -617,7 +616,8 @@ await group("corrupt primary is preserved behind recovery UI", async()=>{
     newer.settings.lang="en";
     newer.bookmarks=[{id:"newer",title:"Newer",url:"https://example.com/newer",category:"Work",description:"",tags:[]}];
     NaviStorage.persist(newer);
-    await NaviStorage.flushRevisions();
+    const archived=await NaviStorage.getLastGood();
+    if(!archived||archived.state.bookmarks[0]?.id!=="recover-me") throw new Error("last-good revision was not committed");
     localStorage.setItem("navi.dashboard.v3",'{"bookmarks":[');
     return localStorage.getItem("navi.dashboard.v3");
   })()`);
@@ -821,7 +821,7 @@ $("#recoveryReset").addEventListener("click",function(){
 });
 ```
 
-Add `flushRevisions:function(){ return _naviRevisionQueue; }` to `NaviStorage` for deterministic E2E setup. Do not expose IndexedDB stores or revision IDs to UI code.
+Use `getLastGood()` as the deterministic E2E queue boundary; do not add a test-only flush method or expose IndexedDB stores and revision IDs to UI code.
 
 - [ ] **Step 7: Style a calm, high-salience recovery dialog**
 

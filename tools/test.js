@@ -67,6 +67,48 @@ if (ctx.NaviStorage) {
     ctx.NaviStorage.inspectPrimary().status, "recovery");
 }
 
+/* ---------- 存储持久化与恢复版本 ---------- */
+G("storage persistence planning");
+const hasStoragePersistence = !!ctx.NaviStorage &&
+  typeof ctx.NaviStorage.persist === "function" &&
+  typeof ctx.NaviStorage.selectRecoveryRevisions === "function";
+ok("storage boundary exposes persist", !!ctx.NaviStorage&&typeof ctx.NaviStorage.persist === "function");
+ok("storage boundary exposes revision selection", !!ctx.NaviStorage&&typeof ctx.NaviStorage.selectRecoveryRevisions === "function");
+ok("storage boundary exposes last-good lookup", !!ctx.NaviStorage&&typeof ctx.NaviStorage.getLastGood === "function");
+ok("storage boundary exposes restore", !!ctx.NaviStorage&&typeof ctx.NaviStorage.restore === "function");
+ok("storage boundary exposes scoped reset", !!ctx.NaviStorage&&typeof ctx.NaviStorage.clearAll === "function");
+if (hasStoragePersistence) {
+  ctx.localStorage.clear();
+  const first = ctx.defaults();
+  first.bookmarks = [{id:"old", title:"Old", url:"https://old.example", category:"Work", tags:[]}];
+  eq("valid state persists", ctx.NaviStorage.persist(first), true);
+  const written = JSON.parse(ctx.localStorage.getItem(ctx.KEY));
+  eq("first save writes schema version", written.schemaVersion, 4);
+  eq("first save preserves bookmark", written.bookmarks[0].id, "old");
+
+  const before = ctx.localStorage.getItem(ctx.KEY);
+  eq("invalid state is rejected", ctx.NaviStorage.persist({bookmarks:{},settings:{}}), false);
+  eq("rejected state does not replace primary", ctx.localStorage.getItem(ctx.KEY), before);
+
+  const setItem = ctx.localStorage.setItem;
+  ctx.localStorage.setItem = function(){ throw new Error("quota"); };
+  eq("failed primary write is reported", ctx.NaviStorage.persist(first), false);
+  ctx.localStorage.setItem = setItem;
+  eq("failed primary write preserves old raw", ctx.localStorage.getItem(ctx.KEY), before);
+
+  const rows = [
+    {id:1,savedAt:10,raw:before},
+    {id:2,savedAt:20,raw:before},
+    {id:3,savedAt:30,raw:JSON.stringify(Object.assign({},first,{theme:"dark"}))},
+    {id:4,savedAt:40,raw:JSON.stringify(Object.assign({},first,{view:"compact"}))},
+    {id:5,savedAt:50,raw:JSON.stringify(Object.assign({},first,{view:"list"}))},
+    {id:6,savedAt:60,raw:'{"bookmarks":['}
+  ];
+  const kept = ctx.NaviStorage.selectRecoveryRevisions(rows,3);
+  eq("retention keeps three valid distinct rows", kept.length, 3);
+  eq("retention is newest first", kept.map(row=>row.id).join(","), "5,4,3");
+}
+
 /* ---------- PWA 横屏 ---------- */
 G("PWA orientation");
 const webManifest = JSON.parse(fs.readFileSync(path.join(root,"manifest.webmanifest"),"utf8"));

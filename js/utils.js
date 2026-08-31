@@ -29,13 +29,11 @@ function byId(id){ for(var i=0;i<state.bookmarks.length;i++){ if(state.bookmarks
 
 function save(){
   if(typeof oplogCapture==="function") oplogCapture();
-  try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }
-  catch(e){
-    // Likely quota — drop undo snapshots (largest payload) and retry once so data still persists.
-    if(typeof oplogDropSnaps==="function") oplogDropSnaps();
-    try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }
-    catch(e2){ warnStorageFull(); return false; }
-  }
+  if(NaviStorage.persist(state)) return true;
+  // Likely quota — drop undo snapshots (largest payload) and retry once so data still persists.
+  if(typeof oplogDropSnaps==="function") oplogDropSnaps();
+  if(NaviStorage.persist(state)) return true;
+  warnStorageFull(); return false;
 }
 // 本地存储用量（以序列化后的字符数估算，localStorage 上限通常约 5MB）
 var STORAGE_BUDGET=5*1024*1024, _storageWarned=false;
