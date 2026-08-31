@@ -575,6 +575,12 @@ function timeAgo(ts){
       storageUsage:"Local storage used", storageUsageDesc:"About {kb} KB used ({pct}% of the ~5 MB browser limit). Export a backup if it gets high.",
       storageFull:"Local storage is full — export a backup and clear old items to free space.",
       recoveryRevisionFailed:"The main data was saved, but the recovery copy could not be updated.",
+      recoveryTitle:"Navi needs your decision", recoveryDesc:"Your original data is still stored, but Navi cannot safely open it.",
+      recoveryChecking:"Checking for a valid previous version…", recoveryReady:"A valid previous version from {date} is available.",
+      recoveryUnavailable:"No valid previous version was found. You can still download the original data or reset Navi.",
+      recoveryRestore:"Restore previous version", recoveryDownload:"Download original data", recoveryReset:"Reset Navi",
+      recoveryResetTitle:"Reset Navi?", recoveryResetMsg:"This removes Navi data and profile caches from this browser. Download the original data first if you may need it.", recoveryResetOk:"Reset Navi",
+      recoveryRestoring:"Restoring the previous version…", recoveryResetting:"Resetting Navi…", recoveryRestoreFailed:"The previous version could not be restored.",
       showMore:"Show more ({n})"
     },
     zh:{
@@ -584,6 +590,12 @@ function timeAgo(ts){
       storageUsage:"本地存储占用", storageUsageDesc:"已用约 {kb} KB（约为浏览器 5 MB 上限的 {pct}%）。占用过高时请导出备份。",
       storageFull:"本地存储已满 —— 请导出备份并清理旧数据以释放空间。",
       recoveryRevisionFailed:"主数据已保存，但恢复副本未能更新。",
+      recoveryTitle:"Navi 需要你做出选择", recoveryDesc:"原始数据仍保存在浏览器中，但 Navi 无法安全打开它。",
+      recoveryChecking:"正在检查可用的有效版本…", recoveryReady:"找到 {date} 保存的有效版本。",
+      recoveryUnavailable:"未找到有效的上一版本。你仍可下载原始数据或重置 Navi。",
+      recoveryRestore:"恢复上一版本", recoveryDownload:"下载原始数据", recoveryReset:"重置 Navi",
+      recoveryResetTitle:"要重置 Navi 吗？", recoveryResetMsg:"这会删除此浏览器中的 Navi 数据和 Profile 缓存。如有可能需要，请先下载原始数据。", recoveryResetOk:"重置 Navi",
+      recoveryRestoring:"正在恢复上一版本…", recoveryResetting:"正在重置 Navi…", recoveryRestoreFailed:"无法恢复上一版本。",
       showMore:"显示更多（{n}）"
     },
     es:{
@@ -593,6 +605,12 @@ function timeAgo(ts){
       storageUsage:"Almacenamiento local usado", storageUsageDesc:"Unos {kb} KB usados ({pct}% del límite de ~5 MB del navegador). Exporta una copia si sube mucho.",
       storageFull:"El almacenamiento local está lleno: exporta una copia y borra elementos antiguos.",
       recoveryRevisionFailed:"Los datos principales se guardaron, pero no se pudo actualizar la copia de recuperación.",
+      recoveryTitle:"Navi necesita tu decisión", recoveryDesc:"Tus datos originales siguen guardados, pero Navi no puede abrirlos de forma segura.",
+      recoveryChecking:"Buscando una versión anterior válida…", recoveryReady:"Hay una versión válida guardada el {date}.",
+      recoveryUnavailable:"No se encontró una versión anterior válida. Aún puedes descargar los datos originales o restablecer Navi.",
+      recoveryRestore:"Restaurar versión anterior", recoveryDownload:"Descargar datos originales", recoveryReset:"Restablecer Navi",
+      recoveryResetTitle:"¿Restablecer Navi?", recoveryResetMsg:"Se eliminarán los datos de Navi y las cachés de perfiles de este navegador. Descarga primero los datos originales si puedes necesitarlos.", recoveryResetOk:"Restablecer Navi",
+      recoveryRestoring:"Restaurando la versión anterior…", recoveryResetting:"Restableciendo Navi…", recoveryRestoreFailed:"No se pudo restaurar la versión anterior.",
       showMore:"Mostrar más ({n})"
     }
   };

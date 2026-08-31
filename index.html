@@ -579,6 +579,22 @@
     </div>
   </div>
 
+  <div class="overlay recovery-overlay" id="recoveryOverlay" data-static-overlay="true">
+    <section class="modal recovery-modal" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle" aria-describedby="recoveryDesc">
+      <div class="recovery-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg>
+      </div>
+      <h2 id="recoveryTitle" data-i18n="recoveryTitle">Navi needs your decision</h2>
+      <p id="recoveryDesc" data-i18n="recoveryDesc">Your original data is still stored, but Navi cannot safely open it.</p>
+      <p class="recovery-status" id="recoveryStatus" role="status" aria-live="polite" data-i18n="recoveryChecking">Checking for a valid previous version…</p>
+      <div class="recovery-actions">
+        <button class="btn primary" id="recoveryRestore" type="button" disabled data-i18n="recoveryRestore">Restore previous version</button>
+        <button class="btn" id="recoveryDownload" type="button" data-i18n="recoveryDownload">Download original data</button>
+        <button class="btn danger" id="recoveryReset" type="button" data-i18n="recoveryReset">Reset Navi</button>
+      </div>
+    </section>
+  </div>
+
   <input type="file" id="fileInput" class="sr-file" accept=".html,.htm,text/html" data-i18n-aria="importFile" />
   <input type="file" id="jsonInput" class="sr-file" accept=".json,application/json" data-i18n-aria="importJsonLabel" />
   <input type="file" id="snapInput" class="sr-file" accept=".json,application/json" data-i18n-aria="snapImport" />

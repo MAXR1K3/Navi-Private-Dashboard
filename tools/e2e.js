@@ -142,9 +142,67 @@ async function main(){
       assert("dev-check failures",result.failed===0,result.summary);
     });
 
+    await group("corrupt primary is preserved behind recovery UI", async()=>{
+      await cdp.navigate(base+"?recovery-setup="+Date.now());
+      await cdp.wait(`typeof NaviStorage==="object"`);
+      const prepared=await cdp.evaluate(`(async()=>{
+        await NaviStorage.clearAll();
+        const good=defaults();
+        good.settings.lang="en";
+        good.bookmarks=[{id:"recover-me",title:"Recover me",url:"https://example.com/recovered",category:"Work",description:"",tags:[]}];
+        NaviStorage.persist(good);
+        const newer=defaults();
+        newer.settings.lang="en";
+        newer.bookmarks=[{id:"newer",title:"Newer",url:"https://example.com/newer",category:"Work",description:"",tags:[]}];
+        NaviStorage.persist(newer);
+        const archived=await NaviStorage.getLastGood();
+        if(!archived||archived.state.bookmarks[0]?.id!=="recover-me") throw new Error("last-good revision was not committed");
+        localStorage.setItem("navi.dashboard.v3",'{"bookmarks":[');
+        return localStorage.getItem("navi.dashboard.v3");
+      })()`);
+      assert("corrupt fixture was not written",prepared==='{\"bookmarks\":[');
+
+      await cdp.navigate(base+"?recovery="+Date.now());
+      const recovery=await cdp.wait(`(()=>{const o=document.querySelector("#recoveryOverlay");return o&&o.classList.contains("open")?{raw:localStorage.getItem("navi.dashboard.v3"),name:o.querySelector(".modal").getAttribute("aria-labelledby"),restore:!document.querySelector("#recoveryRestore").disabled,download:!document.querySelector("#recoveryDownload").disabled,focus:o.contains(document.activeElement),blocked:document.querySelector("header").inert&&document.querySelector(".layout").inert}:null})()`);
+      assert("recovery startup changed corrupt raw",recovery.raw==='{\"bookmarks\":[',JSON.stringify(recovery));
+      assert("recovery dialog is not named",recovery.name==="recoveryTitle",JSON.stringify(recovery));
+      assert("recovery actions, background blocking, or initial focus are wrong",recovery.restore&&recovery.download&&recovery.focus&&recovery.blocked,JSON.stringify(recovery));
+
+      const escape=await cdp.evaluate(`(()=>{document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));return document.querySelector("#recoveryOverlay").classList.contains("open")})()`);
+      assert("Escape dismissed the recovery decision",escape);
+
+      await cdp.evaluate(`document.querySelector("#recoveryRestore").click()`);
+      await cdp.wait(`state.bookmarks.some(b=>b.id==="recover-me")`);
+      const restored=await cdp.evaluate(`({id:state.bookmarks[0]?.id,status:document.documentElement.dataset.recovery||""})`);
+      assert("last valid revision was not restored",restored.id==="recover-me",JSON.stringify(restored));
+      assert("app stayed in recovery after restore",restored.status!=="true",JSON.stringify(restored));
+    });
+
+    await group("recovery without a revision still offers download and confirmed reset", async()=>{
+      await cdp.evaluate(`NaviStorage.clearAll()`);
+      await cdp.evaluate(`localStorage.setItem("unrelated.same-origin","keep");localStorage.setItem("navi.pdata.remote","remove");localStorage.setItem("navi.dashboard.v2","remove");localStorage.setItem("navi.dashboard.prev","remove");localStorage.setItem("navi.dashboard.v3",'{"bookmarks":[');location.reload()`);
+      await cdp.wait(`document.querySelector("#recoveryOverlay")?.classList.contains("open")`);
+      const actions=await cdp.wait(`(()=>{const r=document.querySelector("#recoveryRestore");const d=document.querySelector("#recoveryDownload");return r&&!document.querySelector("#recoveryStatus").textContent.includes("Checking")?{restore:r.disabled,download:!d.disabled}:null})()`);
+      assert("restore is enabled without a valid revision",actions.restore);
+      assert("download is unavailable without a revision",actions.download);
+      const downloaded=await cdp.evaluate(`new Promise(resolve=>{downloadBlob=(text,mime,name)=>resolve({text,mime,name});document.querySelector("#recoveryDownload").click()})`);
+      assert("download changed corrupt raw",downloaded.text==='{\"bookmarks\":[',JSON.stringify(downloaded));
+      assert("download filename is not a dated text file",/^navi-corrupt-data-.+\.txt$/.test(downloaded.name),JSON.stringify(downloaded));
+      await cdp.evaluate(`document.querySelector("#recoveryReset").click()`);
+      await cdp.wait(`document.querySelector("#confirmOverlay").classList.contains("open")`);
+      assert("reset confirmation did not keep recovery visible",await cdp.evaluate(`document.querySelector("#recoveryOverlay").classList.contains("open")`));
+      const trapped=await cdp.evaluate(`(()=>{const ok=document.querySelector("#confirmOk");ok.focus();const event=new KeyboardEvent("keydown",{key:"Tab",bubbles:true,cancelable:true});ok.dispatchEvent(event);return {prevented:event.defaultPrevented,focus:document.activeElement.textContent,inside:document.querySelector("#confirmOverlay").contains(document.activeElement)}})()`);
+      assert("Tab escaped the reset confirmation",trapped.prevented&&trapped.inside&&trapped.focus==="Cancel",JSON.stringify(trapped));
+      await cdp.evaluate(`document.querySelector("#confirmOk").click()`);
+      await cdp.wait(`state.bookmarks.length>0 && localStorage.getItem("navi.dashboard.v3")`);
+      const reset=await cdp.evaluate(`({profile:localStorage.getItem("navi.pdata.remote"),legacy:localStorage.getItem("navi.dashboard.v2"),previous:localStorage.getItem("navi.dashboard.prev"),unrelated:localStorage.getItem("unrelated.same-origin")})`);
+      assert("confirmed reset left Navi-owned fallback data behind",reset.profile===null&&reset.legacy===null&&reset.previous===null,JSON.stringify(reset));
+      assert("reset deleted unrelated same-origin data",reset.unrelated==="keep",JSON.stringify(reset));
+    });
+
     await cdp.navigate(base+"?e2e="+Date.now());
     await cdp.wait(`typeof render==="function" && !!document.querySelector("#viewBtn")`);
-    await cdp.evaluate(`(()=>{localStorage.clear();state=defaults();ui={activeCat:"All",query:"",tagFilter:"",selectMode:false,selected:{},editingId:null,importData:null,importMode:"merge",calMonth:new Date().getMonth(),calYear:new Date().getFullYear(),calSelected:null,geoTried:false,weatherPanel:"",worldClockSetup:false};state.settings.lang="en";state.settings.widgetsCollapsed=true;state.settings.animations=false;state.settings.lowPower=true;state.categories=["Work"];state.bookmarks=[{id:"view-fixture",title:"View fixture",url:"https://example.com/view",category:"Work",description:"",tags:[]}];saveSilently();render();oplogInit();return true})()`);
+    await cdp.evaluate(`(async()=>{await NaviStorage.clearAll();state=defaults();ui={activeCat:"All",query:"",tagFilter:"",selectMode:false,selected:{},editingId:null,importData:null,importMode:"merge",calMonth:new Date().getMonth(),calYear:new Date().getFullYear(),calSelected:null,geoTried:false,weatherPanel:"",worldClockSetup:false};state.settings.lang="en";state.settings.widgetsCollapsed=true;state.settings.animations=false;state.settings.lowPower=true;state.categories=["Work"];state.bookmarks=[{id:"view-fixture",title:"View fixture",url:"https://example.com/view",category:"Work",description:"",tags:[]}];saveSilently();render();oplogInit();return true})()`);
 
     await group("explicit three-view selector", async()=>{
       const result=await cdp.evaluate(`(()=>{const b=document.querySelector("#viewBtn"),m=document.querySelector("#viewMenu");b.click();const opened=m.classList.contains("open")&&b.getAttribute("aria-expanded")==="true";m.querySelector('[data-view="compact"]').click();return {opened,view:state.view,grid:document.querySelector(".grid")?.className,label:b.getAttribute("aria-label"),selected:m.querySelector('[data-view="compact"]').getAttribute("aria-checked"),focus:document.activeElement===b}})()`);

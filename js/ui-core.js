@@ -28,6 +28,13 @@ function overlayIds(){
   return $all(".overlay").filter(function(el){ return el.id && !el.classList.contains("palette-overlay"); })
     .map(function(el){ return el.id; });
 }
+function overlayIsStatic(el){ return !!(el&&el.hasAttribute("data-static-overlay")); }
+function activeOpenOverlay(){
+  var focused=document.activeElement&&document.activeElement.closest
+    ?document.activeElement.closest(".overlay.open"):null;
+  if(focused&&!focused.classList.contains("palette-overlay")) return focused;
+  return $all(".overlay.open").filter(function(el){ return !el.classList.contains("palette-overlay"); }).pop()||null;
+}
 function focusablesIn(el){
   return $all('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])', el)
     .filter(function(n){ return n.offsetWidth||n.offsetHeight||n.getClientRects().length; });
@@ -53,14 +60,14 @@ function closeOverlay(id){
   }
 }
 function closeAll(){
-  var ids=overlayIds();
+  var ids=overlayIds().filter(function(id){ return !overlayIsStatic($("#"+id)); });
   if(typeof summaryUi!=="undefined"&&summaryUi.running) ids=ids.filter(function(id){ return id!=="summaryOverlay"; });
   ids.forEach(closeOverlay); confirmCb=null; promptCb=null;
 }
 // Tab 焦点陷阱：弹窗打开时不让焦点跑到背后的页面
 document.addEventListener("keydown", function(e){
   if(e.key!=="Tab") return;
-  var open=$all(".overlay.open").filter(function(el){ return !el.classList.contains("palette-overlay"); }).pop();
+  var open=activeOpenOverlay();
   if(!open) return;
   var f=focusablesIn(open); if(!f.length) return;
   var first=f[0], last=f[f.length-1];
@@ -68,13 +75,27 @@ document.addEventListener("keydown", function(e){
   else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
 });
 document.addEventListener("click", function(e){
-  if(e.target.closest("[data-close]")){ closeAll(); return; }
+  var close=e.target.closest("[data-close]");
+  if(close){
+    var owner=close.closest(".overlay");
+    if(owner&&overlayIsStatic(owner)) return;
+    closeAll(); return;
+  }
   if(e.target.classList&&e.target.classList.contains("overlay")&&_pressEl===e.target){
+    if(overlayIsStatic(e.target)) return;
     if(e.target.id==="summaryOverlay"&&typeof summaryUi!=="undefined"&&summaryUi.running) return;
     closeOverlay(e.target.id);
   }
 });
-document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ closeAll(); closeMenu(); } });
+document.addEventListener("keydown",function(e){
+  if(e.key!=="Escape") return;
+  var active=activeOpenOverlay();
+  if(active&&!overlayIsStatic(active)){
+    closeOverlay(active.id); confirmCb=null; promptCb=null; closeMenu(); return;
+  }
+  if(document.querySelector(".overlay.open[data-static-overlay]")) return;
+  closeAll(); closeMenu();
+});
 
 var confirmCb=null;
 function openConfirm(title,msg,okLabel,cb){ $("#confirmTitle").textContent=title; var msgEl=$("#confirmMsg"); msgEl.style.whiteSpace=""; msgEl.textContent=msg; $("#confirmOk").textContent=okLabel||t("delete"); confirmCb=cb; openOverlay("confirmOverlay"); }

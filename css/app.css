@@ -906,6 +906,22 @@
   .modal-head{ padding:20px 22px 4px; } .modal-head h2{ margin:0; font-size:var(--fs-xl); line-height:1.2; letter-spacing:-.35px; font-weight:720; } .modal-head p{ margin:6px 0 0; font-size:var(--fs-md); color:var(--text-faint); }
   .modal-body{ padding:16px 22px 4px; overflow:auto; } .modal-body.scroll{ max-height:64vh; overflow:auto; }
   .modal-foot{ padding:16px 22px 20px; display:flex; gap:10px; justify-content:flex-end; flex:0 0 auto; }
+  .recovery-overlay{ z-index:94; background:rgba(16,18,28,.62); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
+  .recovery-modal{ width:min(560px,calc(100vw - 32px)); max-width:560px; padding:32px; text-align:center; }
+  .recovery-mark{ display:grid; place-items:center; width:48px; height:48px; margin:0 auto 18px; border-radius:var(--radius-lg); background:var(--danger-soft); color:var(--danger); }
+  .recovery-mark svg{ width:25px; height:25px; }
+  .recovery-modal h2{ margin:0 0 10px; font-size:clamp(24px,4vw,32px); line-height:1.15; letter-spacing:-.025em; }
+  .recovery-modal>p{ max-width:46ch; margin:0 auto; color:var(--text-soft); line-height:1.6; }
+  .recovery-status{ min-height:48px; padding-top:14px; }
+  .recovery-actions{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:24px; }
+  .recovery-actions .btn{ justify-content:center; min-height:44px; }
+  .recovery-actions .btn:disabled{ opacity:.46; cursor:not-allowed; box-shadow:none; }
+  .recovery-actions .danger{ grid-column:1/-1; }
+  @media (max-width:559px){
+    .recovery-modal{ padding:24px 20px; }
+    .recovery-actions{ grid-template-columns:1fr; }
+    .recovery-actions .danger{ grid-column:auto; margin-top:4px; }
+  }
   .field{ margin-bottom:14px; } .field label{ display:block; font-size:var(--fs-sm); font-weight:700; color:var(--text-soft); margin-bottom:6px; }
   .field input, .field select, .field textarea{ width:100%; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:var(--fs-base); outline:none; transition:border-color .15s,box-shadow .15s; font-family:inherit; }
   .field input, .field select{ height:44px; padding:0 13px; }
