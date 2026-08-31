@@ -10,7 +10,7 @@ const { createEnv, load, root } = require("./env.js");
 const ctx = createEnv();
 const failed = load(ctx, ["js/i18n.js","js/state.js","js/icons.js","js/utils.js","js/render.js",
                           "js/suggest.js","js/sync.js","js/cleanup.js","js/snapshots.js",
-                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js","js/menu.js"]);
+                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js","js/menu.js","js/action-menus.js"]);
 if (failed.length) { console.error("× 模块加载失败：\n  " + failed.join("\n  ")); process.exit(1); }
 
 let pass = 0, fail = 0, group = "";
@@ -30,6 +30,17 @@ ok("PWA 不再强制竖屏", !webManifest.orientation || webManifest.orientation
 G("browser E2E infrastructure");
 ok("仓库包含真实浏览器 E2E 入口", fs.existsSync(path.join(root,"tools/e2e.js")));
 ok("GitHub Actions 会运行验证", fs.existsSync(path.join(root,".github/workflows/verify.yml")));
+
+G("progressive module boundaries");
+const indexHtml = fs.readFileSync(path.join(root,"index.html"),"utf8");
+const menuSource = fs.readFileSync(path.join(root,"js/menu.js"),"utf8");
+const actionMenusPath = path.join(root,"js/action-menus.js");
+const menuStylesPath = path.join(root,"css/menus.css");
+ok("菜单交互拥有独立脚本", fs.existsSync(actionMenusPath));
+ok("菜单样式拥有独立样式表", fs.existsSync(menuStylesPath));
+ok("页面加载独立菜单脚本", /<script src="js\/action-menus\.js"><\/script>/.test(indexHtml));
+ok("页面加载独立菜单样式", /<link rel="stylesheet" href="css\/menus\.css\?v=\d+" \/>/.test(indexHtml));
+ok("通用头部脚本不再承担弹出菜单逻辑", !/function\s+(?:openViewMenu|openMenu|moreMenuGroup)\b/.test(menuSource));
 
 /* ---------- 卡片展示模式 ---------- */
 G("card view modes");

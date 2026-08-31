@@ -1,0 +1,98 @@
+/* menus.css — 视图选择、更多操作与上下文动作面板 */
+
+/* ===== header action menus ===== */
+.menu-wrap{ position:relative; }
+.menu{ position:absolute; right:0; top:48px; min-width:200px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-pop); padding:6px; z-index:60; opacity:0; transform:translateY(-6px) scale(.98); pointer-events:none; transition:opacity .14s var(--ease),transform .14s var(--ease); }
+.menu.open{ opacity:1; transform:none; pointer-events:auto; }
+.menu button{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; border:0; color:var(--text); font-size:var(--fs-md); font-weight:500; padding:10px 11px; border-radius:var(--radius-sm); cursor:pointer; }
+.menu button svg{ width:16px; height:16px; color:var(--text-soft); }
+.menu button:hover{ background:var(--surface-2); }
+.menu button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.menu button.danger-item{ color:var(--danger); }
+.menu button.danger-item svg{ color:var(--danger); }
+.menu hr{ border:0; border-top:1px solid var(--border); margin:5px 4px; }
+
+.view-menu{ min-width:172px; }
+.view-menu button{ min-height:44px; }
+.view-menu button[aria-checked="true"]{ background:var(--accent-soft); color:var(--accent); font-weight:700; }
+.view-menu button[aria-checked="true"] > svg:first-child{ color:var(--accent); }
+.view-menu .view-check{ width:14px; height:14px; margin-left:auto; color:var(--accent); opacity:0; }
+.view-menu button[aria-checked="true"] .view-check{ opacity:1; }
+
+.menu-group, .menu-group-actions{ display:contents; }
+.menu-group-title, .more-sheet-head, .more-sheet-backdrop{ display:none; }
+.more-only-mobile{ display:none !important; }
+
+@media(max-width:720px), (orientation:landscape) and (max-height:500px) and (max-width:950px){
+  .more-only-mobile{ display:flex !important; }
+  body.more-sheet-open{ overflow:hidden; }
+  .more-picker .more-sheet-backdrop{ display:block; position:fixed; inset:0; z-index:61; background:rgba(16,24,40,.48); opacity:0; pointer-events:none; transition:opacity .2s var(--ease); }
+  .more-picker .more-sheet-backdrop.open{ opacity:1; pointer-events:auto; }
+  .actions .more-picker .more-menu{
+    position:fixed; left:0; right:0; top:auto; bottom:0; z-index:62; width:100%; min-width:0;
+    max-height:min(82dvh,640px); overflow-y:auto; overscroll-behavior:contain;
+    padding:8px 12px calc(12px + env(safe-area-inset-bottom,0px)); border-radius:22px 22px 0 0;
+    border-left:0; border-right:0; border-bottom:0; opacity:1; transform:translateY(102%);
+    transition:transform .24s var(--ease); box-shadow:0 -12px 40px rgba(16,24,40,.2);
+  }
+  .actions .more-picker .more-menu.open{ transform:none; }
+  .more-sheet-head{ position:sticky; top:-8px; z-index:2; display:grid; grid-template-columns:40px 1fr 40px; align-items:center; min-height:48px; margin:0 -4px 5px; padding:8px 4px 4px; background:var(--surface); text-align:center; }
+  .more-sheet-head strong{ font-size:var(--fs-base); }
+  .more-sheet-grip{ position:absolute; top:3px; left:50%; width:38px; height:4px; border-radius:var(--radius-full); background:var(--border-strong); transform:translateX(-50%); }
+  .more-sheet-close{ grid-column:3; width:40px !important; height:40px; padding:0 !important; justify-content:center; border:0 !important; border-radius:var(--radius-full) !important; background:var(--surface-2) !important; }
+  .more-sheet-close svg{ width:17px !important; height:17px !important; }
+  .more-menu .menu-group{ display:block; margin-top:10px; }
+  .more-menu .menu-group-title{ display:block; margin:0 4px 7px; color:var(--text-faint); font-size:var(--fs-xs); font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+  .more-menu .menu-group-actions{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .more-menu .menu-group-actions button{ min-height:50px; padding:9px 10px; border:1px solid var(--border); background:var(--surface-2); line-height:1.25; }
+  .more-menu .menu-group-actions button:hover{ border-color:var(--border-strong); }
+  .more-menu .menu-group-actions button svg{ width:18px; height:18px; }
+  .more-menu .menu-group-danger{ margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+  .more-menu .menu-group-danger .menu-group-actions{ grid-template-columns:1fr; }
+  .more-menu .menu-group-danger button{ background:var(--danger-soft); border-color:transparent; }
+  .more-menu .menu-separator{ display:none; }
+}
+@media (prefers-reduced-motion:reduce){
+  .more-picker .more-sheet-backdrop, .actions .more-picker .more-menu{ transition:none !important; }
+}
+
+/* ===== context menu / touch action sheet ===== */
+.ctx-root{ position:fixed; inset:0; z-index:200; display:none; }
+.ctx-root.open{ display:block; }
+.ctx-backdrop{ position:absolute; inset:0; background:transparent; }
+.ctx-root.sheet .ctx-backdrop{ background:rgba(16,24,40,.42); opacity:0; transition:opacity .2s var(--ease); }
+.ctx-root.sheet.open .ctx-backdrop{ opacity:1; }
+
+.ctx-menu{ position:absolute; min-width:214px; max-width:288px; padding:6px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-pop); display:flex; flex-direction:column; gap:1px; outline:none; animation:ctxPop .12s var(--ease); }
+@keyframes ctxPop{ from{ opacity:0; transform:translateY(-4px) scale(.97); } to{ opacity:1; transform:none; } }
+.ctx-menu.view-move{ max-height:min(60vh,360px); overflow-y:auto; }
+
+.ctx-item{ display:flex; align-items:center; gap:11px; width:100%; padding:9px 11px; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--text); font-size:var(--fs-md); font-weight:550; cursor:pointer; text-align:left; -webkit-appearance:none; appearance:none; }
+.ctx-item:hover, .ctx-item:focus-visible{ background:var(--surface-2); outline:none; }
+.ctx-item .ctx-ico{ flex:0 0 auto; width:18px; height:18px; display:grid; place-items:center; color:var(--text-soft); }
+.ctx-item .ctx-ico svg{ width:17px; height:17px; }
+.ctx-item .ctx-lbl{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ctx-item .ctx-arrow{ flex:0 0 auto; color:var(--text-faint); }
+.ctx-item .ctx-arrow svg{ width:15px; height:15px; }
+.ctx-item .ctx-check{ flex:0 0 auto; color:var(--accent); }
+.ctx-item .ctx-check svg{ width:15px; height:15px; }
+.ctx-item.on{ color:var(--accent); }
+.ctx-item.on .ctx-ico{ color:var(--accent); }
+.ctx-item.danger{ color:var(--danger); }
+.ctx-item.danger .ctx-ico{ color:var(--danger); }
+.ctx-item.danger:hover, .ctx-item.danger:focus-visible{ background:var(--danger-soft); }
+.ctx-item.back{ color:var(--text-soft); font-weight:650; }
+.ctx-grip, .ctx-title, .ctx-cancel{ display:none; }
+
+.ctx-root.sheet .ctx-menu{ left:0; right:0; bottom:0; top:auto !important; min-width:0; max-width:none; width:100%; padding:8px 12px calc(10px + env(safe-area-inset-bottom)); border-radius:20px 20px 0 0; border-left:0; border-right:0; border-bottom:0; gap:2px; animation:ctxSheet .24s var(--ease); }
+@keyframes ctxSheet{ from{ transform:translateY(100%); } to{ transform:none; } }
+.ctx-root.sheet .ctx-grip{ display:block; width:38px; height:4px; border-radius:var(--radius-full); background:var(--border-strong); margin:2px auto 8px; }
+.ctx-root.sheet .ctx-title{ display:block; padding:0 6px 8px; font-size:var(--fs-sm); font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ctx-root.sheet .ctx-item{ padding:13px 12px; font-size:var(--fs-base); border-radius:var(--radius-md); }
+.ctx-root.sheet .ctx-item .ctx-ico{ width:22px; height:22px; }
+.ctx-root.sheet .ctx-item .ctx-ico svg{ width:20px; height:20px; }
+.ctx-root.sheet .ctx-menu.view-move{ max-height:72vh; }
+.ctx-root.sheet .ctx-cancel{ display:block; width:100%; margin-top:6px; padding:13px; border:0; border-radius:var(--radius-md); background:var(--surface-2); color:var(--text); font-size:var(--fs-base); font-weight:700; cursor:pointer; }
+
+body.low-power .ctx-menu{ animation:none; }
+@media (prefers-reduced-motion:reduce){ .ctx-menu{ animation:none !important; } }

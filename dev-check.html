@@ -43,10 +43,17 @@
     .then(function(r){ if(!r.ok) throw new Error(u+" "+r.status); return r.text(); }); };
 
   var html=await txt("index.html");
+  var styles=(html.match(/<link rel="stylesheet" href="([^"]+)"/g)||[]).map(function(s){ return s.match(/href="([^"]+)"/)[1]; });
   var scripts=(html.match(/<script src="([^"]+)"/g)||[]).map(function(s){ return s.match(/src="([^"]+)"/)[1]; });
   var sources={};
   await Promise.all(scripts.map(function(s){ return txt(s).then(function(t){ sources[s]=t; }).catch(function(){ sources[s]=""; }); }));
   var alljs=Object.keys(sources).map(function(k){ return sources[k]; }).join("\n");
+  function fixtureStyles(){
+    return styles.map(function(s){
+      var url=new URL(s+(s.indexOf("?")>-1?"&":"?")+"_="+Date.now(),location.href).href;
+      return '<link rel="stylesheet" href="'+url+'">';
+    }).join("");
+  }
 
   /* ---- i18n keys ---- */
   var I18N=null, keys={};
@@ -216,8 +223,7 @@
         finally{ frame.remove(); }
       };
       frame.onerror=function(){ frame.remove(); reject(new Error("fixture iframe load failed")); };
-      var cssUrl=new URL("css/app.css?_="+Date.now(),location.href).href;
-      frame.srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="'+cssUrl+'"></head><body><div id="compactFixture" class="grid compact">'+cards+'</div></body></html>';
+      frame.srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width">'+fixtureStyles()+'</head><body><div id="compactFixture" class="grid compact">'+cards+'</div></body></html>';
       document.body.appendChild(frame);
     });
   }
@@ -251,8 +257,7 @@
         finally{ frame.remove(); }
       };
       frame.onerror=function(){ frame.remove(); reject(new Error("category fixture iframe load failed")); };
-      var cssUrl=new URL("css/app.css?_="+Date.now(),location.href).href;
-      frame.srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="'+cssUrl+'"></head><body><div id="categoryFixture" class="tabs">'+tabs+'</div></body></html>';
+      frame.srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width">'+fixtureStyles()+'</head><body><div id="categoryFixture" class="tabs">'+tabs+'</div></body></html>';
       document.body.appendChild(frame);
     });
   }
@@ -270,23 +275,27 @@
     "375px 保持一行并可横滑；编辑与删除走长按菜单，桌面入口不受影响");
 
   /* ---- Service Worker 预缓存与版本号 ---- */
-  // 这两件事以前全靠手工核对：加了新 js 忘记进 SHELL，离线就少一个模块；
-  // 版本号三处没同步，用户会拿到半新半旧的缓存。tools/bump.js 负责生成，这里负责兜底。
+  // 新增 js/css 忘记进 SHELL，离线就会缺模块；版本号没同步，用户会拿到半新半旧的缓存。
+  // tools/bump.js 负责生成，这里负责兜底。
   var swTxt=await txt("sw.js"), htmlTxt=await txt("index.html");
   var swIssues=[];
   var vCache=(swTxt.match(/var CACHE\s*=\s*"navi-v(\d+)"/)||[])[1];
-  var vShell=(swTxt.match(/app\.css\?v=(\d+)/)||[])[1];
-  var vHtml=(htmlTxt.match(/css\/app\.css\?v=(\d+)/)||[])[1];
-  if(!vCache) swIssues.push("sw.js 里找不到 CACHE 版本号");
-  else if(!(vCache===vShell&&vCache===vHtml))
-    swIssues.push("版本号三处不一致：CACHE=v"+vCache+"，SHELL 的 css=v"+vShell+"，index.html=v"+vHtml+"（跑 node tools/bump.js 修）");
-  var htmlScripts=(htmlTxt.match(/<script src="[^"]+"/g)||[]).map(function(s){ return s.replace(/.*src="/,"").replace(/"$/,""); });
+  var htmlStyles=(htmlTxt.match(/<link rel="stylesheet" href="[^"]+"/g)||[]).map(function(s){ return s.replace(/.*href="/,"").replace(/"$/,""); });
   var shellBlock=(swTxt.match(/var SHELL = \[([\s\S]*?)\];/)||[])[1]||"";
+  var shellStyles=(shellBlock.match(/"\.\/css\/[^"]+"/g)||[]).map(function(s){ return s.replace(/^"\.\//,"").replace(/"$/,""); });
+  if(!vCache) swIssues.push("sw.js 里找不到 CACHE 版本号");
+  htmlStyles.concat(shellStyles).forEach(function(s){
+    var v=(s.match(/\?v=(\d+)/)||[])[1];
+    if(!v||v!==vCache) swIssues.push(s+" 的版本 "+(v?"v"+v:"缺失")+" 与 CACHE=v"+vCache+" 不一致（跑 node tools/bump.js 修）");
+  });
+  htmlStyles.forEach(function(s){ if(shellStyles.indexOf(s)<0) swIssues.push("SHELL 里少了 "+s+"（离线时样式会缺）"); });
+  shellStyles.forEach(function(s){ if(htmlStyles.indexOf(s)<0) swIssues.push("SHELL 里有多余的 "+s+"（index.html 已不再引用）"); });
+  var htmlScripts=(htmlTxt.match(/<script src="[^"]+"/g)||[]).map(function(s){ return s.replace(/.*src="/,"").replace(/"$/,""); });
   var shellScripts=(shellBlock.match(/"\.\/js\/[^"]+"/g)||[]).map(function(s){ return s.replace(/^"\.\//,"").replace(/"$/,""); });
   htmlScripts.forEach(function(s){ if(shellScripts.indexOf(s)<0) swIssues.push("SHELL 里少了 "+s+"（离线时这个模块会缺）"); });
   shellScripts.forEach(function(s){ if(htmlScripts.indexOf(s)<0) swIssues.push("SHELL 里有多余的 "+s+"（index.html 已不再引用）"); });
   render("SW 预缓存与版本号 · service worker shell", swIssues,
-         "SHELL 要和 index.html 的 script 一一对应；CACHE / SHELL 的 css / index.html 的 link 三处版本号必须相同。用 node tools/bump.js 一键生成");
+         "SHELL 要和 index.html 的样式及脚本一一对应；所有样式版本必须与 CACHE 相同。用 node tools/bump.js 一键生成");
 
   sum.innerHTML='<span class="ok">✔ '+pass+' passed</span>'+(fail?'<span class="bad">✘ '+fail+' failed</span>':'');
   document.title=(fail?"✘ ":"✔ ")+"Navi 自检";
