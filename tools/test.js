@@ -8,9 +8,10 @@ const fs = require("fs"), path = require("path");
 const { createEnv, load, root } = require("./env.js");
 
 const ctx = createEnv();
-const failed = load(ctx, ["js/i18n.js","js/state.js","js/icons.js","js/utils.js","js/render.js",
+const moduleFiles = ["js/i18n.js","js/state.js","js/storage.js","js/icons.js","js/utils.js","js/render.js",
                           "js/suggest.js","js/sync.js","js/cleanup.js","js/snapshots.js",
-                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js","js/menu.js","js/action-menus.js"]);
+                          "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js","js/menu.js","js/action-menus.js"];
+const failed = load(ctx, moduleFiles);
 if (failed.length) { console.error("× 模块加载失败：\n  " + failed.join("\n  ")); process.exit(1); }
 
 let pass = 0, fail = 0, group = "";
@@ -20,6 +21,51 @@ function ok(name, cond, detail) {
   fail++; console.log("  ✘ [" + group + "] " + name + (detail ? "\n      " + detail : ""));
 }
 const eq = (name, got, want) => ok(name, got === want, "期望 " + JSON.stringify(want) + "，实际 " + JSON.stringify(got));
+
+/* ---------- 存储检查 ---------- */
+G("storage inspection");
+ok("storage boundary is loaded", typeof ctx.NaviStorage === "object");
+if (ctx.NaviStorage) {
+  ctx.localStorage.clear();
+  eq("missing current and legacy keys is first run",
+    ctx.NaviStorage.inspectPrimary().status, "first-run");
+
+  const valid = ctx.defaults();
+  valid.bookmarks = [{id:"one", title:"One", url:"https://example.com", category:"Work", tags:[]}];
+  const validRaw = JSON.stringify(valid);
+  ctx.localStorage.setItem(ctx.KEY, validRaw);
+  const inspected = ctx.NaviStorage.inspectPrimary();
+  eq("valid primary is accepted", inspected.status, "ok");
+  eq("valid primary raw is returned unchanged", inspected.raw, validRaw);
+
+  const corruptRaw = '{"bookmarks":[';
+  ctx.localStorage.setItem(ctx.KEY, corruptRaw);
+  const corrupt = ctx.NaviStorage.inspectPrimary();
+  eq("truncated JSON enters recovery", corrupt.status, "recovery");
+  eq("truncated JSON is preserved", corrupt.raw, corruptRaw);
+  eq("inspection never overwrites bad raw", ctx.localStorage.getItem(ctx.KEY), corruptRaw);
+
+  ctx.localStorage.setItem(ctx.KEY, JSON.stringify({bookmarks:{}, settings:{}}));
+  eq("wrong bookmarks shape enters recovery",
+    ctx.NaviStorage.inspectPrimary().status, "recovery");
+
+  ["categories","trash","calendarEvents","opLog"].forEach(function(field){
+    const wrong = ctx.defaults(); wrong[field] = {};
+    ctx.localStorage.setItem(ctx.KEY, JSON.stringify(wrong));
+    eq("wrong "+field+" shape enters recovery",
+      ctx.NaviStorage.inspectPrimary().status, "recovery");
+  });
+
+  ctx.localStorage.removeItem(ctx.KEY);
+  ctx.localStorage.setItem("navi.dashboard.v2", validRaw);
+  const legacy = ctx.NaviStorage.inspectPrimary();
+  eq("valid v2 fallback is accepted", legacy.status, "ok");
+  eq("v2 fallback records its source key", legacy.key, "navi.dashboard.v2");
+
+  ctx.localStorage.setItem(ctx.KEY, corruptRaw);
+  eq("corrupt current data is not hidden by valid v2 fallback",
+    ctx.NaviStorage.inspectPrimary().status, "recovery");
+}
 
 /* ---------- PWA 横屏 ---------- */
 G("PWA orientation");
