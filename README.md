@@ -172,6 +172,12 @@ Navi 默认把数据保存在当前浏览器的 `localStorage` 中。
 - `设置 -> 通用 -> 数据与备份` 导出 `bookmarks.json`，包含书签、分类和设置，但不包含 AI Key 与 WebDAV 密码；恢复后需重新填写凭据。
 - 使用 WebDAV/NAS Profile 保存远程副本。
 
+#### 数据损坏恢复
+
+Navi 会区分首次启动与无法安全解析的数据。检测到损坏或不兼容的主数据时，应用不会载入演示数据，也不会覆盖原始内容。恢复界面可以恢复最近一个有效版本、下载原始文本，或在二次确认后只重置 Navi 自己的数据。
+
+恢复版本保存在浏览器的 IndexedDB 中，最多保留 3 个不同的有效版本。重置不会删除页面存档数据库，也不会清除同源下不属于 Navi 的数据。
+
 API Key 只保存在当前浏览器本地。启用云端 AI 时，相关书签标题、URL、描述和可读取到的网页内容可能会发送给你选择的 AI 服务商。
 
 ### 操作日志与回收站
@@ -197,6 +203,7 @@ index.html              页面结构、弹窗、设置面板
 css/app.css             核心样式、响应式布局、PWA/移动端适配
 css/menus.css           视图菜单、更多操作与上下文动作面板
 js/state.js             默认状态、设置、localStorage key
+js/storage.js           主数据验证、持久化与 IndexedDB 恢复版本
 js/i18n.js              多语言文案
 js/utils.js             通用工具、保存读取、主题和语言应用
 js/render.js            书签、分类、列表渲染
@@ -441,6 +448,12 @@ Recommended backup options:
 - Use `Settings -> General -> Data & backup` for a `bookmarks.json` backup with bookmarks, categories, and settings. AI keys and WebDAV passwords are excluded and must be entered again after restore.
 - Use a WebDAV/NAS profile for a remote copy.
 
+#### Corrupt-data recovery
+
+Navi distinguishes a true first run from data it cannot safely parse. When primary data is corrupt or incompatible, the app does not load demo content and does not overwrite the original text. The recovery screen can restore the latest valid revision, download the original text, or reset only Navi-owned data after confirmation.
+
+Recovery revisions are stored in browser IndexedDB, with at most 3 distinct valid versions retained. Reset does not delete the page-snapshot database or unrelated same-origin data.
+
 API keys are stored only in the current browser. When a cloud AI provider is enabled, bookmark titles, URLs, descriptions, and readable page content may be sent to the provider you selected.
 
 ### Activity Log And Trash
@@ -466,6 +479,7 @@ index.html              Page structure, modals, settings panels
 css/app.css             Core styles, responsive layout, PWA/mobile adaptation
 css/menus.css           View, more-actions, and context-menu presentation
 js/state.js             Default state, settings, localStorage key
+js/storage.js           Primary validation, persistence, and IndexedDB recovery revisions
 js/i18n.js              UI translations
 js/utils.js             Shared helpers, persistence, theme and language application
 js/render.js            Bookmark, category, and list rendering
