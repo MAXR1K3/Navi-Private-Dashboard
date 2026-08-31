@@ -574,6 +574,7 @@ function timeAgo(ts){
       privacyOn:"Privacy mode on — no automatic external requests", privacyOff:"Privacy mode off",
       storageUsage:"Local storage used", storageUsageDesc:"About {kb} KB used ({pct}% of the ~5 MB browser limit). Export a backup if it gets high.",
       storageFull:"Local storage is full — export a backup and clear old items to free space.",
+      recoveryRevisionFailed:"The main data was saved, but the recovery copy could not be updated.",
       showMore:"Show more ({n})"
     },
     zh:{
@@ -582,6 +583,7 @@ function timeAgo(ts){
       privacyOn:"隐私模式已开启 —— 不再发起自动外部请求", privacyOff:"隐私模式已关闭",
       storageUsage:"本地存储占用", storageUsageDesc:"已用约 {kb} KB（约为浏览器 5 MB 上限的 {pct}%）。占用过高时请导出备份。",
       storageFull:"本地存储已满 —— 请导出备份并清理旧数据以释放空间。",
+      recoveryRevisionFailed:"主数据已保存，但恢复副本未能更新。",
       showMore:"显示更多（{n}）"
     },
     es:{
@@ -590,6 +592,7 @@ function timeAgo(ts){
       privacyOn:"Modo privado activado: sin solicitudes externas automáticas", privacyOff:"Modo privado desactivado",
       storageUsage:"Almacenamiento local usado", storageUsageDesc:"Unos {kb} KB usados ({pct}% del límite de ~5 MB del navegador). Exporta una copia si sube mucho.",
       storageFull:"El almacenamiento local está lleno: exporta una copia y borra elementos antiguos.",
+      recoveryRevisionFailed:"Los datos principales se guardaron, pero no se pudo actualizar la copia de recuperación.",
       showMore:"Mostrar más ({n})"
     }
   };

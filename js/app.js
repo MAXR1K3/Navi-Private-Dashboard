@@ -2,14 +2,29 @@
 "use strict";
 
 /* ===== init ===== */
-load(); purgeTrash();
-if(typeof purgeOpLog==="function"){
-  var _logN=Array.isArray(state.opLog)?state.opLog.length:0;
-  purgeOpLog();
-  if(_logN!==(Array.isArray(state.opLog)?state.opLog.length:0)) save();
+function startNaviRuntime(){
+  purgeTrash();
+  if(typeof purgeOpLog==="function"){
+    var before=Array.isArray(state.opLog)?state.opLog.length:0;
+    purgeOpLog();
+    if(before!==(Array.isArray(state.opLog)?state.opLog.length:0)) save();
+  }
+  oplogInit(); applyI18n(); initPerformanceGuards(); render(); initAutoTheme(); initChromeSync();
+  if(typeof initSync==="function") initSync();
+  if(typeof initCapture==="function") initCapture();
+  if(typeof initContextual==="function") initContextual();
+  if(typeof initMirror==="function") initMirror();
 }
-oplogInit(); applyI18n(); initPerformanceGuards(); render(); initAutoTheme(); initChromeSync();
-if(typeof initSync==="function") initSync();
-if(typeof initCapture==="function") initCapture();
-if(typeof initContextual==="function") initContextual();
-if(typeof initMirror==="function") initMirror();
+function showRecovery(result){
+  document.documentElement.dataset.recovery="true";
+  document.documentElement.dataset.recoveryReason=result.reason||"unknown";
+}
+function bootNavi(){
+  var result=load();
+  if(result.status==="recovery"){
+    showRecovery(result);
+    return;
+  }
+  startNaviRuntime();
+}
+bootNavi();

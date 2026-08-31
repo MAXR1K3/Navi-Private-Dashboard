@@ -43,42 +43,52 @@ function warnStorageFull(){
   if(_storageWarned) return; _storageWarned=true;
   if(typeof toast==="function") toast(t("storageFull"),"err");
 }
+function hydrateDashboardState(s){
+  var d=defaults();
+  state.bookmarks=s.bookmarks; state.categories=Array.isArray(s.categories)?s.categories:[];
+  state.trash=Array.isArray(s.trash)?s.trash:[];
+  state.calendarEvents=Array.isArray(s.calendarEvents)?s.calendarEvents:[];
+  state.opLog=Array.isArray(s.opLog)?s.opLog:[];
+  state.theme=s.theme||"light"; state.view=(s.view==="list2"?"list":s.view)||"grid";
+  state.settings=Object.assign({},d.settings,s.settings||{});
+  state.settings.worldClocks=Array.isArray(state.settings.worldClocks)?state.settings.worldClocks:[];
+  state.settings.widgets=Object.assign({},d.settings.widgets,(s.settings&&s.settings.widgets)||{});
+  state.settings.widgetSize=Object.assign({},d.settings.widgetSize,(s.settings&&s.settings.widgetSize)||{});
+  state.settings.background=Object.assign({},d.settings.background,(s.settings&&s.settings.background)||{});
+  state.settings.browserSyncLastSync=Object.assign({},d.settings.browserSyncLastSync,(s.settings&&s.settings.browserSyncLastSync)||{});
+  state.settings.browserSyncCounts=Object.assign({},d.settings.browserSyncCounts,(s.settings&&s.settings.browserSyncCounts)||{});
+  state.settings.pinnedCategories=Object.assign({},d.settings.pinnedCategories,(s.settings&&s.settings.pinnedCategories)||{});
+  state.settings.categoryColors=Object.assign({},d.settings.categoryColors,(s.settings&&s.settings.categoryColors)||{});
+  if(!(s.settings&&s.settings.browserSyncSource)) state.settings.browserSyncSource=defaultBrowserSyncSource();
+  if(!(s.settings&&s.settings.browserSyncMode)) state.settings.browserSyncMode=state.settings.chromeSyncReplace?"replaceAll":"merge";
+  if(state.settings.chromeSyncLastSync&&!state.settings.browserSyncLastSync.chrome) state.settings.browserSyncLastSync.chrome=state.settings.chromeSyncLastSync;
+  if(state.settings.chromeSyncCount&&!state.settings.browserSyncCounts.chrome) state.settings.browserSyncCounts.chrome=state.settings.chromeSyncCount;
+  if(!(s.settings&&s.settings.hideHeaderOnScrollUserSet)){
+    state.settings.hideHeaderOnScroll=false;
+    state.settings.hideHeaderOnScrollUserSet=false;
+  }
+  if(state.settings.logRetention==null) state.settings.logRetention=2;
+  if(!(s.settings&&s.settings.motionMode)) state.settings.motionMode=(state.settings.lowPower===false&&state.settings.animations)?"smooth":"low";
+  if(!Array.isArray(state.settings.widgetOrder)) state.settings.widgetOrder=d.settings.widgetOrder.slice();
+  if(state.settings.calendarShowDoneBadges==null) state.settings.calendarShowDoneBadges=false;
+  if(state.settings.worldClockMode!=="compact") state.settings.worldClockMode="stack";
+  var migrated=migratePowerProfile(),bookmarksFirstMigrated=migrateBookmarksFirst(s.settings||{});
+  normalizeWidgetOrder(); rebuildCategories();
+  if(migrated||bookmarksFirstMigrated) save();
+}
 function load(){
-  var raw=null; try{ raw=localStorage.getItem(KEY)||localStorage.getItem("navi.dashboard.v2"); }catch(e){}
-  if(raw){ try{ var s=JSON.parse(raw); if(s&&Array.isArray(s.bookmarks)){
-    var d=defaults();
-    state.bookmarks=s.bookmarks; state.categories=Array.isArray(s.categories)?s.categories:[];
-    state.trash=Array.isArray(s.trash)?s.trash:[];
-    state.calendarEvents=Array.isArray(s.calendarEvents)?s.calendarEvents:[];
-    state.opLog=Array.isArray(s.opLog)?s.opLog:[];
-    state.theme=s.theme||"light"; state.view=(s.view==="list2"?"list":s.view)||"grid";
-    state.settings=Object.assign({}, d.settings, s.settings||{});
-    state.settings.worldClocks=Array.isArray(state.settings.worldClocks)?state.settings.worldClocks:[];
-    state.settings.widgets=Object.assign({}, d.settings.widgets, (s.settings&&s.settings.widgets)||{});
-    state.settings.widgetSize=Object.assign({}, d.settings.widgetSize, (s.settings&&s.settings.widgetSize)||{});
-    state.settings.background=Object.assign({}, d.settings.background, (s.settings&&s.settings.background)||{});
-    state.settings.browserSyncLastSync=Object.assign({}, d.settings.browserSyncLastSync, (s.settings&&s.settings.browserSyncLastSync)||{});
-    state.settings.browserSyncCounts=Object.assign({}, d.settings.browserSyncCounts, (s.settings&&s.settings.browserSyncCounts)||{});
-    state.settings.pinnedCategories=Object.assign({}, d.settings.pinnedCategories, (s.settings&&s.settings.pinnedCategories)||{});
-    state.settings.categoryColors=Object.assign({}, d.settings.categoryColors, (s.settings&&s.settings.categoryColors)||{});
-    if(!(s.settings&&s.settings.browserSyncSource)) state.settings.browserSyncSource=defaultBrowserSyncSource();
-    if(!(s.settings&&s.settings.browserSyncMode)) state.settings.browserSyncMode=state.settings.chromeSyncReplace?"replaceAll":"merge";
-    if(state.settings.chromeSyncLastSync&&!state.settings.browserSyncLastSync.chrome) state.settings.browserSyncLastSync.chrome=state.settings.chromeSyncLastSync;
-    if(state.settings.chromeSyncCount&&!state.settings.browserSyncCounts.chrome) state.settings.browserSyncCounts.chrome=state.settings.chromeSyncCount;
-    if(!(s.settings&&s.settings.hideHeaderOnScrollUserSet)){
-      state.settings.hideHeaderOnScroll=false;
-      state.settings.hideHeaderOnScrollUserSet=false;
-    }
-    if(state.settings.logRetention==null) state.settings.logRetention=2;
-    if(!(s.settings&&s.settings.motionMode)) state.settings.motionMode=(state.settings.lowPower===false&&state.settings.animations)?"smooth":"low";
-    if(!Array.isArray(state.settings.widgetOrder)) state.settings.widgetOrder=d.settings.widgetOrder.slice();
-    if(state.settings.calendarShowDoneBadges==null) state.settings.calendarShowDoneBadges=false;
-    if(state.settings.worldClockMode!=="compact") state.settings.worldClockMode="stack";
-    var migrated=migratePowerProfile(), bookmarksFirstMigrated=migrateBookmarksFirst(s.settings||{});
-    normalizeWidgetOrder();
-    rebuildCategories(); if(migrated||bookmarksFirstMigrated) save(); return;
-  } }catch(e){} }
-  seed();
+  var result=NaviStorage.inspectPrimary();
+  if(result.status==="recovery") return result;
+  if(result.status==="first-run"){
+    seed(); save();
+    return {status:"ok",firstRun:true};
+  }
+  try{
+    hydrateDashboardState(result.state);
+    return {status:"ok",firstRun:false,key:result.key};
+  }catch(e){
+    return {status:"recovery",reason:"migration-failed",raw:result.raw,key:result.key};
+  }
 }
 function migratePowerProfile(){
   var s=state.settings, changed=false;

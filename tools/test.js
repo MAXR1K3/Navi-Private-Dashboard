@@ -109,6 +109,34 @@ if (hasStoragePersistence) {
   eq("retention is newest first", kept.map(row=>row.id).join(","), "5,4,3");
 }
 
+/* ---------- 恢复安全启动 ---------- */
+G("recovery-safe load");
+ctx.localStorage.clear();
+ctx.state = ctx.defaults();
+const corruptStartup = '{"bookmarks":[';
+ctx.localStorage.setItem(ctx.KEY, corruptStartup);
+const recoveryLoad = ctx.load();
+eq("load reports recovery", recoveryLoad&&recoveryLoad.status, "recovery");
+eq("load preserves corrupt primary", ctx.localStorage.getItem(ctx.KEY), corruptStartup);
+eq("load does not seed demo bookmarks", ctx.state.bookmarks.length, 0);
+
+ctx.localStorage.clear();
+ctx.state = ctx.defaults();
+const firstRunLoad = ctx.load();
+eq("true first run becomes usable", firstRunLoad&&firstRunLoad.status, "ok");
+eq("true first run is identified", firstRunLoad&&firstRunLoad.firstRun, true);
+ok("true first run seeds demo bookmarks", ctx.state.bookmarks.length>0);
+ok("true first run persists a valid primary", !!ctx.localStorage.getItem(ctx.KEY));
+
+const migrationRaw = JSON.stringify(ctx.defaults());
+ctx.localStorage.setItem(ctx.KEY, migrationRaw);
+const rebuildCategories = ctx.rebuildCategories;
+ctx.rebuildCategories = function(){ throw new Error("migration failed"); };
+const migrationLoad = ctx.load();
+ctx.rebuildCategories = rebuildCategories;
+eq("migration exception enters recovery", migrationLoad&&migrationLoad.reason, "migration-failed");
+eq("migration exception preserves original raw", ctx.localStorage.getItem(ctx.KEY), migrationRaw);
+
 /* ---------- PWA 横屏 ---------- */
 G("PWA orientation");
 const webManifest = JSON.parse(fs.readFileSync(path.join(root,"manifest.webmanifest"),"utf8"));

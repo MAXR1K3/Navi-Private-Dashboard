@@ -518,7 +518,7 @@ function load(){
   var result=NaviStorage.inspectPrimary();
   if(result.status==="recovery") return result;
   if(result.status==="first-run"){
-    seed();
+    seed(); save();
     return {status:"ok",firstRun:true};
   }
   try{
@@ -530,7 +530,7 @@ function load(){
 }
 ```
 
-`seed()` already saves; do not add a second first-run write.
+`seed()` only creates demo state, so the true first-run branch must call `save()` exactly once.
 
 - [ ] **Step 4: Gate all write-capable startup work in `js/app.js`**
 
@@ -736,8 +736,7 @@ recoveryReset:"Reset Navi",
 recoveryResetTitle:"Reset Navi?",
 recoveryResetMsg:"This removes Navi data and profile caches from this browser. Download the original data first if you may need it.",
 recoveryResetOk:"Reset Navi",
-recoveryRestoreFailed:"The previous version could not be restored.",
-recoveryRevisionFailed:"The main data was saved, but the recovery copy could not be updated."
+recoveryRestoreFailed:"The previous version could not be restored."
 ```
 
 Add the matching Chinese values:
@@ -754,8 +753,7 @@ recoveryReset:"重置 Navi",
 recoveryResetTitle:"要重置 Navi 吗？",
 recoveryResetMsg:"这会删除此浏览器中的 Navi 数据和 Profile 缓存。如有可能需要，请先下载原始数据。",
 recoveryResetOk:"重置 Navi",
-recoveryRestoreFailed:"无法恢复上一版本。",
-recoveryRevisionFailed:"主数据已保存，但恢复副本未能更新。"
+recoveryRestoreFailed:"无法恢复上一版本。"
 ```
 
 Add the matching Spanish values:
@@ -772,8 +770,7 @@ recoveryReset:"Restablecer Navi",
 recoveryResetTitle:"¿Restablecer Navi?",
 recoveryResetMsg:"Se eliminarán los datos de Navi y las cachés de perfiles de este navegador. Descarga primero los datos originales si puedes necesitarlos.",
 recoveryResetOk:"Restablecer Navi",
-recoveryRestoreFailed:"No se pudo restaurar la versión anterior.",
-recoveryRevisionFailed:"Los datos principales se guardaron, pero no se pudo actualizar la copia de recuperación."
+recoveryRestoreFailed:"No se pudo restaurar la versión anterior."
 ```
 
 - [ ] **Step 6: Implement recovery actions in `js/app.js`**
