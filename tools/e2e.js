@@ -210,7 +210,8 @@ async function main(){
           fetchRemoteData=async()=>({data:remoteData,sourceVersion:4,missing:false,strongEtag:'"race-'+(++etagSeq)+'"'});
           const raced=await reconcileWebdavProfile("dav-e2e",{write:true,silent:true});
           return {missing:false,statuses:[invalid.status,bootstrap.status,compatibility.status,unavailable.status,raced.status],
-            conditionalWrites,compatibilityWrites,baseWrites,attempts:raced.attempts};
+            conditionalWrites,compatibilityWrites,baseWrites,attempts:raced.attempts,
+            raceReviewable:!!(raced.mergeResult&&raced.mergeResult.candidate&&raced.remote&&raced.remote.strongEtag)};
         } finally {
           fetchRemoteData=original.fetchRemoteData;
           conditionalPut=original.conditionalPut;
@@ -225,6 +226,7 @@ async function main(){
         assert("unsafe paths called compatibility PUT",result.compatibilityWrites===0,JSON.stringify(result));
         assert("failure paths advanced the sync base",result.baseWrites===0,JSON.stringify(result));
         assert("412 retry cap was not exact",result.conditionalWrites===3&&result.attempts===3,JSON.stringify(result));
+        assert("retry exhaustion did not return a fresh reviewable remote",result.raceReviewable,JSON.stringify(result));
       }
     });
 
@@ -354,11 +356,186 @@ async function main(){
       assert("bookmark delete/undo failed",result.deleted&&result.undoButton&&result.restored,JSON.stringify(result));
     });
 
-    await group("sync conflict presentation and remote resolution", async()=>{
-      const result=await cdp.evaluate(`new Promise(async resolve=>{const remote={bookmarks:[{id:"remote-1",title:"Remote copy",url:"https://remote.example",category:"Remote",description:"",tags:[]}],categories:["Remote"],trash:[],calendarEvents:[],theme:"light",view:"grid",settings:null};await openSyncConflict("local",remote,{});const ov=document.querySelector("#conflictOverlay"),shown=ov.classList.contains("open"),named=ov.querySelector('[role="dialog"]').getAttribute("aria-labelledby")==="conflictTitle",body=document.querySelector("#conflictBody").textContent,mergeVisible=getComputedStyle(document.querySelector("#conflictMerge")).display!=="none";document.querySelector('[data-conflict="remote"]').click();await openSyncConflict("local",null,{});const unreadableMergeHidden=getComputedStyle(document.querySelector("#conflictMerge")).display==="none";closeOverlay("conflictOverlay");resolve({shown,named,body,mergeVisible,remoteApplied:state.bookmarks.length===1&&state.bookmarks[0].id==="remote-1",unreadableMergeHidden,closed:!ov.classList.contains("open")});})`);
-      assert("sync conflict dialog did not present correctly",result.shown&&result.named&&result.mergeVisible&&/1/.test(result.body),JSON.stringify(result));
-      assert("remote conflict resolution failed",result.remoteApplied,JSON.stringify(result));
-      assert("unreadable conflict offers an invalid merge",result.unreadableMergeHidden&&result.closed,JSON.stringify(result));
+    await group("per-conflict choices are accessible, cancellable, and applied safely", async()=>{
+      const result=await cdp.evaluate(`(async()=>{
+        const original={continueSyncCandidate,presentSyncOutcome};
+        const bm=(id,title)=>({id,title,url:"https://"+id+".example",category:"Work",description:"",tags:[],updatedAt:10});
+        const snap=(rows)=>SyncMerge.canonicalize({version:4,bookmarks:rows,categories:["Work"],calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"},sync:{protocol:1,tombstones:[]}});
+        const baseSnap=snap([bm("a","A"),bm("b","B"),bm("c","C")]);
+        const local=snap([bm("b","B local"),bm("a","A local"),bm("c","C")]);
+        const remoteSnap=snap([bm("c","C"),bm("a","A remote"),bm("b","B remote")]);
+        const mergeResult=SyncMerge.merge(baseSnap,local,remoteSnap);
+        const remoteData={bookmarks:remoteSnap.bookmarks,categories:remoteSnap.categories,calendarEvents:remoteSnap.calendarEvents,theme:remoteSnap.theme,view:remoteSnap.view,settings:remoteSnap.settings,syncMeta:{tombstones:remoteSnap.tombstones},sourceVersion:4};
+        const outcome=syncOutcome("conflict",{local,remote:{data:remoteData,strongEtag:'"ui"'},base:{snapshot:baseSnap},mergeResult,candidate:mergeResult.candidate});
+        let writes=0,captured=null,presented=0;
+        try{
+          continueSyncCandidate=async(id,candidate)=>{ writes++; captured=candidate; return syncOutcome("synced",{ok:true,candidate}); };
+          presentSyncOutcome=async()=>{ presented++; return true; };
+          await openSyncConflict("dav-ui",outcome,{});
+          const overlay=document.querySelector("#conflictOverlay"),apply=document.querySelector("#conflictApply");
+          const rows=[...overlay.querySelectorAll("[data-sync-conflict-key]")];
+          const initial={open:overlay.classList.contains("open"),named:overlay.querySelector('[role="dialog"]').getAttribute("aria-labelledby")==="conflictTitle",rows:rows.length,
+            applyInitiallyDisabled:apply&&apply.disabled,summary:(document.querySelector("#conflictSummary")||{}).textContent||"",live:(document.querySelector("#conflictStatus")||{}).getAttribute&&document.querySelector("#conflictStatus").getAttribute("aria-live"),
+            irrelevantHidden:getComputedStyle(document.querySelector("#conflictDownloadRemote")).display==="none"&&getComputedStyle(document.querySelector("#conflictUseLocalRaw")).display==="none"};
+          if(!apply||rows.length!==3){ closeOverlay("conflictOverlay"); return {missing:true,initial}; }
+          overlay.dispatchEvent(new MouseEvent("click",{bubbles:true}));
+          const guardedBackdrop=overlay.classList.contains("open")&&!!_conflictCtx;
+          rows.forEach((row,index)=>row.querySelector('input[value="'+(index%2?"remote":"local")+'"]').click());
+          const enabledAfterChoices=!apply.disabled;
+          document.querySelector("#conflictCancel").click();
+          const cancelled={closed:!overlay.classList.contains("open"),writes,presented};
+
+          await openSyncConflict("dav-ui",outcome,{});
+          document.querySelector("#conflictAllLocal").click();
+          const bulkEnabled=!document.querySelector("#conflictApply").disabled;
+          document.querySelector("#conflictApply").click();
+          await new Promise(resolve=>setTimeout(resolve,0));
+          return {missing:false,initial,guardedBackdrop,enabledAfterChoices,cancelled,bulkEnabled,writes,presented,
+            capturedA:captured&&captured.bookmarks.find(b=>b.id==="a").title,
+            capturedB:captured&&captured.bookmarks.find(b=>b.id==="b").title,
+            closed:!overlay.classList.contains("open")};
+        } finally {
+          continueSyncCandidate=original.continueSyncCandidate;
+          presentSyncOutcome=original.presentSyncOutcome;
+          closeOverlay("conflictOverlay");
+        }
+      })()`);
+      assert("per-conflict controls are missing",result.missing!==true,JSON.stringify(result));
+      if(!result.missing){
+        assert("conflict dialog semantics, visibility, or summary failed",result.initial.open&&result.initial.named&&result.initial.rows===3&&result.initial.applyInitiallyDisabled&&result.initial.live==="polite"&&result.initial.irrelevantHidden&&/3/.test(result.initial.summary),JSON.stringify(result));
+        assert("an unconfirmed backdrop gesture discarded conflict context",result.guardedBackdrop,JSON.stringify(result));
+        assert("complete individual choices did not enable Apply",result.enabledAfterChoices,JSON.stringify(result));
+        assert("cancel changed data or called sync",result.cancelled.closed&&result.cancelled.writes===0&&result.cancelled.presented===0,JSON.stringify(result));
+        assert("bulk local choice did not apply resolved candidate",result.bulkEnabled&&result.writes===1&&result.presented===1&&result.capturedA==="A local"&&result.capturedB==="B local"&&result.closed,JSON.stringify(result));
+      }
+    });
+
+    await group("first sync always offers local, remote, or reviewed merge", async()=>{
+      const result=await cdp.evaluate(`(async()=>{
+        const bm=(id,title,url)=>({id,title,url,category:"Work",description:"",tags:[],updatedAt:10});
+        const snap=(rows,theme)=>SyncMerge.canonicalize({version:4,bookmarks:rows,categories:["Work"],calendarEvents:[],theme,view:"grid",settings:{lang:"en"},sync:{protocol:1,tombstones:[]}});
+        const local=snap([bm("same","Local title","https://same.example")],"light");
+        const remoteSnap=snap([bm("same","Remote title","https://same.example")],"dark");
+        const mergeResult=SyncMerge.bootstrap(local,remoteSnap);
+        const remoteData={bookmarks:remoteSnap.bookmarks,categories:remoteSnap.categories,calendarEvents:remoteSnap.calendarEvents,theme:remoteSnap.theme,view:remoteSnap.view,settings:remoteSnap.settings,syncMeta:{tombstones:remoteSnap.tombstones},sourceVersion:4};
+        const outcome=syncOutcome("bootstrap",{local,remote:{data:remoteData,strongEtag:'"bootstrap"'},base:null,mergeResult,candidate:mergeResult.candidate});
+        try{
+          openSettings("sync");
+          await openSyncConflict("dav-bootstrap",outcome,{});
+          const settings=document.querySelector("#settingsOverlay"),overlay=document.querySelector("#conflictOverlay"),apply=document.querySelector("#conflictApply"),bootstrap=overlay.querySelector('[data-sync-conflict-key="__bootstrap__"]');
+          const underlay={inert:settings.inert,hidden:settings.getAttribute("aria-hidden"),overflow:getComputedStyle(settings).overflow,bodyOverflow:getComputedStyle(document.body).overflow};
+          const options=bootstrap?[...bootstrap.querySelectorAll('input[name="sync-conflict-bootstrap"]')].map(input=>input.value):[];
+          const conflictRows=[...overlay.querySelectorAll('[data-sync-conflict-key]:not([data-sync-conflict-key="__bootstrap__"])')].length;
+          const initialDisabled=apply&&apply.disabled;
+          bootstrap&&bootstrap.querySelector('input[value="local"]').click();
+          const localReady=apply&&!apply.disabled,localCandidate=syncConflictCandidate(_conflictCtx);
+          bootstrap&&bootstrap.querySelector('input[value="merge"]').click();
+          const mergeNeedsReview=apply&&apply.disabled;
+          document.querySelector("#conflictAllLocal").click();
+          const mergeReady=apply&&!apply.disabled,mergeCandidate=syncConflictCandidate(_conflictCtx);
+          const priorLang=state.settings.lang; state.settings.lang="zh";
+          const localizedHtml=syncConflictRowHtml(mergeResult.conflicts.find(conflict=>conflict.kind==="settings"),0,outcome);
+          state.settings.lang=priorLang;
+          cancelSyncConflict();
+          const restored={inert:settings.inert,hidden:settings.getAttribute("aria-hidden"),open:settings.classList.contains("open")};
+          return {options,conflictRows,initialDisabled,localReady,localTitle:localCandidate&&localCandidate.bookmarks[0]&&localCandidate.bookmarks[0].title,
+            mergeNeedsReview,mergeReady,mergeTitle:mergeCandidate&&mergeCandidate.bookmarks[0]&&mergeCandidate.bookmarks[0].title,
+            localizedCollection:/界面设置/.test(localizedHtml)&&!/Interface settings/.test(localizedHtml),underlay,restored};
+        } finally { closeOverlay("conflictOverlay"); closeOverlay("settingsOverlay"); }
+      })()`);
+      assert("bootstrap choices are missing when first merge has conflicts",result.options.join(",")==="local,remote,merge"&&result.conflictRows>0,JSON.stringify(result));
+      assert("bootstrap local choice is not independently actionable",result.initialDisabled&&result.localReady&&result.localTitle==="Local title",JSON.stringify(result));
+      assert("bootstrap merge does not require resolving its real conflicts",result.mergeNeedsReview&&result.mergeReady&&result.mergeTitle==="Local title",JSON.stringify(result));
+      assert("collection conflict title ignored the active locale",result.localizedCollection,JSON.stringify(result));
+      assert("stacked conflict dialog does not isolate and restore its settings underlay",result.underlay.inert&&result.underlay.hidden==="true"&&result.underlay.overflow==="hidden"&&result.underlay.bodyOverflow==="hidden"&&!result.restored.inert&&result.restored.hidden===null&&result.restored.open,JSON.stringify(result));
+    });
+
+    await group("unreadable remote stays downloadable and overwrite requires a strong ETag", async()=>{
+      const result=await cdp.evaluate(`(async()=>{
+        const original={downloadBlob,continueSyncCandidate,presentSyncOutcome};
+        const local=SyncMerge.fromState(state); let downloaded=null,writes=0,strongSeen="";
+        try{
+          downloadBlob=(text,mime,name)=>{ downloaded={text,mime,name}; };
+          continueSyncCandidate=async(id,candidate,context)=>{ writes++; strongSeen=context.remote.strongEtag; return syncOutcome("synced",{ok:true,candidate}); };
+          presentSyncOutcome=async()=>true;
+          await openSyncConflict("dav-ui",syncOutcome("invalid",{local,remote:{unreadable:true,raw:"RAW REMOTE BYTES",strongEtag:""}}),{});
+          const weak={rows:document.querySelectorAll("[data-sync-conflict-key]").length,downloadHidden:document.querySelector("#conflictDownloadRemote").hidden,
+            overwriteDisabled:document.querySelector("#conflictUseLocalRaw").disabled,status:document.querySelector("#conflictStatus").textContent};
+          document.querySelector("#conflictDownloadRemote").click();
+          document.querySelector("#conflictCancel").click();
+
+          await openSyncConflict("dav-ui",syncOutcome("invalid",{local,remote:{unreadable:true,raw:"RAW TWO",strongEtag:'"safe"'}}),{});
+          const strongEnabled=!document.querySelector("#conflictUseLocalRaw").disabled;
+          document.querySelector("#conflictUseLocalRaw").click();
+          await new Promise(resolve=>setTimeout(resolve,0));
+          return {weak,downloaded,strongEnabled,writes,strongSeen,closed:!document.querySelector("#conflictOverlay").classList.contains("open")};
+        } finally {
+          downloadBlob=original.downloadBlob;
+          continueSyncCandidate=original.continueSyncCandidate;
+          presentSyncOutcome=original.presentSyncOutcome;
+          closeOverlay("conflictOverlay");
+        }
+      })()`);
+      assert("unreadable remote exposed record choices",result.weak.rows===0,JSON.stringify(result));
+      assert("remote raw download or weak-ETag guard failed",!result.weak.downloadHidden&&result.weak.overwriteDisabled&&result.downloaded&&result.downloaded.text==="RAW REMOTE BYTES"&&/^navi-remote-unreadable-/.test(result.downloaded.name),JSON.stringify(result));
+      assert("strong-ETag unreadable overwrite did not use safe continuation",result.strongEnabled&&result.writes===1&&result.strongSeen==='"safe"'&&result.closed,JSON.stringify(result));
+    });
+
+    await group("weak-ETag conflict choices require confirmation and a fresh read", async()=>{
+      const result=await cdp.evaluate(`(async()=>{
+        const original={fetchRemoteData,writeSyncCandidate,compatibilityWriteSelectedCandidate,presentSyncOutcome};
+        const bm=(title)=>({id:"weak",title,url:"https://weak.example",category:"Work",description:"",tags:[],updatedAt:10});
+        const snap=(title)=>SyncMerge.canonicalize({version:4,bookmarks:[bm(title)],categories:["Work"],calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"},sync:{protocol:1,tombstones:[]}});
+        const base=snap("Base"),local=snap("Local"),remote=snap("Remote"),mergeResult=SyncMerge.merge(base,local,remote);
+        const remoteData={bookmarks:remote.bookmarks,categories:remote.categories,calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"},syncMeta:{tombstones:[]},sourceVersion:4};
+        let reads=0,directWrites=0,confirmed=false,uiWrites=0;
+        try{
+          state.settings.profiles=[{id:"local",name:"Local",type:"local"},{id:"dav-weak",name:"Weak",type:"webdav",url:"https://weak.example/bookmarks.json",autoSync:false}];
+          state.settings.activeProfile="dav-weak";
+          fetchRemoteData=async()=>{ reads++; return {data:remoteData,sourceVersion:4,etag:'W/"weak"',strongEtag:""}; };
+          writeSyncCandidate=async(profile,id,candidate,fresh,baseRecord,opts)=>{ directWrites++; confirmed=opts.compatibilityConfirmed===true; return syncOutcome("compatibility",{ok:true,candidate}); };
+          await compatibilityWriteSelectedCandidate("dav-weak",local,{remote:{data:remoteData,strongEtag:""},base:{snapshot:base}});
+
+          compatibilityWriteSelectedCandidate=async()=>{ uiWrites++; return syncOutcome("compatibility",{ok:true,candidate:local}); };
+          presentSyncOutcome=async()=>true;
+          const outcome=syncOutcome("conflict",{local,remote:{data:remoteData,strongEtag:""},base:{snapshot:base},mergeResult,candidate:mergeResult.candidate});
+          await openSyncConflict("dav-weak",outcome,{});
+          document.querySelector("#conflictAllLocal").click();
+          document.querySelector("#conflictApply").click();
+          const confirmationOpen=document.querySelector("#confirmOverlay").classList.contains("open"),beforeConfirm=uiWrites;
+          document.querySelector("#confirmOk").click();
+          await new Promise(resolve=>setTimeout(resolve,0));
+          return {reads,directWrites,confirmed,confirmationOpen,beforeConfirm,uiWrites};
+        } finally {
+          fetchRemoteData=original.fetchRemoteData;
+          writeSyncCandidate=original.writeSyncCandidate;
+          compatibilityWriteSelectedCandidate=original.compatibilityWriteSelectedCandidate;
+          presentSyncOutcome=original.presentSyncOutcome;
+          closeOverlay("confirmOverlay"); closeOverlay("conflictOverlay");
+        }
+      })()`);
+      assert("compatibility continuation did not re-read before writing",result.reads===1&&result.directWrites===1&&result.confirmed,JSON.stringify(result));
+      assert("weak-ETag UI wrote before explicit confirmation",result.confirmationOpen&&result.beforeConfirm===0&&result.uiWrites===1,JSON.stringify(result));
+    });
+
+    await group("conflict choices fit a narrow mobile viewport", async()=>{
+      await cdp.send("Emulation.setDeviceMetricsOverride",{width:375,height:720,deviceScaleFactor:1,mobile:true});
+      try{
+        const result=await cdp.evaluate(`(async()=>{
+          const bm=(id,title)=>({id,title,url:"https://"+id+".example",category:"Work",description:"",tags:[],updatedAt:10});
+          const snap=(rows)=>SyncMerge.canonicalize({version:4,bookmarks:rows,categories:["Work"],calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"},sync:{protocol:1,tombstones:[]}});
+          const base=snap([bm("a","A")]),local=snap([bm("a","Local")]),remote=snap([bm("a","Remote")]);
+          const mergeResult=SyncMerge.merge(base,local,remote),remoteData={bookmarks:remote.bookmarks,categories:remote.categories,calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"},syncMeta:{tombstones:[]},sourceVersion:4};
+          await openSyncConflict("dav-ui",syncOutcome("conflict",{local,remote:{data:remoteData,strongEtag:'"m"'},base:{snapshot:base},mergeResult,candidate:mergeResult.candidate}),{});
+          const modal=document.querySelector(".sync-conflict-modal"),choices=document.querySelector(".sync-conflict-choices"),buttons=[...document.querySelectorAll(".sync-conflict-foot .btn:not([hidden])")];
+          return {viewport:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth,modalWidth:modal.getBoundingClientRect().width,
+            columns:getComputedStyle(choices).gridTemplateColumns.split(" ").filter(Boolean).length,minButton:Math.min(...buttons.map(b=>b.getBoundingClientRect().height))};
+        })()`);
+        assert("mobile conflict dialog overflows or keeps side-by-side choices",result.scroll<=result.viewport&&result.modalWidth<=result.viewport&&result.columns===1&&result.minButton>=44,JSON.stringify(result));
+      } finally {
+        await cdp.evaluate(`closeOverlay("conflictOverlay")`);
+        await cdp.send("Emulation.clearDeviceMetricsOverride");
+      }
     });
 
     console.log("\n✔ Browser E2E passed");

@@ -379,6 +379,17 @@ function confirmWrittenSnapshot(profile,candidate,response,extra){
     }));
   });
 }
+function reviewExhaustedSyncRace(profile,candidate,base,attempts){
+  return fetchRemoteData(profile).then(function(remote){
+    var remoteSnapshot=remote&&!remote.missing&&!remote.unreadable&&SyncMerge.canonicalize(remote.data);
+    var baseSnapshot=SyncMerge.canonicalize(base&&base.snapshot);
+    var mergeResult=remoteSnapshot?(baseSnapshot?SyncMerge.merge(baseSnapshot,candidate,remoteSnapshot):SyncMerge.bootstrap(candidate,remoteSnapshot)):null;
+    return syncOutcome("race-conflict",{
+      local:candidate,remote:remote,base:base,mergeResult:mergeResult,
+      candidate:mergeResult&&mergeResult.candidate,attempts:attempts
+    });
+  });
+}
 function writeSyncCandidate(profile,id,candidate,remote,base,opts,attempts){
   opts=opts||{}; attempts=Number(attempts)||0;
   candidate=SyncMerge.canonicalize(candidate);
@@ -393,7 +404,7 @@ function writeSyncCandidate(profile,id,candidate,remote,base,opts,attempts){
   attempts++;
   return request.then(function(response){
     if(response.status===409||response.status===412){
-      if(compatibility||attempts>=3) return syncOutcome("race-conflict",{candidate:candidate,remote:remote,base:base,attempts:attempts});
+      if(compatibility||attempts>=3) return reviewExhaustedSyncRace(profile,candidate,base,attempts);
       return reconcileWebdavAttempt(profile,id,candidate,base,opts,attempts);
     }
     if(!response.ok) throw new Error("HTTP "+response.status);
@@ -451,6 +462,21 @@ function continueSyncCandidate(id,candidate,context){
   if(!profile||profile.type!=="webdav"||!profile.url) return Promise.resolve(syncOutcome("no-url"));
   return writeSyncCandidate(profile,id,candidate,context.remote||{},context.base||null,context.opts||{},context.attempts||0);
 }
+function compatibilityWriteSelectedCandidate(id,candidate,context){
+  context=context||{};
+  var profile=getProfile(id),previousRemote=context.remote||{};
+  if(!profile||profile.type!=="webdav"||!profile.url) return Promise.resolve(syncOutcome("no-url"));
+  return fetchRemoteData(profile).then(function(fresh){
+    if(!fresh||fresh.missing||fresh.unreadable||!fresh.data) return syncOutcome("invalid",{local:candidate,remote:fresh,base:context.base});
+    var before=previousRemote.data&&SyncMerge.canonicalize(previousRemote.data),after=SyncMerge.canonicalize(fresh.data);
+    if(!after) return syncOutcome("invalid",{local:candidate,remote:fresh,base:context.base});
+    if(before&&!SyncMerge.same(before,after)){
+      var baseSnapshot=SyncMerge.canonicalize(context.base&&context.base.snapshot),merged=baseSnapshot&&SyncMerge.merge(baseSnapshot,candidate,after);
+      return syncOutcome("conflict",{local:candidate,remote:fresh,base:context.base,mergeResult:merged,candidate:merged&&merged.candidate});
+    }
+    return writeSyncCandidate(profile,id,candidate,fresh,context.base,{write:true,compatibilityConfirmed:true},context.attempts||0);
+  });
+}
 
 function presentSyncOutcome(id,outcome,opts){
   opts=opts||{}; outcome=outcome||syncOutcome("failed");
@@ -495,6 +521,111 @@ function pushWithConflictCheck(id, opts){
 }
 
 var _conflictCtx=null;
+function syncConflictKindLabel(kind){
+  var keys={bookmark:"syncConflictKindBookmark",order:"syncConflictKindOrder",categories:"syncConflictKindCategories",calendarEvents:"syncConflictKindCalendar",settings:"syncConflictKindSettings",bootstrap:"syncConflictKindBootstrap"};
+  return t(keys[kind]||"syncConflictKindBookmark");
+}
+function syncConflictOrderText(ids,snapshot){
+  var names={},rows=snapshot&&snapshot.bookmarks||[];
+  rows.forEach(function(bookmark){ names[bookmark.id]=bookmark.title||bookmark.id; });
+  var labels=(ids||[]).slice(0,4).map(function(id){return names[id]||id;});
+  return t("syncConflictItems",{n:(ids||[]).length})+(labels.length?" · "+labels.join(" → ")+((ids||[]).length>4?" …":""):"");
+}
+function syncConflictValueText(conflict,side,outcome){
+  var value=conflict&&conflict[side];
+  if(value==null) return {text:t("syncConflictDeleted"),deleted:true};
+  if(conflict.kind==="bookmark"){
+    var title=value.title||value.url||conflict.label||"";
+    return {text:title+(value.url?" · "+prettyUrl(value.url):"")};
+  }
+  if(conflict.kind==="order") return {text:syncConflictOrderText(value,outcome&&outcome[side])};
+  if(conflict.kind==="categories") return {text:(value||[]).join(" · ")||t("syncConflictEmpty")};
+  if(conflict.kind==="calendarEvents") return {text:t("syncConflictItems",{n:(value||[]).length})};
+  if(conflict.kind==="settings") return {text:(value.theme||"")+" · "+(value.view||"")};
+  return {text:t("syncConflictEmpty")};
+}
+function syncConflictChoiceHtml(key,name,value,label,summary,deleted){
+  return '<label class="sync-conflict-choice"><input type="radio" name="'+escapeHtml(name)+'" value="'+escapeHtml(value)+'" data-sync-choice-key="'+escapeHtml(key)+'">'+
+    '<span class="sync-conflict-side">'+escapeHtml(label)+'</span><span class="sync-conflict-value'+(deleted?' deleted':'')+'">'+escapeHtml(summary)+'</span></label>';
+}
+function syncConflictRowHtml(conflict,index,outcome){
+  var key=String(conflict.key),name="sync-conflict-"+index;
+  var local=syncConflictValueText(conflict,"local",outcome),remote=syncConflictValueText(conflict,"remote",outcome);
+  var kindLabel=syncConflictKindLabel(conflict.kind);
+  var visibleLabel=conflict.kind==="bookmark"?(conflict.label||key):kindLabel;
+  var kindHtml=conflict.kind==="bookmark"?'<span class="sync-conflict-kind">'+escapeHtml(kindLabel)+'</span>':"";
+  return '<fieldset class="sync-conflict-row" data-sync-conflict-key="'+escapeHtml(key)+'"><legend>'+escapeHtml(visibleLabel)+kindHtml+'</legend><div class="sync-conflict-choices">'+
+    syncConflictChoiceHtml(key,name,"local",t("syncConflictLocal"),local.text,local.deleted)+
+    syncConflictChoiceHtml(key,name,"remote",t("syncConflictRemote"),remote.text,remote.deleted)+'</div></fieldset>';
+}
+function syncBootstrapRowHtml(outcome){
+  var localCount=outcome.local&&outcome.local.bookmarks&&outcome.local.bookmarks.length||0;
+  var remoteSnapshot=outcome.remote&&outcome.remote.data&&SyncMerge.canonicalize(outcome.remote.data);
+  var remoteCount=remoteSnapshot&&remoteSnapshot.bookmarks.length||0;
+  var mergedCount=outcome.mergeResult&&outcome.mergeResult.candidate&&outcome.mergeResult.candidate.bookmarks.length||0;
+  return '<fieldset class="sync-conflict-row" data-sync-conflict-key="__bootstrap__"><legend>'+escapeHtml(t("syncBootstrapChoice"))+
+    '<span class="sync-conflict-kind">'+escapeHtml(syncConflictKindLabel("bootstrap"))+'</span></legend><div class="sync-conflict-choices three">'+
+    syncConflictChoiceHtml("__bootstrap__","sync-conflict-bootstrap","local",t("syncBootstrapLocal"),t("syncConflictItems",{n:localCount}),false)+
+    syncConflictChoiceHtml("__bootstrap__","sync-conflict-bootstrap","remote",t("syncBootstrapRemote"),t("syncConflictItems",{n:remoteCount}),false)+
+    syncConflictChoiceHtml("__bootstrap__","sync-conflict-bootstrap","merge",t("syncBootstrapMerge"),t("syncConflictItems",{n:mergedCount}),false)+'</div></fieldset>';
+}
+function syncConflictRequiredKeys(context){
+  if(context&&context.outcome&&context.outcome.status==="bootstrap"){
+    return context.choices.__bootstrap__==="merge"?["__bootstrap__"].concat(context.conflictKeys||[]):["__bootstrap__"];
+  }
+  return context&&context.keys||[];
+}
+function updateSyncConflictControls(){
+  var context=_conflictCtx,apply=$("#conflictApply"),status=$("#conflictStatus"); if(!context||context.mode!=="choices") return;
+  var required=syncConflictRequiredKeys(context);
+  var remaining=required.filter(function(key){return !context.choices[key];}).length;
+  if(apply) apply.disabled=remaining>0||context.applying;
+  if(status) status.textContent=context.applying?t("syncConflictApplying"):(remaining?t("syncConflictRemaining",{n:remaining}):t("syncConflictReady"));
+  var bulkVisible=context.outcome.status!=="bootstrap"||context.choices.__bootstrap__==="merge";
+  var allLocal=$("#conflictAllLocal"),allRemote=$("#conflictAllRemote");
+  if(allLocal) allLocal.hidden=!bulkVisible||!(context.conflictKeys||[]).length;
+  if(allRemote) allRemote.hidden=!bulkVisible||!(context.conflictKeys||[]).length;
+}
+function renderSyncConflict(context){
+  var outcome=context.outcome,mergeResult=outcome.mergeResult,conflicts=mergeResult&&mergeResult.conflicts||[];
+  var body=$("#conflictBody"),summary=$("#conflictSummary"),list=$("#conflictList"),unreadable=$("#conflictUnreadable"),status=$("#conflictStatus");
+  var allLocal=$("#conflictAllLocal"),allRemote=$("#conflictAllRemote"),apply=$("#conflictApply"),download=$("#conflictDownloadRemote"),useLocal=$("#conflictUseLocalRaw");
+  context.choices={}; context.applying=false;
+  var choiceMode=!!mergeResult&&!!mergeResult.candidate;
+  if(choiceMode){
+    context.mode="choices";
+    var bootstrap=outcome.status==="bootstrap";
+    context.conflictKeys=conflicts.map(function(conflict){return String(conflict.key);});
+    context.keys=(bootstrap?["__bootstrap__"]:[]).concat(context.conflictKeys);
+    if(body){
+      var remoteData=outcome.remote&&outcome.remote.data,rn=remoteData&&remoteData.bookmarks?remoteData.bookmarks.length:0;
+      body.textContent=t("syncConflictMsg",{local:outcome.local&&outcome.local.bookmarks?outcome.local.bookmarks.length:state.bookmarks.length,remote:rn});
+    }
+    var stats=mergeResult.stats||{added:0,updated:0,deleted:0};
+    if(summary) summary.textContent=t("syncConflictSummary",{n:conflicts.length,added:stats.added||0,updated:stats.updated||0,deleted:stats.deleted||0});
+    if(list) list.innerHTML=(bootstrap?syncBootstrapRowHtml(outcome):"")+conflicts.map(function(conflict,index){return syncConflictRowHtml(conflict,index,outcome);}).join("");
+    if(unreadable){ unreadable.hidden=true; unreadable.textContent=""; }
+    if(allLocal) allLocal.hidden=bootstrap;
+    if(allRemote) allRemote.hidden=bootstrap;
+    if(apply){ apply.hidden=false; apply.disabled=true; }
+    if(download) download.hidden=true;
+    if(useLocal) useLocal.hidden=true;
+    updateSyncConflictControls();
+    return;
+  }
+  context.mode="unreadable"; context.keys=[];
+  if(body) body.textContent=t("syncConflictUnreadable");
+  if(summary) summary.textContent="";
+  if(list) list.innerHTML="";
+  if(unreadable){ unreadable.hidden=false; unreadable.textContent=t("syncConflictUnreadableHelp"); }
+  if(allLocal) allLocal.hidden=true;
+  if(allRemote) allRemote.hidden=true;
+  if(apply) apply.hidden=true;
+  var raw=outcome.remote&&typeof outcome.remote.raw==="string"?outcome.remote.raw:"";
+  if(download) download.hidden=!raw;
+  if(useLocal){ useLocal.hidden=false; useLocal.disabled=!(outcome.remote&&outcome.remote.strongEtag)||outcome.status==="race-conflict"; }
+  if(status) status.textContent=useLocal&&useLocal.disabled?t("syncConflictNoStrongEtag"):"";
+}
 function openSyncConflict(id, outcomeOrRemote, opts){
   opts=opts||{};
   var outcome=outcomeOrRemote&&outcomeOrRemote.status?outcomeOrRemote:null;
@@ -503,39 +634,80 @@ function openSyncConflict(id, outcomeOrRemote, opts){
     var mergeResult=local&&remoteSnapshot?SyncMerge.bootstrap(local,remoteSnapshot):null;
     outcome=syncOutcome(remoteSnapshot?"bootstrap":"invalid",{local:local,remote:{data:outcomeOrRemote,unreadable:!remoteSnapshot},mergeResult:mergeResult,candidate:mergeResult&&mergeResult.candidate});
   }
-  _conflictCtx={id:id,outcome:outcome,opts:opts};
+  _conflictCtx={id:id,outcome:outcome,opts:opts,choices:{},keys:[],mode:""};
   if(opts.silent){
     setSyncStatus("cache",_syncStatus.at,t("syncConflictShort"));
     toast(t("syncConflictAuto"),"err");
     return Promise.resolve(false);
   }
-  var remoteData=outcome.remote&&outcome.remote.data;
-  var body=$("#conflictBody");
-  if(body){
-    var rn=remoteData?((remoteData.bookmarks||[]).length):0;
-    body.textContent=remoteData?t("syncConflictMsg",{local:(outcome.local&&outcome.local.bookmarks||state.bookmarks).length,remote:rn}):t("syncConflictUnreadable");
-  }
-  var mergeBtn=$("#conflictMerge"); if(mergeBtn) mergeBtn.style.display=remoteData?"":"none";
+  renderSyncConflict(_conflictCtx);
   openOverlay("conflictOverlay");
   return Promise.resolve(false);
 }
-function resolveConflict(choice){
-  var context=_conflictCtx; if(!context) return;
-  closeOverlay("conflictOverlay"); _conflictCtx=null;
-  var id=context.id,outcome=context.outcome,remote=outcome.remote||{},profile=getProfile(id);
-  if(choice==="remote"){
-    var remoteSnapshot=remote.data&&SyncMerge.canonicalize(remote.data);
-    if(!remoteSnapshot||!applySyncSnapshot(id,remoteSnapshot)) return;
-    if(profile&&profile.type==="webdav"&&profile.url){
-      storeConfirmedSyncBase(profile,remoteSnapshot,remote.strongEtag||"",{status:remote.strongEtag?"synced":"compatibility"}).then(function(done){ presentSyncOutcome(id,done,{write:false}); });
-    }else setSyncStatus("local",Date.now());
+function cancelSyncConflict(){ _conflictCtx=null; closeOverlay("conflictOverlay"); }
+function syncConflictCandidate(context){
+  var outcome=context.outcome;
+  if(outcome.status==="bootstrap"){
+    var choice=context.choices.__bootstrap__;
+    if(choice==="local") return SyncMerge.canonicalize(outcome.local);
+    if(choice==="remote") return outcome.remote&&outcome.remote.data&&SyncMerge.canonicalize(outcome.remote.data);
+    if(choice==="merge") return (context.conflictKeys||[]).length
+      ?SyncMerge.resolve(outcome.mergeResult,context.choices)
+      :outcome.mergeResult&&SyncMerge.canonicalize(outcome.mergeResult.candidate);
+    return null;
+  }
+  return SyncMerge.resolve(outcome.mergeResult,context.choices);
+}
+function finishSyncConflict(context,promise){
+  context.applying=true; updateSyncConflictControls();
+  return promise.then(function(done){
+    if(_conflictCtx===context) _conflictCtx=null;
+    closeOverlay("conflictOverlay");
+    return presentSyncOutcome(context.id,done,{write:true});
+  }).catch(function(error){
+    if(_conflictCtx===context){
+      context.applying=false; updateSyncConflictControls();
+      var status=$("#conflictStatus"); if(status) status.textContent=String(error&&error.message||error);
+    }
+    return false;
+  });
+}
+function applySyncConflictChoices(){
+  var context=_conflictCtx; if(!context||context.mode!=="choices"||context.applying) return;
+  var candidate=syncConflictCandidate(context);
+  if(!candidate){
+    var status=$("#conflictStatus"); if(status) status.textContent=t("syncConflictIncomplete");
+    var first=$("#conflictList .sync-conflict-row:not(:has(input:checked)) input"); if(first) first.focus();
     return;
   }
-  var candidate=choice==="local"?outcome.local:(outcome.mergeResult&&outcome.mergeResult.conflicts.length===0?outcome.mergeResult.candidate:null);
-  if(!candidate){ toast(t("syncConflictShort"),"err"); return; }
-  continueSyncCandidate(id,candidate,{remote:remote,base:outcome.base,attempts:outcome.attempts,opts:{write:true}}).then(function(done){
-    presentSyncOutcome(id,done,{write:true});
-  });
+  var bootstrapRemote=context.outcome.status==="bootstrap"&&context.choices.__bootstrap__==="remote";
+  if(bootstrapRemote){
+    var profile=getProfile(context.id),remote=context.outcome.remote||{};
+    if(!applySyncSnapshot(context.id,candidate)){
+      var failed=$("#conflictStatus"); if(failed) failed.textContent="local-save-failed"; return;
+    }
+    var stored=profile&&profile.type==="webdav"?storeConfirmedSyncBase(profile,candidate,remote.strongEtag||"",{status:remote.strongEtag?"synced":"compatibility"}):Promise.resolve(syncOutcome("synced",{ok:true,candidate:candidate}));
+    finishSyncConflict(context,stored); return;
+  }
+  if(context.outcome.remote&&!context.outcome.remote.missing&&!context.outcome.remote.strongEtag){
+    openConfirm(t("syncCompatibilityTitle"),t("syncCompatibilityMsg"),t("webdavUploadNow"),function(){
+      finishSyncConflict(context,compatibilityWriteSelectedCandidate(context.id,candidate,{remote:context.outcome.remote,base:context.outcome.base,attempts:context.outcome.attempts}));
+    });
+    return;
+  }
+  finishSyncConflict(context,continueSyncCandidate(context.id,candidate,{remote:context.outcome.remote,base:context.outcome.base,attempts:context.outcome.attempts,opts:{write:true}}));
+}
+function downloadSyncConflictRemote(){
+  var context=_conflictCtx,raw=context&&context.outcome.remote&&context.outcome.remote.raw;
+  if(typeof raw!=="string") return;
+  var date=new Date().toISOString().slice(0,10);
+  if(typeof downloadBlob==="function") downloadBlob(raw,"text/plain;charset=utf-8","navi-remote-unreadable-"+date+".txt");
+}
+function useLocalForUnreadableRemote(){
+  var context=_conflictCtx; if(!context||context.mode!=="unreadable"||context.applying) return;
+  var remote=context.outcome.remote||{};
+  if(!remote.strongEtag){ var status=$("#conflictStatus"); if(status) status.textContent=t("syncConflictNoStrongEtag"); return; }
+  finishSyncConflict(context,continueSyncCandidate(context.id,context.outcome.local||syncSnapshotForProfile(context.id),{remote:remote,base:context.outcome.base,attempts:context.outcome.attempts,opts:{write:true}}));
 }
 
 /* ----- 同步状态（④） ----- */
@@ -644,7 +816,22 @@ function initSync(){
   });
   var cf=$("#conflictOverlay");
   if(cf) cf.addEventListener("click", function(e){
-    var b=e.target.closest("[data-conflict]"); if(!b) return;
-    resolveConflict(b.getAttribute("data-conflict"));
+    if(e.target.id==="conflictCancel"){ cancelSyncConflict(); return; }
+    if(e.target.id==="conflictApply"){ applySyncConflictChoices(); return; }
+    if(e.target.id==="conflictDownloadRemote"){ downloadSyncConflictRemote(); return; }
+    if(e.target.id==="conflictUseLocalRaw"){ useLocalForUnreadableRemote(); return; }
+    if(e.target.id==="conflictAllLocal"||e.target.id==="conflictAllRemote"){
+      var side=e.target.id==="conflictAllLocal"?"local":"remote",context=_conflictCtx;
+      if(!context||context.mode!=="choices") return;
+      $all('#conflictList [data-sync-conflict-key]:not([data-sync-conflict-key="__bootstrap__"]) input[value="'+side+'"]').forEach(function(input){ input.checked=true; context.choices[input.getAttribute("data-sync-choice-key")]=side; });
+      updateSyncConflictControls(); return;
+    }
+    if(e.target===cf&&_pressEl===cf){ _conflictCtx=null; }
   });
+  if(cf) cf.addEventListener("change",function(e){
+    var input=e.target.closest("[data-sync-choice-key]"); if(!input||!_conflictCtx) return;
+    _conflictCtx.choices[input.getAttribute("data-sync-choice-key")]=input.value;
+    updateSyncConflictControls();
+  });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&cf&&cf.classList.contains("open")) _conflictCtx=null; },true);
 })();

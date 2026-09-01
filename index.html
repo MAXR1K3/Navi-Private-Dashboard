@@ -467,15 +467,23 @@
   </div>
 
   <div class="overlay" id="conflictOverlay">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="conflictTitle">
+    <div class="modal wide sync-conflict-modal" role="dialog" aria-modal="true" aria-labelledby="conflictTitle" aria-describedby="conflictBody">
       <div class="modal-head"><h2 id="conflictTitle" data-i18n="syncConflictTitle">Sync conflict</h2><p data-i18n="syncConflictSub">The remote file changed since you last synced.</p></div>
-      <div class="modal-body"><p class="msg" id="conflictBody"></p></div>
-      <div class="modal-foot">
-        <button class="btn" data-close data-i18n="cancel">Cancel</button>
+      <div class="modal-body sync-conflict-body">
+        <p class="msg" id="conflictBody"></p>
+        <div class="sync-conflict-summary" id="conflictSummary"></div>
+        <div class="sync-conflict-list" id="conflictList"></div>
+        <div class="sync-conflict-unreadable" id="conflictUnreadable" hidden></div>
+        <p class="sync-conflict-status" id="conflictStatus" role="status" aria-live="polite"></p>
+      </div>
+      <div class="modal-foot sync-conflict-foot">
+        <button class="btn" id="conflictCancel" type="button" data-i18n="cancel">Cancel</button>
         <span class="flex-1"></span>
-        <button class="btn" data-conflict="remote" data-i18n="syncUseRemote">Use remote</button>
-        <button class="btn" data-conflict="local" data-i18n="syncUseLocal">Use local</button>
-        <button class="btn primary" id="conflictMerge" data-conflict="merge" data-i18n="syncMerge">Merge</button>
+        <button class="btn" id="conflictDownloadRemote" type="button" data-i18n="syncConflictDownloadRemote" hidden>Download remote file</button>
+        <button class="btn" id="conflictUseLocalRaw" type="button" data-i18n="syncConflictUseLocalEtag" hidden>Use local with current ETag</button>
+        <button class="btn" id="conflictAllLocal" type="button" data-i18n="syncAllLocal">All local</button>
+        <button class="btn" id="conflictAllRemote" type="button" data-i18n="syncAllRemote">All remote</button>
+        <button class="btn primary" id="conflictApply" type="button" data-i18n="syncConflictApply" disabled>Apply choices and sync safely</button>
       </div>
     </div>
   </div>

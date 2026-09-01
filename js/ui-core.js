@@ -23,16 +23,17 @@ function toastUndo(msg, undoFn){
 /* ===== modals =====
    焦点管理：打开时记住来源焦点并把焦点移进弹窗，Tab 在弹窗内循环，关闭后焦点归位。
    命令面板（palette-overlay）自己管理生命周期与焦点，这里一律跳过。 */
-var _ovFocus={};
+var _ovFocus={}, _ovStack=[];
 function overlayIds(){
   return $all(".overlay").filter(function(el){ return el.id && !el.classList.contains("palette-overlay"); })
     .map(function(el){ return el.id; });
 }
 function overlayIsStatic(el){ return !!(el&&el.hasAttribute("data-static-overlay")); }
 function activeOpenOverlay(){
-  var focused=document.activeElement&&document.activeElement.closest
-    ?document.activeElement.closest(".overlay.open"):null;
-  if(focused&&!focused.classList.contains("palette-overlay")) return focused;
+  for(var i=_ovStack.length-1;i>=0;i--){
+    var stacked=$("#"+_ovStack[i]);
+    if(stacked&&stacked.classList.contains("open")&&!stacked.classList.contains("palette-overlay")) return stacked;
+  }
   return $all(".overlay.open").filter(function(el){ return !el.classList.contains("palette-overlay"); }).pop()||null;
 }
 function focusablesIn(el){
@@ -42,6 +43,12 @@ function focusablesIn(el){
 function openOverlay(id){
   var el=$("#"+id); if(!el) return;
   if(!el.classList.contains("open")) _ovFocus[id]=document.activeElement;
+  _ovStack=_ovStack.filter(function(openId){return openId!==id;}); _ovStack.push(id);
+  $all(".overlay.open").forEach(function(other){
+    if(other===el||other.classList.contains("palette-overlay")) return;
+    other.inert=true; other.setAttribute("aria-hidden","true"); other.classList.add("overlay-underlay");
+  });
+  el.inert=false; el.removeAttribute("aria-hidden"); el.classList.remove("overlay-underlay");
   el.classList.add("open");
   var modal=el.querySelector(".modal");
   if(modal){
@@ -53,6 +60,10 @@ function closeOverlay(id){
   var el=$("#"+id); if(!el) return;
   var was=el.classList.contains("open");
   el.classList.remove("open");
+  el.inert=false; el.removeAttribute("aria-hidden"); el.classList.remove("overlay-underlay");
+  _ovStack=_ovStack.filter(function(openId){return openId!==id;});
+  var revealed=activeOpenOverlay();
+  if(revealed){ revealed.inert=false; revealed.removeAttribute("aria-hidden"); revealed.classList.remove("overlay-underlay"); }
   if(was){
     var prev=_ovFocus[id]; _ovFocus[id]=null;
     // 焦点归位：元素仍在文档里才还回去，否则会把焦点丢给 body
