@@ -137,9 +137,17 @@ function queueRevision(raw){
   });
   return _naviRevisionQueue;
 }
-function persistDashboard(value){
+function persistDashboard(value,opts){
+  opts=opts||{};
+  if(!validateDashboardState(value)) return false;
   var previousRaw=null;
   try{ previousRaw=localStorage.getItem(KEY); }catch(e){}
+  var previous=typeof previousRaw==="string"?parseDashboardRaw(previousRaw):{ok:false};
+  if(opts.tracking!=="remote"&&typeof SyncMerge==="object"){
+    var tracked=SyncMerge.trackLocal(previous.ok?previous.state:null,value,Date.now());
+    value.bookmarks=tracked.bookmarks;
+    value.syncMeta=tracked.syncMeta;
+  }
   var plan=buildPersistPlan(value,previousRaw);
   if(!plan.ok) return false;
   try{ localStorage.setItem(KEY,plan.raw); }

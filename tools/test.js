@@ -8,7 +8,7 @@ const fs = require("fs"), path = require("path");
 const { createEnv, load, root } = require("./env.js");
 
 const ctx = createEnv();
-const moduleFiles = ["js/i18n.js","js/state.js","js/sync-merge.js","js/storage.js","js/icons.js","js/utils.js","js/render.js",
+const moduleFiles = ["js/i18n.js","js/state.js","js/sync-merge.js","js/storage.js","js/icons.js","js/utils.js","js/oplog.js","js/render.js",
                           "js/suggest.js","js/sync.js","js/cleanup.js","js/snapshots.js",
                           "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js","js/menu.js","js/action-menus.js"];
 const failed = load(ctx, moduleFiles);
@@ -216,6 +216,94 @@ if (hasStoragePersistence) {
   eq("retention keeps three valid distinct rows", kept.length, 3);
   eq("retention is newest first", kept.map(row=>row.id).join(","), "5,4,3");
 }
+
+/* ---------- 同步元数据持久化 ---------- */
+G("sync metadata persistence");
+const syncDefaults=ctx.defaults();
+ok("default state owns tombstones",!!syncDefaults.syncMeta&&Array.isArray(syncDefaults.syncMeta.tombstones));
+ctx.localStorage.clear();
+const localTracked=ctx.defaults();
+localTracked.bookmarks=[{id:"tracked",title:"Tracked",url:"https://tracked.example",category:"Work",description:"",tags:[]}];
+eq("ordinary primary save succeeds",ctx.NaviStorage.persist(localTracked),true);
+let syncWritten=JSON.parse(ctx.localStorage.getItem(ctx.KEY));
+ok("ordinary save timestamps new bookmark",Number(syncWritten.bookmarks[0].updatedAt)>0,JSON.stringify(syncWritten.bookmarks[0]));
+localTracked.bookmarks=[];
+ctx.NaviStorage.persist(localTracked);
+syncWritten=JSON.parse(ctx.localStorage.getItem(ctx.KEY));
+eq("ordinary save creates a durable tombstone",syncWritten.syncMeta&&syncWritten.syncMeta.tombstones[0]&&syncWritten.syncMeta.tombstones[0].id,"tracked");
+
+const remoteTracked=ctx.defaults();
+remoteTracked.bookmarks=[{id:"remote-fixed",title:"Remote",url:"https://remote.example",category:"Work",description:"",tags:[],updatedAt:77}];
+remoteTracked.syncMeta={tombstones:[{id:"remote-gone",deletedAt:66}]};
+ctx.NaviStorage.persist(remoteTracked,{tracking:"remote"});
+syncWritten=JSON.parse(ctx.localStorage.getItem(ctx.KEY));
+eq("remote tracking preserves updatedAt",syncWritten.bookmarks[0].updatedAt,77);
+eq("remote tracking preserves tombstone",syncWritten.syncMeta.tombstones[0].deletedAt,66);
+
+ctx.localStorage.clear();
+const priorProfile=ctx.defaults();
+priorProfile.bookmarks=[{id:"prior",title:"Prior",url:"https://prior.example",category:"Work",description:"",tags:[],updatedAt:11}];
+ctx.NaviStorage.persist(priorProfile,{tracking:"remote"});
+ctx.state=ctx.defaults();
+ctx.state.bookmarks=[{id:"incoming",title:"Incoming",url:"https://incoming.example",category:"Work",description:"",tags:[],updatedAt:77}];
+ctx.state.syncMeta={tombstones:[{id:"remote-gone",deletedAt:66}]};
+ctx.saveSilently({tracking:"remote"});
+syncWritten=JSON.parse(ctx.localStorage.getItem(ctx.KEY));
+eq("silent remote save forwards tracking mode",syncWritten.bookmarks[0].updatedAt,77);
+eq("silent remote save does not invent cross-profile deletion",syncWritten.syncMeta.tombstones.some(t=>t.id==="prior"),false);
+
+ctx.state=ctx.defaults();
+ctx.state.bookmarks=[{id:"payload",title:"Payload",url:"https://payload.example",category:"Work",description:"",tags:[],updatedAt:55}];
+ctx.state.categories=["Work"];
+ctx.state.syncMeta={tombstones:[{id:"gone",deletedAt:44}]};
+const syncPayload=ctx.buildWebdavPayload();
+eq("WebDAV payload writes v4",syncPayload.version,4);
+eq("WebDAV payload declares protocol",syncPayload.sync&&syncPayload.sync.protocol,1);
+eq("WebDAV payload carries tombstone",syncPayload.sync&&syncPayload.sync.tombstones&&syncPayload.sync.tombstones[0]&&syncPayload.sync.tombstones[0].id,"gone");
+const normalizedV4=ctx.normalizeDashboardPayload(syncPayload,{preserveProfiles:true,preservePrivate:true});
+eq("v4 normalization reports source version",normalizedV4&&normalizedV4.sourceVersion,4);
+eq("v4 normalization restores local tombstones",normalizedV4&&normalizedV4.syncMeta&&normalizedV4.syncMeta.tombstones&&normalizedV4.syncMeta.tombstones[0]&&normalizedV4.syncMeta.tombstones[0].id,"gone");
+
+ctx.localStorage.clear();
+ctx.state.syncMeta={tombstones:[{id:"profile-gone",deletedAt:33}]};
+ctx.cacheProfileData("sync-profile",ctx.profileDataSnapshot());
+const cachedSync=ctx.loadProfileData("sync-profile");
+eq("Profile cache preserves tombstones",cachedSync&&cachedSync.syncMeta&&cachedSync.syncMeta.tombstones&&cachedSync.syncMeta.tombstones[0]&&cachedSync.syncMeta.tombstones[0].id,"profile-gone");
+ctx.state.syncMeta={tombstones:[]};
+ctx.applyProfileData(cachedSync);
+eq("Profile apply restores tombstones",ctx.state.syncMeta&&ctx.state.syncMeta.tombstones&&ctx.state.syncMeta.tombstones[0]&&ctx.state.syncMeta.tombstones[0].deletedAt,33);
+
+ctx.localStorage.clear();
+ctx.state=ctx.defaults();
+ctx.state.settings.profiles=[
+  {id:"local",name:"Local",type:"local"},
+  {id:"dav-life",name:"DAV",type:"webdav",url:"https://nas.example/old.json",autoSync:false}
+];
+ctx.state.settings.activeProfile="local";
+ctx.state.bookmarks=[{id:"local-only",title:"Local",url:"https://local.example",category:"Local",description:"",tags:[],updatedAt:12}];
+const incomingProfile={
+  bookmarks:[{id:"remote-only",title:"Remote",url:"https://remote.example",category:"Remote",description:"",tags:[],updatedAt:77}],
+  categories:["Remote"],trash:[],calendarEvents:[],syncMeta:{tombstones:[{id:"remote-gone",deletedAt:66}]},theme:"light",view:"grid"
+};
+ctx.cacheProfileData("dav-life",incomingProfile);
+const renderProfile=ctx.render;
+ctx.render=function(){};
+ctx.switchProfile("dav-life");
+syncWritten=JSON.parse(ctx.localStorage.getItem(ctx.KEY));
+eq("Profile switch preserves incoming bookmark time",syncWritten.bookmarks[0].updatedAt,77);
+eq("Profile switch does not create tombstone for prior Profile",syncWritten.syncMeta.tombstones.some(t=>t.id==="local-only"),false);
+
+const clearedBases=[];
+const clearSyncBase=ctx.NaviStorage.clearSyncBase;
+ctx.NaviStorage.clearSyncBase=function(id){ clearedBases.push(id); return Promise.resolve(); };
+ctx.updateActiveProfile({url:"https://nas.example/new.json"});
+eq("changing Profile URL clears its prior sync base",clearedBases.join(","),"dav-life");
+ctx.updateActiveProfile({name:"Renamed DAV"});
+eq("unrelated Profile edits keep the sync base",clearedBases.join(","),"dav-life");
+ctx.deleteActiveProfile();
+eq("deleting Profile clears its sync base",clearedBases.join(","),"dav-life,dav-life");
+ctx.NaviStorage.clearSyncBase=clearSyncBase;
+ctx.render=renderProfile;
 
 /* ---------- 恢复安全启动 ---------- */
 G("recovery-safe load");

@@ -12,7 +12,7 @@ function defaultBrowserSyncSource(){
 }
 function defaults(){
   return {
-    bookmarks:[], categories:[], trash:[], calendarEvents:[], opLog:[], theme:"light", view:"grid",
+    bookmarks:[], categories:[], trash:[], calendarEvents:[], opLog:[], syncMeta:{tombstones:[]}, theme:"light", view:"grid",
     settings:{
       appName:"Navi", tagline:"", logo:null, lang:"en", motionMode:"low", lowPower:true, animations:false,
       widgetsCollapsed:true, widgetsHidden:false, clockSeconds:false, clock24h:false, worldClockMode:"stack", worldClocks:[], showHolidays:true, calendarShowDoneBadges:false, categoryLayout:"tabs", hideHeaderOnScroll:false, hideHeaderOnScrollUserSet:false,

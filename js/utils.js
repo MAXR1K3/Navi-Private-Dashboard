@@ -27,12 +27,12 @@ function faviconUrl(u){ if(state.settings&&state.settings.privacy) return ""; va
 function hashHue(s){ var h=0; s=s||""; for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))%360; } return h; }
 function byId(id){ for(var i=0;i<state.bookmarks.length;i++){ if(state.bookmarks[i].id===id) return state.bookmarks[i]; } return null; }
 
-function save(){
+function save(opts){
   if(typeof oplogCapture==="function") oplogCapture();
-  if(NaviStorage.persist(state)) return true;
+  if(NaviStorage.persist(state,opts)) return true;
   // Likely quota — drop undo snapshots (largest payload) and retry once so data still persists.
   if(typeof oplogDropSnaps==="function") oplogDropSnaps();
-  if(NaviStorage.persist(state)) return true;
+  if(NaviStorage.persist(state,opts)) return true;
   warnStorageFull(); return false;
 }
 // 本地存储用量（以序列化后的字符数估算，localStorage 上限通常约 5MB）
@@ -49,6 +49,7 @@ function hydrateDashboardState(s){
   state.trash=Array.isArray(s.trash)?s.trash:[];
   state.calendarEvents=Array.isArray(s.calendarEvents)?s.calendarEvents:[];
   state.opLog=Array.isArray(s.opLog)?s.opLog:[];
+  state.syncMeta={tombstones:Array.isArray(s.syncMeta&&s.syncMeta.tombstones)?s.syncMeta.tombstones:[]};
   state.theme=s.theme||"light"; state.view=(s.view==="list2"?"list":s.view)||"grid";
   state.settings=Object.assign({},d.settings,s.settings||{});
   state.settings.worldClocks=Array.isArray(state.settings.worldClocks)?state.settings.worldClocks:[];

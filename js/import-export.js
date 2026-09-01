@@ -104,7 +104,14 @@ function normalizeBookmarkPayload(b){
 function normalizeDashboardPayload(obj, opts){
   opts=opts||{};
   if(!obj||!Array.isArray(obj.bookmarks)) return null;
-  var out={};
+  var out={},sourceVersion=Number(obj.version)||3,seen={};
+  if(sourceVersion>=4){
+    for(var i=0;i<obj.bookmarks.length;i++){
+      var sourceId=obj.bookmarks[i]&&String(obj.bookmarks[i].id||"");
+      if(!sourceId||seen[sourceId]) return null;
+      seen[sourceId]=true;
+    }
+  }
   out.bookmarks=obj.bookmarks.map(normalizeBookmarkPayload).filter(function(b){ return isWebUrl(b.url); });
   out.categories=Array.isArray(obj.categories)?obj.categories.map(cleanCatName).filter(Boolean):derivePayloadCats(out.bookmarks);
   out.trash=Array.isArray(obj.trash)?clonePlain(obj.trash):[];
@@ -112,6 +119,10 @@ function normalizeDashboardPayload(obj, opts){
   out.theme=obj.theme||state.theme||"light";
   out.view=(obj.view==="list2"?"list":obj.view)||state.view||"grid";
   out.settings=obj.settings&&typeof obj.settings==="object" ? mergeDashboardSettings(state.settings, obj.settings, opts) : null;
+  var sync=obj.sync&&typeof obj.sync==="object"?obj.sync:{},localMeta=obj.syncMeta&&typeof obj.syncMeta==="object"?obj.syncMeta:{};
+  var tombstones=Array.isArray(sync.tombstones)?sync.tombstones:(Array.isArray(localMeta.tombstones)?localMeta.tombstones:[]);
+  out.syncMeta={tombstones:clonePlain(tombstones)};
+  out.sourceVersion=sourceVersion;
   return out;
 }
 function redactedBackupSettings(){
@@ -121,8 +132,9 @@ function redactedBackupSettings(){
   return settings;
 }
 function buildBackup(){
-  return { schema:"navi-bookmarks", version:3, app:state.settings.appName||"Navi", exportedAt:new Date().toISOString(),
-    theme:state.theme, view:state.view, bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, calendarEvents:state.calendarEvents, settings:redactedBackupSettings() };
+  return { schema:"navi-bookmarks", version:4, app:state.settings.appName||"Navi", exportedAt:new Date().toISOString(),
+    theme:state.theme, view:state.view, bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, calendarEvents:state.calendarEvents,
+    settings:redactedBackupSettings(), sync:{protocol:1,tombstones:clonePlain(state.syncMeta&&state.syncMeta.tombstones||[])} };
 }
 function downloadBlob(text, mime, name){
   var blob=new Blob([text],{type:mime}), a=document.createElement("a");
@@ -137,7 +149,7 @@ function exportJSON(){
     toast(t("backupExported"),"ok");
   }catch(e){ toast(t("couldntRead"),"err"); }
 }
-function snapshotPrev(){ try{ localStorage.setItem(BACKUP_PREV_KEY, JSON.stringify({ bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, calendarEvents:state.calendarEvents, theme:state.theme, view:state.view, settings:state.settings, savedAt:Date.now() })); }catch(e){} }
+function snapshotPrev(){ try{ localStorage.setItem(BACKUP_PREV_KEY, JSON.stringify({ bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, calendarEvents:state.calendarEvents, syncMeta:state.syncMeta, theme:state.theme, view:state.view, settings:state.settings, savedAt:Date.now() })); }catch(e){} }
 function applyBackupObj(obj){
   var data=normalizeDashboardPayload(obj,{});
   if(!data){ toast(t("backupInvalid"),"err"); return false; }
@@ -145,6 +157,7 @@ function applyBackupObj(obj){
   state.bookmarks=data.bookmarks;
   state.categories=data.categories;
   state.trash=data.trash;
+  state.syncMeta=data.syncMeta||{tombstones:[]};
   if(Array.isArray(data.calendarEvents)) state.calendarEvents=data.calendarEvents;
   state.theme=data.theme;
   state.view=data.view;

@@ -24,13 +24,14 @@ function deriveCats(items){ var seen={},out=[]; (items||[]).forEach(function(b){
 function profileDataSnapshot(extra){
   return Object.assign({
     bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, calendarEvents:state.calendarEvents,
-    theme:state.theme, view:state.view, settings:state.settings
+    syncMeta:state.syncMeta, theme:state.theme, view:state.view, settings:state.settings
   }, extra||{});
 }
 function cacheProfileData(id, data){
   try{
     localStorage.setItem(PDATA_PREFIX+id, JSON.stringify({
       bookmarks:data.bookmarks||[], categories:data.categories||[], trash:Array.isArray(data.trash)?data.trash:[], calendarEvents:Array.isArray(data.calendarEvents)?data.calendarEvents:[],
+      syncMeta:data.syncMeta&&Array.isArray(data.syncMeta.tombstones)?data.syncMeta:{tombstones:[]},
       theme:data.theme||"light", view:(data.view==="list2"?"list":data.view)||"grid",
       settings:data.settings||null, at:Date.now()
     }));
@@ -43,6 +44,7 @@ function applyProfileData(data){
   state.categories=data&&Array.isArray(data.categories)?cloneJson(data.categories):[];
   state.trash=data&&Array.isArray(data.trash)?cloneJson(data.trash):[];
   state.calendarEvents=data&&Array.isArray(data.calendarEvents)?cloneJson(data.calendarEvents):[];
+  state.syncMeta=data&&data.syncMeta&&Array.isArray(data.syncMeta.tombstones)?cloneJson(data.syncMeta):{tombstones:[]};
   if(data&&data.theme) state.theme=data.theme;
   if(data&&data.view) state.view=(data.view==="list2"?"list":data.view)||"grid";
   if(data&&data.settings&&typeof mergeDashboardSettings==="function"){
@@ -62,8 +64,8 @@ function switchProfile(id){
   state.settings.activeProfile=id;
   var p=getProfile(id), cached=loadProfileData(id);
   if(cached){ applyProfileData(cached); }
-  else { state.bookmarks=[]; state.categories=[]; state.trash=[]; ui.activeCat="All"; ui.selected={}; rebuildCategories(); }
-  saveSilently();           // 持久化但不写操作日志
+  else { state.bookmarks=[]; state.categories=[]; state.trash=[]; state.syncMeta={tombstones:[]}; ui.activeCat="All"; ui.selected={}; rebuildCategories(); }
+  saveSilently({tracking:"remote"});           // Profile 整体替换，不把上一 Profile 的 ID 记成删除
   render();
   if(p && p.type==="webdav"){
     setSyncStatus(cached?"cache":"syncing", cached?cached.at:0);
@@ -80,11 +82,12 @@ function webdavHeaders(p, extra){
 function cloneJson(obj){ return JSON.parse(JSON.stringify(obj)); }
 function buildWebdavPayload(){
   var payload=typeof buildBackup==="function" ? cloneJson(buildBackup()) : {
-    schema:"navi-bookmarks", version:3, app:state.settings.appName||"Navi", exportedAt:new Date().toISOString(),
-    bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, settings:state.settings
+    schema:"navi-bookmarks", version:4, app:state.settings.appName||"Navi", exportedAt:new Date().toISOString(),
+    bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, settings:state.settings,
+    sync:{protocol:1,tombstones:cloneJson(state.syncMeta&&state.syncMeta.tombstones||[])}
   };
   payload.syncedAt=new Date().toISOString();
-  payload.sync={ direction:"upload", client:"desktop-extension", source:(typeof syncSource==="function"?syncSource():"manual") };
+  payload.sync=Object.assign({},payload.sync||{},{ protocol:1,direction:"upload", client:"desktop-extension", source:(typeof syncSource==="function"?syncSource():"manual") });
   if(payload.settings){
     payload.settings.aiKey="";
     if(Array.isArray(payload.settings.profiles)){
@@ -130,7 +133,7 @@ function parseRemote(txt){
       var arr=j.bookmarks;
       if(Array.isArray(arr)){
         var bms=arr.map(function(b){ var out=Object.assign({}, b); out.id=out.id||uid(); out.title=out.title||out.name||getDomain(out.url||"")||""; out.url=normalizeUrl(out.url||out.href||""); out.category=out.category||out.folder||"Uncategorized"; out.description=out.description||""; out.tags=Array.isArray(out.tags)?out.tags:[]; return out; }).filter(function(b){ return b.url; });
-        return { bookmarks:bms, categories:Array.isArray(j.categories)?j.categories:deriveCats(bms), trash:Array.isArray(j.trash)?j.trash:[], theme:j.theme||state.theme, view:(j.view==="list2"?"list":j.view)||state.view, settings:j.settings||null };
+        return { bookmarks:bms, categories:Array.isArray(j.categories)?j.categories:deriveCats(bms), trash:Array.isArray(j.trash)?j.trash:[], syncMeta:{tombstones:[]}, sourceVersion:Number(j.version)||3, theme:j.theme||state.theme, view:(j.view==="list2"?"list":j.view)||state.view, settings:j.settings||null };
       }
     }catch(e){}
     return null;
@@ -143,7 +146,7 @@ function parseRemote(txt){
   if(!looksLikeBookmarkExport(txt)) return null;
   try{ var doc=new DOMParser().parseFromString(txt,"text/html"), items=[];
     $all("a[href]",doc).forEach(function(a){ var href=a.getAttribute("href")||""; if(/^https?:/i.test(href)) items.push({ id:uid(), title:(a.textContent||"").trim()||href, url:href, category:"Uncategorized", description:"", tags:[] }); });
-    if(items.length) return { bookmarks:items, categories:deriveCats(items) };
+    if(items.length) return { bookmarks:items, categories:deriveCats(items),syncMeta:{tombstones:[]},sourceVersion:3 };
   }catch(e){}
   return null;
 }
@@ -160,7 +163,7 @@ function syncProfile(id){
         data.calendarEvents=Array.isArray(cached&&cached.calendarEvents)?cached.calendarEvents:(state.settings.activeProfile===id?state.calendarEvents:[]);
       }
       cacheProfileData(id, data);
-      if(state.settings.activeProfile===id){ applyProfileData(data); saveSilently(); render(); }
+      if(state.settings.activeProfile===id){ applyProfileData(data); saveSilently({tracking:"remote"}); render(); }
       rememberRemoteFp(id, data.bookmarks);   // 记下这次拉到的远程内容指纹，供上传前比对
       // 从浏览器：刚拿到主端的最新数据，顺势镜像进本浏览器的书签树
       if(typeof autoMirrorIfFollower==="function") autoMirrorIfFollower("after-pull");
@@ -195,7 +198,7 @@ function uploadWebdavProfile(id, opts){
     credentials:"omit"
   }, SYNC_UPLOAD_TIMEOUT).then(function(r){
     if(!r.ok) throw new Error("HTTP "+r.status);
-    cacheProfileData(id, {bookmarks:state.bookmarks, categories:state.categories});
+    cacheProfileData(id, {bookmarks:state.bookmarks, categories:state.categories, syncMeta:state.syncMeta});
     rememberRemoteFp(id, state.bookmarks);   // 远程现在就是我们刚写上去的内容
     p.lastUpload=Date.now();
     setSyncStatus("remote", p.lastUpload);
@@ -359,7 +362,7 @@ function resolveConflict(choice){
     // 结果是冲突弹层里手滑点错就没法挽回。
     if(typeof snapshotPrev==="function") snapshotPrev();
     cacheProfileData(id, remote);
-    if(state.settings.activeProfile===id){ applyProfileData(remote); saveSilently(); render(); }
+    if(state.settings.activeProfile===id){ applyProfileData(remote); saveSilently({tracking:"remote"}); render(); }
     rememberRemoteFp(id, remote.bookmarks); save();
     setSyncStatus("remote", Date.now());
     toast(t("syncOk",{n:(remote.bookmarks||[]).length}),"ok");
@@ -416,17 +419,26 @@ function syncProfileEditor(){
   var del=$("#profileDelete"); if(del) del.disabled=getProfiles().length<=1;
   renderSyncStatusLine();
 }
-function updateActiveProfile(patch){ var p=activeProfile(); if(!p) return; Object.keys(patch).forEach(function(k){ p[k]=patch[k]; }); save(); syncProfileEditor(); renderSyncChip(); }
+function updateActiveProfile(patch){
+  var p=activeProfile(); if(!p) return;
+  var previousUrl=p.url||"";
+  Object.keys(patch).forEach(function(k){ p[k]=patch[k]; });
+  if(Object.prototype.hasOwnProperty.call(patch,"url")&&(p.url||"")!==previousUrl&&NaviStorage&&typeof NaviStorage.clearSyncBase==="function"){
+    NaviStorage.clearSyncBase(p.id);
+  }
+  save(); syncProfileEditor(); renderSyncChip();
+}
 function deleteActiveProfile(){
   var p=activeProfile(); if(!p||getProfiles().length<=1) return;
   var delId=p.id;
   state.settings.profiles=getProfiles().filter(function(x){ return x.id!==delId; });
+  if(NaviStorage&&typeof NaviStorage.clearSyncBase==="function") NaviStorage.clearSyncBase(delId);
   dropProfileData(delId);
   var nextId=getProfiles()[0].id; state.settings.activeProfile=nextId;
   var cached=loadProfileData(nextId);
   if(cached) applyProfileData(cached);
-  else { state.bookmarks=[]; state.categories=[]; state.trash=[]; ui.activeCat="All"; ui.selected={}; rebuildCategories(); }
-  saveSilently(); render();
+  else { state.bookmarks=[]; state.categories=[]; state.trash=[]; state.syncMeta={tombstones:[]}; ui.activeCat="All"; ui.selected={}; rebuildCategories(); }
+  saveSilently({tracking:"remote"}); render();
   var np=getProfile(nextId);
   if(np&&np.type==="webdav"){ setSyncStatus(cached?"cache":"syncing", cached?cached.at:0); if(np.autoSync!==false||!cached) syncProfile(nextId); }
   else setSyncStatus("local");
