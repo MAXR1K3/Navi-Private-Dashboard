@@ -182,6 +182,9 @@ ok("storage boundary exposes revision selection", !!ctx.NaviStorage&&typeof ctx.
 ok("storage boundary exposes last-good lookup", !!ctx.NaviStorage&&typeof ctx.NaviStorage.getLastGood === "function");
 ok("storage boundary exposes restore", !!ctx.NaviStorage&&typeof ctx.NaviStorage.restore === "function");
 ok("storage boundary exposes scoped reset", !!ctx.NaviStorage&&typeof ctx.NaviStorage.clearAll === "function");
+ok("storage exposes sync base lookup", !!ctx.NaviStorage&&typeof ctx.NaviStorage.getSyncBase === "function");
+ok("storage exposes sync base save", !!ctx.NaviStorage&&typeof ctx.NaviStorage.putSyncBase === "function");
+ok("storage exposes sync base clear", !!ctx.NaviStorage&&typeof ctx.NaviStorage.clearSyncBase === "function");
 if (hasStoragePersistence) {
   ctx.localStorage.clear();
   const first = ctx.defaults();

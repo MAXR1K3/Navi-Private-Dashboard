@@ -5,6 +5,7 @@ var NAVI_SCHEMA_VERSION=4;
 var NAVI_LEGACY_KEY="navi.dashboard.v2";
 var NAVI_RECOVERY_DB="navi-storage";
 var NAVI_RECOVERY_STORE="revisions";
+var NAVI_SYNC_BASE_STORE="syncBases";
 var NAVI_REVISION_LIMIT=3;
 var _naviRevisionQueue=Promise.resolve();
 var _naviRevisionWarned=false;
@@ -71,29 +72,45 @@ function selectRecoveryRevisions(rows,limit){
 function openRecoveryDb(){
   return new Promise(function(resolve,reject){
     if(typeof indexedDB==="undefined"){ reject(new Error("indexeddb-unavailable")); return; }
-    var request=indexedDB.open(NAVI_RECOVERY_DB,1);
+    var request=indexedDB.open(NAVI_RECOVERY_DB,2);
     request.onupgradeneeded=function(){
-      if(!request.result.objectStoreNames.contains(NAVI_RECOVERY_STORE)){
-        request.result.createObjectStore(NAVI_RECOVERY_STORE,{keyPath:"id",autoIncrement:true});
-      }
+      var db=request.result;
+      if(!db.objectStoreNames.contains(NAVI_RECOVERY_STORE)) db.createObjectStore(NAVI_RECOVERY_STORE,{keyPath:"id",autoIncrement:true});
+      if(!db.objectStoreNames.contains(NAVI_SYNC_BASE_STORE)) db.createObjectStore(NAVI_SYNC_BASE_STORE,{keyPath:"profileId"});
     };
     request.onsuccess=function(){ resolve(request.result); };
     request.onerror=function(){ reject(request.error||new Error("indexeddb-open-failed")); };
     request.onblocked=function(){ reject(new Error("indexeddb-open-blocked")); };
   });
 }
-function withRevisionStore(mode,run){
+function withNamedStore(storeName,mode,run){
   return openRecoveryDb().then(function(db){
     return new Promise(function(resolve,reject){
-      var tx=db.transaction(NAVI_RECOVERY_STORE,mode),settled=false;
+      var tx=db.transaction(storeName,mode),settled=false;
       function finish(error){
         if(settled) return; settled=true; db.close();
         if(error) reject(error); else resolve();
       }
       tx.oncomplete=function(){ finish(); };
       tx.onabort=tx.onerror=function(){ finish(tx.error||new Error("indexeddb-transaction-failed")); };
-      try{ run(tx.objectStore(NAVI_RECOVERY_STORE),tx); }
+      try{ run(tx.objectStore(storeName),tx); }
       catch(error){ try{ tx.abort(); }catch(e){} finish(error); }
+    });
+  });
+}
+function withRevisionStore(mode,run){ return withNamedStore(NAVI_RECOVERY_STORE,mode,run); }
+function readNamedRow(storeName,key){
+  return openRecoveryDb().then(function(db){
+    return new Promise(function(resolve,reject){
+      var tx=db.transaction(storeName,"readonly"),row=null,settled=false;
+      var request=tx.objectStore(storeName).get(key);
+      request.onsuccess=function(){ row=request.result||null; };
+      function finish(error){
+        if(settled) return; settled=true; db.close();
+        if(error) reject(error); else resolve(row);
+      }
+      tx.oncomplete=function(){ finish(); };
+      tx.onabort=tx.onerror=function(){ finish(tx.error||new Error("indexeddb-read-failed")); };
     });
   });
 }
@@ -157,9 +174,32 @@ function restoreDashboard(raw){
   try{ localStorage.setItem(KEY,raw); return Promise.resolve(true); }
   catch(e){ return Promise.resolve(false); }
 }
-function clearRecoveryStore(){
+function putSyncBase(profileId,url,etag,snapshot){
+  var canonical=typeof SyncMerge==="object"?SyncMerge.canonicalize(snapshot):null;
+  if(!profileId||!url||!canonical||typeof etag!=="string") return Promise.resolve(false);
+  return withNamedStore(NAVI_SYNC_BASE_STORE,"readwrite",function(store){
+    store.put({profileId:String(profileId),url:String(url),etag:etag,snapshot:canonical,savedAt:Date.now()});
+  }).then(function(){ return true; }).catch(function(){ return false; });
+}
+function getSyncBase(profileId,url){
+  if(!profileId||!url||typeof SyncMerge!=="object") return Promise.resolve(null);
+  return readNamedRow(NAVI_SYNC_BASE_STORE,String(profileId)).then(function(row){
+    if(!row||row.url!==String(url)) return null;
+    var canonical=SyncMerge.canonicalize(row.snapshot);
+    if(!canonical) return null;
+    row.snapshot=canonical;
+    return row;
+  }).catch(function(){ return null; });
+}
+function clearSyncBase(profileId){
+  if(!profileId) return Promise.resolve();
+  return withNamedStore(NAVI_SYNC_BASE_STORE,"readwrite",function(store){ store.delete(String(profileId)); }).catch(function(){});
+}
+function clearStorageStores(){
   _naviRevisionQueue=_naviRevisionQueue.then(function(){
     return withRevisionStore("readwrite",function(store){ store.clear(); });
+  }).then(function(){
+    return withNamedStore(NAVI_SYNC_BASE_STORE,"readwrite",function(store){ store.clear(); });
   }).catch(function(){});
   return _naviRevisionQueue;
 }
@@ -173,7 +213,7 @@ function clearNaviData(){
     }
     remove.forEach(function(key){ localStorage.removeItem(key); });
   }catch(e){}
-  return clearRecoveryStore();
+  return clearStorageStores();
 }
 
 var NaviStorage={
@@ -183,5 +223,8 @@ var NaviStorage={
   selectRecoveryRevisions:selectRecoveryRevisions,
   getLastGood:getLastGood,
   restore:restoreDashboard,
+  getSyncBase:getSyncBase,
+  putSyncBase:putSyncBase,
+  clearSyncBase:clearSyncBase,
   clearAll:clearNaviData
 };

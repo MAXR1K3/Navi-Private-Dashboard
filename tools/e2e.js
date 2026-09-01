@@ -142,6 +142,31 @@ async function main(){
       assert("dev-check failures",result.failed===0,result.summary);
     });
 
+    await group("sync bases are isolated by Profile and URL", async()=>{
+      await cdp.navigate(base+"?sync-base="+Date.now());
+      await cdp.wait(`typeof NaviStorage==="object" && typeof SyncMerge==="object"`);
+      const result=await cdp.evaluate(`(async()=>{
+        await NaviStorage.clearAll();
+        const sample=SyncMerge.fromState(state);
+        const saved=await NaviStorage.putSyncBase("dav-a","https://nas.example/a.json",'"one"',sample);
+        const same=await NaviStorage.getSyncBase("dav-a","https://nas.example/a.json");
+        const changedUrl=await NaviStorage.getSyncBase("dav-a","https://nas.example/b.json");
+        const overwritten=await NaviStorage.putSyncBase("dav-a","https://nas.example/a.json",'"two"',sample);
+        const latest=await NaviStorage.getSyncBase("dav-a","https://nas.example/a.json");
+        await NaviStorage.clearSyncBase("dav-a");
+        const cleared=await NaviStorage.getSyncBase("dav-a","https://nas.example/a.json");
+        await NaviStorage.putSyncBase("dav-a","https://nas.example/a.json",'"three"',sample);
+        await NaviStorage.clearAll();
+        const reset=await NaviStorage.getSyncBase("dav-a","https://nas.example/a.json");
+        return {saved,etag:same&&same.etag,changedUrl,overwritten,latest:latest&&latest.etag,cleared,reset};
+      })()`);
+      assert("sync base was not saved",result.saved&&result.etag==='"one"',JSON.stringify(result));
+      assert("sync base leaked across URL",result.changedUrl===null,JSON.stringify(result));
+      assert("sync base was not replaced",result.overwritten&&result.latest==='"two"',JSON.stringify(result));
+      assert("sync base clear was not scoped",result.cleared===null,JSON.stringify(result));
+      assert("Navi reset left sync base behind",result.reset===null,JSON.stringify(result));
+    });
+
     await group("corrupt primary is preserved behind recovery UI", async()=>{
       await cdp.navigate(base+"?recovery-setup="+Date.now());
       await cdp.wait(`typeof NaviStorage==="object"`);
