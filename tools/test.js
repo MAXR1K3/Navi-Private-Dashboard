@@ -8,7 +8,7 @@ const fs = require("fs"), path = require("path");
 const { createEnv, load, root } = require("./env.js");
 
 const ctx = createEnv();
-const moduleFiles = ["js/i18n.js","js/state.js","js/storage.js","js/icons.js","js/utils.js","js/render.js",
+const moduleFiles = ["js/i18n.js","js/state.js","js/sync-merge.js","js/storage.js","js/icons.js","js/utils.js","js/render.js",
                           "js/suggest.js","js/sync.js","js/cleanup.js","js/snapshots.js",
                           "js/bookmarks.js","js/import-export.js","js/keywords.js","js/widgets.js","js/chrome-sync.js","js/mirror.js","js/menu.js","js/action-menus.js"];
 const failed = load(ctx, moduleFiles);
@@ -21,6 +21,38 @@ function ok(name, cond, detail) {
   fail++; console.log("  ✘ [" + group + "] " + name + (detail ? "\n      " + detail : ""));
 }
 const eq = (name, got, want) => ok(name, got === want, "期望 " + JSON.stringify(want) + "，实际 " + JSON.stringify(got));
+
+/* ---------- 同步 v4 规范化与本地墓碑 ---------- */
+G("sync v4 canonicalization");
+ok("SyncMerge module is loaded", typeof ctx.SyncMerge === "object");
+if(ctx.SyncMerge){
+  const legacy={schema:"navi-bookmarks",version:3,bookmarks:[
+    {id:"a",title:"A",url:"https://a.example",category:"Work",description:"",tags:[],clicks:1,lastOpened:10}
+  ],categories:["Work"],trash:[],calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"}};
+  const canonical=ctx.SyncMerge.canonicalize(legacy);
+  eq("v3 becomes canonical v4", canonical.version, 4);
+  eq("canonical order follows bookmark array", canonical.order.join(","), "a");
+  eq("missing updatedAt migrates to zero", canonical.bookmarks[0].updatedAt, 0);
+  eq("v3 starts without tombstones", canonical.tombstones.length, 0);
+  ok("invalid bookmark collection is rejected", ctx.SyncMerge.canonicalize({bookmarks:{}})===null);
+  ok("duplicate stable IDs are rejected", ctx.SyncMerge.canonicalize({bookmarks:[legacy.bookmarks[0],legacy.bookmarks[0]]})===null);
+
+  const previous=ctx.defaults();
+  previous.bookmarks=[{id:"a",title:"A",url:"https://a.example",category:"Work",description:"",tags:[],updatedAt:10}];
+  previous.syncMeta={tombstones:[]};
+  const changed=JSON.parse(JSON.stringify(previous)); changed.bookmarks[0].title="A2";
+  const tracked=ctx.SyncMerge.trackLocal(previous,changed,100);
+  eq("content edit receives updatedAt", tracked.bookmarks[0].updatedAt, 100);
+  const statsOnly=JSON.parse(JSON.stringify(tracked)); statsOnly.bookmarks[0].clicks=20;
+  eq("activity stats do not touch updatedAt", ctx.SyncMerge.trackLocal(tracked,statsOnly,200).bookmarks[0].updatedAt,100);
+  const deleted=JSON.parse(JSON.stringify(tracked)); deleted.bookmarks=[];
+  const deletedTracked=ctx.SyncMerge.trackLocal(tracked,deleted,300);
+  eq("missing id creates durable tombstone", deletedTracked.syncMeta.tombstones[0].id,"a");
+  const restored=JSON.parse(JSON.stringify(deletedTracked)); restored.bookmarks=[tracked.bookmarks[0]];
+  const retracked=ctx.SyncMerge.trackLocal(deletedTracked,restored,400);
+  eq("restoring id removes tombstone", retracked.syncMeta.tombstones.length,0);
+  eq("restoring id touches bookmark", retracked.bookmarks[0].updatedAt,400);
+}
 
 /* ---------- 存储检查 ---------- */
 G("storage inspection");
