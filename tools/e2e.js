@@ -138,8 +138,8 @@ async function main(){
 
     await group("dev-check reports no structural or visual-contract failures", async()=>{
       await cdp.navigate(base+"dev-check.html?e2e="+Date.now());
-      const result=await cdp.wait(`(()=>{const s=document.querySelector("#sum");return s&&!s.textContent.includes("running")?{summary:s.textContent,failed:document.querySelectorAll(".chk.fail").length}:null})()`,12000);
-      assert("dev-check failures",result.failed===0,result.summary);
+      const result=await cdp.wait(`(()=>{const s=document.querySelector("#sum");return s&&!s.textContent.includes("running")?{summary:s.textContent,failed:document.querySelectorAll(".chk.fail").length,details:[...document.querySelectorAll(".chk.fail")].map(x=>x.textContent.trim())}:null})()`,12000);
+      assert("dev-check failures",result.failed===0,result.summary+"\n"+(result.details||[]).join("\n"));
     });
 
     await group("sync bases are isolated by Profile and URL", async()=>{
@@ -165,6 +165,94 @@ async function main(){
       assert("sync base was not replaced",result.overwritten&&result.latest==='"two"',JSON.stringify(result));
       assert("sync base clear was not scoped",result.cleared===null,JSON.stringify(result));
       assert("Navi reset left sync base behind",result.reset===null,JSON.stringify(result));
+    });
+
+    await group("unsafe reconciliation paths never write or advance the base", async()=>{
+      await cdp.navigate(base+"?safe-reconcile="+Date.now());
+      await cdp.wait(`typeof NaviStorage==="object" && typeof SyncMerge==="object"`);
+      const result=await cdp.evaluate(`(async()=>{
+        if(typeof reconcileWebdavProfile!=="function"||typeof compatibilityPutConfirmed!=="function") return {missing:true};
+        const original={
+          fetchRemoteData,conditionalPut,compatibilityPutConfirmed,
+          getSyncBase:NaviStorage.getSyncBase,putSyncBase:NaviStorage.putSyncBase
+        };
+        let conditionalWrites=0,compatibilityWrites=0,baseWrites=0,etagSeq=0;
+        const bm=(title)=>({id:"shared",title,url:"https://shared.example",category:"Work",description:"",tags:[],updatedAt:10});
+        const snap=(title)=>SyncMerge.canonicalize({version:4,bookmarks:[bm(title)],categories:["Work"],calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"},sync:{protocol:1,tombstones:[]}});
+        const baseSnap=snap("Base"),remoteData={bookmarks:baseSnap.bookmarks,categories:baseSnap.categories,calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"},syncMeta:{tombstones:[]},sourceVersion:4};
+        try{
+          state=defaults();
+          state.settings.profiles=[{id:"local",name:"Local",type:"local"},{id:"dav-e2e",name:"DAV",type:"webdav",url:"https://nas.example/bookmarks.json",autoSync:false}];
+          state.settings.activeProfile="dav-e2e";
+          state.bookmarks=[bm("Local")]; state.categories=["Work"]; state.syncMeta={tombstones:[]};
+          saveSilently({tracking:"remote"});
+          conditionalPut=async()=>{ conditionalWrites++; return {ok:false,status:412,headers:{get(){return "";}}}; };
+          compatibilityPutConfirmed=async()=>{ compatibilityWrites++; return {ok:true,status:200,headers:{get(){return "";}}}; };
+          NaviStorage.putSyncBase=async()=>{ baseWrites++; return true; };
+
+          NaviStorage.getSyncBase=async()=>({profileId:"dav-e2e",url:"https://nas.example/bookmarks.json",etag:'"base"',snapshot:baseSnap});
+          fetchRemoteData=async()=>({unreadable:true,raw:"bad",missing:false,strongEtag:'"bad"'});
+          const invalid=await reconcileWebdavProfile("dav-e2e",{write:true,silent:true});
+
+          NaviStorage.getSyncBase=async()=>null;
+          fetchRemoteData=async()=>({data:remoteData,sourceVersion:4,missing:false,strongEtag:'"remote"'});
+          const bootstrap=await reconcileWebdavProfile("dav-e2e",{write:true,silent:true});
+
+          NaviStorage.getSyncBase=async()=>({profileId:"dav-e2e",url:"https://nas.example/bookmarks.json",etag:'"base"',snapshot:baseSnap});
+          fetchRemoteData=async()=>({data:remoteData,sourceVersion:4,missing:false,etag:'W/"weak"',strongEtag:""});
+          const compatibility=await reconcileWebdavProfile("dav-e2e",{write:true,silent:true});
+
+          NaviStorage.getSyncBase=async()=>{ throw new Error("idb-down"); };
+          fetchRemoteData=async()=>({data:remoteData,sourceVersion:4,missing:false,strongEtag:'"remote"'});
+          const unavailable=await reconcileWebdavProfile("dav-e2e",{write:true,silent:true});
+
+          NaviStorage.getSyncBase=async()=>({profileId:"dav-e2e",url:"https://nas.example/bookmarks.json",etag:'"base"',snapshot:baseSnap});
+          fetchRemoteData=async()=>({data:remoteData,sourceVersion:4,missing:false,strongEtag:'"race-'+(++etagSeq)+'"'});
+          const raced=await reconcileWebdavProfile("dav-e2e",{write:true,silent:true});
+          return {missing:false,statuses:[invalid.status,bootstrap.status,compatibility.status,unavailable.status,raced.status],
+            conditionalWrites,compatibilityWrites,baseWrites,attempts:raced.attempts};
+        } finally {
+          fetchRemoteData=original.fetchRemoteData;
+          conditionalPut=original.conditionalPut;
+          compatibilityPutConfirmed=original.compatibilityPutConfirmed;
+          NaviStorage.getSyncBase=original.getSyncBase;
+          NaviStorage.putSyncBase=original.putSyncBase;
+        }
+      })()`);
+      assert("safe reconciler is missing",result.missing!==true,JSON.stringify(result));
+      if(!result.missing){
+        assert("unsafe paths returned wrong statuses",result.statuses.join(",")==="invalid,bootstrap,compatibility,base-unavailable,race-conflict",JSON.stringify(result));
+        assert("unsafe paths called compatibility PUT",result.compatibilityWrites===0,JSON.stringify(result));
+        assert("failure paths advanced the sync base",result.baseWrites===0,JSON.stringify(result));
+        assert("412 retry cap was not exact",result.conditionalWrites===3&&result.attempts===3,JSON.stringify(result));
+      }
+    });
+
+    await group("failed base persistence is reported after matching remote data", async()=>{
+      await cdp.navigate(base+"?base-warning="+Date.now());
+      await cdp.wait(`typeof reconcileWebdavProfile==="function"`);
+      const result=await cdp.evaluate(`(async()=>{
+        const original={fetchRemoteData,getSyncBase:NaviStorage.getSyncBase,putSyncBase:NaviStorage.putSyncBase};
+        const bookmark={id:"same",title:"Same",url:"https://same.example",category:"Work",description:"",tags:[],updatedAt:10};
+        try{
+          state=defaults();
+          state.settings.profiles=[{id:"local",name:"Local",type:"local"},{id:"dav-base",name:"DAV",type:"webdav",url:"https://nas.example/base.json",autoSync:false}];
+          state.settings.activeProfile="dav-base"; state.bookmarks=[bookmark]; state.categories=["Work"]; state.syncMeta={tombstones:[]};
+          saveSilently({tracking:"remote"});
+          const snapshot=SyncMerge.fromState(state);
+          const remoteData={bookmarks:snapshot.bookmarks,categories:snapshot.categories,calendarEvents:snapshot.calendarEvents,theme:snapshot.theme,view:snapshot.view,settings:snapshot.settings,syncMeta:{tombstones:snapshot.tombstones},sourceVersion:4};
+          fetchRemoteData=async()=>({data:remoteData,sourceVersion:4,missing:false,strongEtag:'"same"'});
+          NaviStorage.getSyncBase=async()=>({profileId:"dav-base",url:"https://nas.example/base.json",etag:'"old"',snapshot});
+          NaviStorage.putSyncBase=async()=>false;
+          const outcome=await reconcileWebdavProfile("dav-base",{write:false,silent:true});
+          return {status:outcome.status,ok:outcome.ok};
+        } finally {
+          fetchRemoteData=original.fetchRemoteData;
+          NaviStorage.getSyncBase=original.getSyncBase;
+          NaviStorage.putSyncBase=original.putSyncBase;
+        }
+      })()`);
+      assert("base storage failure was reported as full success",result.ok&&result.status==="base-warning",JSON.stringify(result));
     });
 
     await group("corrupt primary is preserved behind recovery UI", async()=>{

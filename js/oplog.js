@@ -16,7 +16,7 @@ function oplogSnapshotRef(){ return { bookmarks:state.bookmarks, categories:stat
 function oplogClone(){ return JSON.parse(JSON.stringify(oplogSnapshotRef())); }
 function oplogInit(){ if(!Array.isArray(state.opLog)) state.opLog=[]; _committedSnap=oplogClone(); _oplogReady=true; }
 function oplogRebaseline(){ _committedSnap=oplogClone(); } // 重置基线：用于切换 Profile 等“非用户编辑”的整体数据替换后
-function saveSilently(opts){ _oplogSuspended=true; try{ save(opts); }finally{ _oplogSuspended=false; oplogRebaseline(); } } // 持久化但不写日志
+function saveSilently(opts){ var saved=false; _oplogSuspended=true; try{ saved=save(opts); }finally{ _oplogSuspended=false; oplogRebaseline(); } return saved; } // 持久化但不写日志
 function oplogRestore(snap){
   state.bookmarks=JSON.parse(JSON.stringify(snap.bookmarks||[]));
   state.categories=JSON.parse(JSON.stringify(snap.categories||[]));

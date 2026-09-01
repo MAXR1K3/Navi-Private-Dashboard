@@ -35,7 +35,8 @@ function cacheProfileData(id, data){
       theme:data.theme||"light", view:(data.view==="list2"?"list":data.view)||"grid",
       settings:data.settings||null, at:Date.now()
     }));
-  }catch(e){}
+    return true;
+  }catch(e){ return false; }
 }
 function loadProfileData(id){ try{ var raw=localStorage.getItem(PDATA_PREFIX+id); if(raw){ var d=JSON.parse(raw); if(Array.isArray(d.bookmarks)) return d; } }catch(e){} return null; }
 function dropProfileData(id){ try{ localStorage.removeItem(PDATA_PREFIX+id); }catch(e){} }
@@ -80,12 +81,19 @@ function webdavHeaders(p, extra){
   return headers;
 }
 function cloneJson(obj){ return JSON.parse(JSON.stringify(obj)); }
-function buildWebdavPayload(){
-  var payload=typeof buildBackup==="function" ? cloneJson(buildBackup()) : {
+function buildWebdavPayload(snapshot){
+  var canonical=snapshot&&typeof SyncMerge==="object"?SyncMerge.canonicalize(snapshot):null;
+  if(snapshot&&!canonical) return null;
+  var payload=canonical?{
+    schema:"navi-bookmarks",version:4,app:state.settings.appName||"Navi",exportedAt:new Date().toISOString(),
+    bookmarks:cloneJson(canonical.bookmarks),categories:cloneJson(canonical.categories),trash:[],calendarEvents:cloneJson(canonical.calendarEvents),
+    theme:canonical.theme,view:canonical.view,settings:cloneJson(canonical.settings||{}),
+    sync:{protocol:1,tombstones:cloneJson(canonical.tombstones)}
+  }:(typeof buildBackup==="function" ? cloneJson(buildBackup()) : {
     schema:"navi-bookmarks", version:4, app:state.settings.appName||"Navi", exportedAt:new Date().toISOString(),
     bookmarks:state.bookmarks, categories:state.categories, trash:state.trash, settings:state.settings,
     sync:{protocol:1,tombstones:cloneJson(state.syncMeta&&state.syncMeta.tombstones||[])}
-  };
+  });
   payload.syncedAt=new Date().toISOString();
   payload.sync=Object.assign({},payload.sync||{},{ protocol:1,direction:"upload", client:"desktop-extension", source:(typeof syncSource==="function"?syncSource():"manual") });
   if(payload.settings){
@@ -135,11 +143,31 @@ function conditionalPut(profile,body,remote){
     credentials:"omit"
   },SYNC_UPLOAD_TIMEOUT);
 }
+function compatibilityPutConfirmed(profile,body,userConfirmed){
+  if(userConfirmed!==true){
+    var error=new Error("compatibility-confirmation-required"); error.code="compatibility-confirmation-required";
+    return Promise.reject(error);
+  }
+  return syncFetch(profile.url,{
+    method:"PUT",headers:webdavHeaders(profile,{"Content-Type":"application/json; charset=utf-8"}),
+    body:body,cache:"no-store",credentials:"omit"
+  },SYNC_UPLOAD_TIMEOUT);
+}
+function syncReconcileDecision(input){
+  input=input||{};
+  var remote=input.remote,base=input.base;
+  if(!remote||remote.unreadable||(!remote.missing&&!remote.data)) return "invalid";
+  if(remote.missing) return "merge";
+  if(!base||!base.snapshot) return "bootstrap";
+  if(Number(base.snapshot.version)>=4&&Number(remote.sourceVersion)>0&&Number(remote.sourceVersion)<4) return "downgrade";
+  if(input.write===true&&!remote.strongEtag) return "compatibility";
+  return "merge";
+}
 function fetchRemoteData(profile){
   return syncFetch(profile.url,{headers:webdavHeaders(profile),cache:"no-store",credentials:"omit"}).then(function(response){
     var etag=response.headers&&typeof response.headers.get==="function"?(response.headers.get("ETag")||""):"";
     var strongEtag=strongSyncEtag(etag);
-    if(response.status===404){
+    if(response.status===404||response.status===410){
       return response.text().catch(function(){return "";}).then(function(raw){
         return {missing:true,unreadable:false,data:null,raw:raw,etag:etag,strongEtag:strongEtag,sourceVersion:0,status:404};
       });
@@ -192,65 +220,27 @@ function parseRemote(txt){
 }
 function syncProfile(id){
   var p=getProfile(id);
-  if(!p||p.type!=="webdav"||!p.url){ setSyncStatus("local"); return; }
+  if(!p||p.type!=="webdav"||!p.url){ setSyncStatus("local"); return Promise.resolve(false); }
   setSyncStatus("syncing");
-  syncFetch(p.url, { headers:webdavHeaders(p), cache:"no-store", credentials:"omit" })
-    .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
-    .then(function(txt){
-      var data=parseRemote(txt); if(!data) throw new Error(t("syncBadData"));
-      if(!Array.isArray(data.calendarEvents)){
-        var cached=loadProfileData(id);
-        data.calendarEvents=Array.isArray(cached&&cached.calendarEvents)?cached.calendarEvents:(state.settings.activeProfile===id?state.calendarEvents:[]);
-      }
-      cacheProfileData(id, data);
-      if(state.settings.activeProfile===id){ applyProfileData(data); saveSilently({tracking:"remote"}); render(); }
-      rememberRemoteFp(id, data.bookmarks);   // 记下这次拉到的远程内容指纹，供上传前比对
-      // 从浏览器：刚拿到主端的最新数据，顺势镜像进本浏览器的书签树
-      if(typeof autoMirrorIfFollower==="function") autoMirrorIfFollower("after-pull");
-      setSyncStatus("remote", Date.now());
-      toast(t("syncOk",{n:data.bookmarks.length}),"ok");
-    })
-    .catch(function(err){
+  return reconcileWebdavProfile(id,{write:false}).then(function(outcome){
+    return presentSyncOutcome(id,outcome,{write:false});
+  }).catch(function(err){
       var hasData=state.bookmarks.length>0 || !!loadProfileData(id);
       setSyncStatus(hasData?"cache":"failed", _syncStatus.at, String(err&&err.message||err));
-      // 读取失败同样值得解释一句：多半也是跨域没配好，而不是地址写错
       diagnoseFetchFailure(p.url, err).then(function(better){
         if(better) setSyncStatus(_syncStatus.state, _syncStatus.at, better);
       }).catch(function(){});
       toast(t("syncFailed"),"err");
+      return false;
     });
 }
 function uploadWebdavProfile(id, opts){
   opts=opts||{};
-  var p=getProfile(id);
-  if(!p||p.type!=="webdav"||!p.url){
-    if(!opts.silent) toast(t("syncNoUrl"),"err");
-    return Promise.reject(new Error("no-url"));
-  }
-  setSyncStatus("syncing", _syncStatus.at);
-  var payload=buildWebdavPayload();
-  var body=JSON.stringify(payload,null,2);
-  return syncFetch(p.url, {
-    method:"PUT",
-    headers:webdavHeaders(p, {"Content-Type":"application/json; charset=utf-8"}),
-    body:body,
-    cache:"no-store",
-    credentials:"omit"
-  }, SYNC_UPLOAD_TIMEOUT).then(function(r){
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    cacheProfileData(id, {bookmarks:state.bookmarks, categories:state.categories, syncMeta:state.syncMeta});
-    rememberRemoteFp(id, state.bookmarks);   // 远程现在就是我们刚写上去的内容
-    p.lastUpload=Date.now();
-    setSyncStatus("remote", p.lastUpload);
-    saveSilently();
-    syncProfileEditor();
-    if(!opts.silent) toast(t("webdavUploadOk",{n:state.bookmarks.length}),"ok");
-    return { count:state.bookmarks.length, bytes:body.length };
-  }).catch(function(err){
-    setSyncStatus("failed", _syncStatus.at, String(err&&err.message||err));
-    explainSyncFailure(p.url, err);
-    if(!opts.silent) toast(t("webdavUploadFailed"),"err");
-    throw err;
+  return reconcileWebdavProfile(id,{write:true,silent:!!opts.silent,compatibilityConfirmed:opts.compatibilityConfirmed===true}).then(function(outcome){
+    return presentSyncOutcome(id,outcome,Object.assign({},opts,{write:true})).then(function(ok){
+      if(!ok) throw new Error(outcome.status||"sync-not-complete");
+      return {count:(outcome.candidate&&outcome.candidate.bookmarks||[]).length,bytes:outcome.bytes||0,outcome:outcome};
+    });
   });
 }
 function maybeUploadBookmarksAfterBrowserSync(source, res){
@@ -306,19 +296,6 @@ function explainSyncFailure(url, err){
   }).catch(function(){});
 }
 
-/* 读取远程当前内容；404/不存在 → {missing:true} */
-function fetchRemoteData(p){
-  return syncFetch(p.url,{headers:webdavHeaders(p),cache:"no-store",credentials:"omit"}).then(function(r){
-    if(r.status===404||r.status===410) return {missing:true};
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    return r.text().then(function(txt){
-      var data=parseRemote(txt);
-      if(!data) return {unreadable:true};
-      return {data:data};
-    });
-  });
-}
-
 /* 合并：以 URL 为键取并集，同一 URL 本地优先；本地回收站充当墓碑，避免已删除的条目被远程复活 */
 function mergeRemoteIntoLocal(remote){
   var out=state.bookmarks.slice(), have={}, trashed={};
@@ -352,14 +329,163 @@ function syncPushDecision(r, remoteFp){
   return syncFingerprint((r.data||{}).bookmarks)===remoteFp ? "upload" : "conflict";
 }
 
-/* 上传前先比对远程指纹：一致（或远程还不存在）才直接写，否则交给用户决定 */
+function syncOutcome(status,extra){ return Object.assign({ok:false,status:status,attempts:0},extra||{}); }
+function syncSnapshotForProfile(id){
+  var source=state.settings.activeProfile===id?state:loadProfileData(id);
+  return source&&typeof SyncMerge==="object"?SyncMerge.fromState(source):null;
+}
+function syncProfileDataFromSnapshot(id,snapshot){
+  var existing=state.settings.activeProfile===id?profileDataSnapshot():(loadProfileData(id)||{});
+  return {
+    bookmarks:cloneJson(snapshot.bookmarks),categories:cloneJson(snapshot.categories),
+    trash:Array.isArray(existing.trash)?cloneJson(existing.trash):[],calendarEvents:cloneJson(snapshot.calendarEvents),
+    syncMeta:{tombstones:cloneJson(snapshot.tombstones)},theme:snapshot.theme,view:snapshot.view,
+    settings:snapshot.settings||existing.settings||state.settings
+  };
+}
+function applySyncSnapshot(id,snapshot){
+  var canonical=typeof SyncMerge==="object"?SyncMerge.canonicalize(snapshot):null;
+  if(!canonical) return false;
+  var data=syncProfileDataFromSnapshot(id,canonical);
+  if(state.settings.activeProfile!==id) return cacheProfileData(id,data);
+  var current=SyncMerge.fromState(state);
+  if(!SyncMerge.same(current,canonical)&&typeof snapshotPrev==="function") snapshotPrev();
+  applyProfileData(data);
+  if(!saveSilently({tracking:"remote"})) return false;
+  cacheProfileData(id,profileDataSnapshot());
+  render();
+  return true;
+}
+function syncResponseEtag(response){
+  return strongSyncEtag(response&&response.headers&&typeof response.headers.get==="function"?response.headers.get("ETag"):"");
+}
+function storeConfirmedSyncBase(profile,candidate,etag,extra){
+  function result(saved){
+    var status=saved?(extra&&extra.status||"synced"):"base-warning";
+    return syncOutcome(status,Object.assign({},extra||{},{
+      ok:true,status:status,candidate:candidate,etag:etag||"",attempts:extra&&extra.attempts||0
+    }));
+  }
+  return NaviStorage.putSyncBase(profile.id,profile.url,etag||"",candidate).then(result,function(){ return result(false); });
+}
+function confirmWrittenSnapshot(profile,candidate,response,extra){
+  var responseEtag=syncResponseEtag(response);
+  if(responseEtag) return storeConfirmedSyncBase(profile,candidate,responseEtag,extra);
+  return fetchRemoteData(profile).then(function(confirmed){
+    var actual=confirmed&&!confirmed.missing&&!confirmed.unreadable?SyncMerge.canonicalize(confirmed.data):null;
+    if(!actual||!SyncMerge.same(actual,candidate)) return syncOutcome("unconfirmed",Object.assign({candidate:candidate},extra||{}));
+    return storeConfirmedSyncBase(profile,candidate,confirmed.strongEtag||"",Object.assign({},extra||{}, {
+      status:confirmed.strongEtag?(extra&&extra.status||"synced"):"compatibility"
+    }));
+  });
+}
+function writeSyncCandidate(profile,id,candidate,remote,base,opts,attempts){
+  opts=opts||{}; attempts=Number(attempts)||0;
+  candidate=SyncMerge.canonicalize(candidate);
+  if(!candidate) return Promise.resolve(syncOutcome("invalid-local",{attempts:attempts}));
+  if(!applySyncSnapshot(id,candidate)) return Promise.resolve(syncOutcome("local-save-failed",{candidate:candidate,attempts:attempts}));
+  var payload=buildWebdavPayload(candidate);
+  if(!payload) return Promise.resolve(syncOutcome("invalid-local",{candidate:candidate,attempts:attempts}));
+  var body=JSON.stringify(payload,null,2),compatibility=!remote.missing&&!remote.strongEtag;
+  var request=compatibility
+    ?compatibilityPutConfirmed(profile,body,opts.compatibilityConfirmed===true)
+    :conditionalPut(profile,body,remote);
+  attempts++;
+  return request.then(function(response){
+    if(response.status===409||response.status===412){
+      if(compatibility||attempts>=3) return syncOutcome("race-conflict",{candidate:candidate,remote:remote,base:base,attempts:attempts});
+      return reconcileWebdavAttempt(profile,id,candidate,base,opts,attempts);
+    }
+    if(!response.ok) throw new Error("HTTP "+response.status);
+    return confirmWrittenSnapshot(profile,candidate,response,{attempts:attempts,bytes:body.length,status:compatibility?"compatibility":"synced"});
+  });
+}
+function reconcileWebdavAttempt(profile,id,local,base,opts,attempts){
+  opts=opts||{}; attempts=Number(attempts)||0;
+  return fetchRemoteData(profile).then(function(remote){
+    var decision=syncReconcileDecision({remote:remote,base:base,write:opts.write===true});
+    if(decision==="invalid") return syncOutcome("invalid",{remote:remote,base:base,attempts:attempts});
+    if(decision==="downgrade") return syncOutcome("downgrade",{remote:remote,base:base,attempts:attempts});
+    if(decision==="compatibility"&&opts.compatibilityConfirmed!==true){
+      return syncOutcome("compatibility",{remote:remote,base:base,candidate:local,attempts:attempts});
+    }
+    if(remote.missing){
+      if(opts.write!==true) return syncOutcome("local-pending",{ok:true,candidate:local,remote:remote,base:base,attempts:attempts});
+      return writeSyncCandidate(profile,id,local,remote,base,opts,attempts);
+    }
+    var remoteSnapshot=SyncMerge.canonicalize(remote.data);
+    if(!remoteSnapshot) return syncOutcome("invalid",{remote:remote,base:base,attempts:attempts});
+    if(decision==="bootstrap"){
+      var bootstrap=SyncMerge.bootstrap(local,remoteSnapshot);
+      return syncOutcome("bootstrap",{candidate:bootstrap.candidate,mergeResult:bootstrap,local:local,remote:remote,base:null,attempts:attempts});
+    }
+    var baseSnapshot=SyncMerge.canonicalize(base&&base.snapshot);
+    if(!baseSnapshot) return syncOutcome("bootstrap",{candidate:null,local:local,remote:remote,base:null,attempts:attempts});
+    var merged=SyncMerge.merge(baseSnapshot,local,remoteSnapshot);
+    if(!merged.candidate) return syncOutcome("invalid",{mergeResult:merged,remote:remote,base:base,attempts:attempts});
+    if(merged.conflicts.length) return syncOutcome("conflict",{candidate:merged.candidate,mergeResult:merged,local:local,remote:remote,base:base,attempts:attempts});
+    var candidate=SyncMerge.canonicalize(merged.candidate);
+    if(!applySyncSnapshot(id,candidate)) return syncOutcome("local-save-failed",{candidate:candidate,remote:remote,base:base,attempts:attempts});
+    if(opts.write!==true){
+      if(!SyncMerge.same(candidate,remoteSnapshot)) return syncOutcome("local-pending",{ok:true,candidate:candidate,remote:remote,base:base,attempts:attempts});
+      return storeConfirmedSyncBase(profile,candidate,remote.strongEtag||"",{attempts:attempts,status:remote.strongEtag?"synced":"compatibility"});
+    }
+    if(SyncMerge.same(candidate,remoteSnapshot)){
+      return storeConfirmedSyncBase(profile,candidate,remote.strongEtag||"",{attempts:attempts,status:remote.strongEtag?"synced":"compatibility"});
+    }
+    return writeSyncCandidate(profile,id,candidate,remote,base,opts,attempts);
+  });
+}
+function reconcileWebdavProfile(id,opts){
+  opts=opts||{};
+  var profile=getProfile(id),local=syncSnapshotForProfile(id);
+  if(!profile||profile.type!=="webdav"||!profile.url) return Promise.resolve(syncOutcome("no-url"));
+  if(!local) return Promise.resolve(syncOutcome("invalid-local"));
+  return NaviStorage.getSyncBase(id,profile.url).then(function(base){
+    return reconcileWebdavAttempt(profile,id,local,base,opts,0);
+  },function(){ return syncOutcome("base-unavailable",{candidate:local}); });
+}
+function continueSyncCandidate(id,candidate,context){
+  context=context||{};
+  var profile=getProfile(id);
+  if(!profile||profile.type!=="webdav"||!profile.url) return Promise.resolve(syncOutcome("no-url"));
+  return writeSyncCandidate(profile,id,candidate,context.remote||{},context.base||null,context.opts||{},context.attempts||0);
+}
+
+function presentSyncOutcome(id,outcome,opts){
+  opts=opts||{}; outcome=outcome||syncOutcome("failed");
+  var profile=getProfile(id);
+  if(outcome.ok){
+    var safe=outcome.status==="synced",warning=outcome.status==="base-warning"||outcome.status==="compatibility"||outcome.status==="local-pending";
+    if(profile&&opts.write&&safe){ profile.lastUpload=Date.now(); saveSilently({tracking:"remote"}); syncProfileEditor(); }
+    setSyncStatus(warning?"cache":"remote",Date.now(),warning?outcome.status:"");
+    if(typeof autoMirrorIfFollower==="function"&&!opts.write) autoMirrorIfFollower("after-pull");
+    if(!opts.silent) toast(opts.write?t("webdavUploadOk",{n:(outcome.candidate&&outcome.candidate.bookmarks||[]).length}):t("syncOk",{n:(outcome.candidate&&outcome.candidate.bookmarks||[]).length}),warning?"":"ok");
+    return Promise.resolve(true);
+  }
+  if(outcome.status==="compatibility"){
+    setSyncStatus("cache",_syncStatus.at,"compatibility");
+    if(opts.silent){ toast(t("syncConflictAuto"),"err"); return Promise.resolve(false); }
+    openConfirm(t("syncCompatibilityTitle"),t("syncCompatibilityMsg"),t("webdavUploadNow"),function(){
+      reconcileWebdavProfile(id,{write:true,compatibilityConfirmed:true}).then(function(next){ return presentSyncOutcome(id,next,{write:true}); });
+    });
+    return Promise.resolve(false);
+  }
+  if(outcome.status==="bootstrap"||outcome.status==="conflict"||outcome.status==="invalid"||outcome.status==="downgrade"||outcome.status==="race-conflict"){
+    return openSyncConflict(id,outcome,opts);
+  }
+  setSyncStatus("failed",_syncStatus.at,outcome.status||"failed");
+  if(!opts.silent) toast(opts.write?t("webdavUploadFailed"):t("syncFailed"),"err");
+  return Promise.resolve(false);
+}
+
 function pushWithConflictCheck(id, opts){
   opts=opts||{};
   var p=getProfile(id);
   if(!p||p.type!=="webdav"||!p.url){ if(!opts.silent) toast(t("syncNoUrl"),"err"); return Promise.resolve(false); }
-  return fetchRemoteData(p).then(function(r){
-    if(syncPushDecision(r, p.remoteFp)==="upload") return uploadWebdavProfile(id,opts).then(function(){ return true; });
-    return openSyncConflict(id, r.unreadable?null:r.data, opts);
+  setSyncStatus("syncing",_syncStatus.at);
+  return reconcileWebdavProfile(id,{write:true,silent:!!opts.silent}).then(function(outcome){
+    return presentSyncOutcome(id,outcome,Object.assign({},opts,{write:true}));
   }).catch(function(err){
     setSyncStatus("failed",_syncStatus.at,String(err&&err.message||err));
     explainSyncFailure(p.url, err);
@@ -369,52 +495,47 @@ function pushWithConflictCheck(id, opts){
 }
 
 var _conflictCtx=null;
-function openSyncConflict(id, remoteData, opts){
-  _conflictCtx={id:id, remote:remoteData, opts:opts||{}};
-  if((opts||{}).silent){
-    // 自动上传遇冲突：不擅自覆盖，提示用户手动处理
+function openSyncConflict(id, outcomeOrRemote, opts){
+  opts=opts||{};
+  var outcome=outcomeOrRemote&&outcomeOrRemote.status?outcomeOrRemote:null;
+  if(!outcome){
+    var local=syncSnapshotForProfile(id),remoteSnapshot=outcomeOrRemote?SyncMerge.canonicalize(outcomeOrRemote):null;
+    var mergeResult=local&&remoteSnapshot?SyncMerge.bootstrap(local,remoteSnapshot):null;
+    outcome=syncOutcome(remoteSnapshot?"bootstrap":"invalid",{local:local,remote:{data:outcomeOrRemote,unreadable:!remoteSnapshot},mergeResult:mergeResult,candidate:mergeResult&&mergeResult.candidate});
+  }
+  _conflictCtx={id:id,outcome:outcome,opts:opts};
+  if(opts.silent){
     setSyncStatus("cache",_syncStatus.at,t("syncConflictShort"));
     toast(t("syncConflictAuto"),"err");
     return Promise.resolve(false);
   }
+  var remoteData=outcome.remote&&outcome.remote.data;
   var body=$("#conflictBody");
   if(body){
     var rn=remoteData?((remoteData.bookmarks||[]).length):0;
-    body.textContent=remoteData?t("syncConflictMsg",{local:state.bookmarks.length,remote:rn}):t("syncConflictUnreadable");
+    body.textContent=remoteData?t("syncConflictMsg",{local:(outcome.local&&outcome.local.bookmarks||state.bookmarks).length,remote:rn}):t("syncConflictUnreadable");
   }
   var mergeBtn=$("#conflictMerge"); if(mergeBtn) mergeBtn.style.display=remoteData?"":"none";
   openOverlay("conflictOverlay");
   return Promise.resolve(false);
 }
 function resolveConflict(choice){
-  var ctx=_conflictCtx; if(!ctx) return;
-  closeOverlay("conflictOverlay");
-  var id=ctx.id, remote=ctx.remote;
-  _conflictCtx=null;
-  if(choice==="local"){                       // 用本地覆盖远程
-    uploadWebdavProfile(id,{force:true});
+  var context=_conflictCtx; if(!context) return;
+  closeOverlay("conflictOverlay"); _conflictCtx=null;
+  var id=context.id,outcome=context.outcome,remote=outcome.remote||{},profile=getProfile(id);
+  if(choice==="remote"){
+    var remoteSnapshot=remote.data&&SyncMerge.canonicalize(remote.data);
+    if(!remoteSnapshot||!applySyncSnapshot(id,remoteSnapshot)) return;
+    if(profile&&profile.type==="webdav"&&profile.url){
+      storeConfirmedSyncBase(profile,remoteSnapshot,remote.strongEtag||"",{status:remote.strongEtag?"synced":"compatibility"}).then(function(done){ presentSyncOutcome(id,done,{write:false}); });
+    }else setSyncStatus("local",Date.now());
     return;
   }
-  if(choice==="remote"){                      // 用远程覆盖本地
-    if(!remote) return;
-    // 这一步会把本地整份替换掉，本地独有的书签当场消失。导入数据前会先存一份快照
-    // （设置里的「恢复上一个版本」就是读它），同步这条路以前漏了，
-    // 结果是冲突弹层里手滑点错就没法挽回。
-    if(typeof snapshotPrev==="function") snapshotPrev();
-    cacheProfileData(id, remote);
-    if(state.settings.activeProfile===id){ applyProfileData(remote); saveSilently({tracking:"remote"}); render(); }
-    rememberRemoteFp(id, remote.bookmarks); save();
-    setSyncStatus("remote", Date.now());
-    toast(t("syncOk",{n:(remote.bookmarks||[]).length}),"ok");
-    return;
-  }
-  if(choice==="merge"&&remote){               // 合并后回传
-    var m=mergeRemoteIntoLocal(remote);
-    state.bookmarks=m.bookmarks; state.categories=m.categories;
-    rebuildCategories(); saveSilently(); render();
-    toast(t("syncMerged",{n:m.added}),"ok");
-    uploadWebdavProfile(id,{force:true});
-  }
+  var candidate=choice==="local"?outcome.local:(outcome.mergeResult&&outcome.mergeResult.conflicts.length===0?outcome.mergeResult.candidate:null);
+  if(!candidate){ toast(t("syncConflictShort"),"err"); return; }
+  continueSyncCandidate(id,candidate,{remote:remote,base:outcome.base,attempts:outcome.attempts,opts:{write:true}}).then(function(done){
+    presentSyncOutcome(id,done,{write:true});
+  });
 }
 
 /* ----- 同步状态（④） ----- */

@@ -320,6 +320,22 @@ if(typeof ctx.strongSyncEtag==="function"&&typeof ctx.syncConditionalHeaders==="
   eq("existing remote without strong ETag has no safe headers",ctx.syncConditionalHeaders({etag:'W/"abc"'}),null);
 }
 
+/* ---------- 安全同步编排决策 ---------- */
+G("safe sync orchestration decisions");
+ok("reconcile decision helper is exposed",typeof ctx.syncReconcileDecision==="function");
+if(typeof ctx.syncReconcileDecision==="function"){
+  eq("no base requires bootstrap",ctx.syncReconcileDecision({remote:{data:{},sourceVersion:4,strongEtag:'"e"'},base:null}),"bootstrap");
+  eq("known v4 base and remote v3 is downgrade",ctx.syncReconcileDecision({remote:{data:{},sourceVersion:3,strongEtag:'"e"'},base:{snapshot:{version:4}}}),"downgrade");
+  eq("write without strong ETag is compatibility",ctx.syncReconcileDecision({remote:{data:{},sourceVersion:4},base:{snapshot:{version:4}},write:true}),"compatibility");
+  eq("read with base may merge",ctx.syncReconcileDecision({remote:{data:{},sourceVersion:4,strongEtag:'"e"'},base:{snapshot:{version:4}},write:false}),"merge");
+  eq("unreadable remote is invalid",ctx.syncReconcileDecision({remote:{unreadable:true},base:{snapshot:{version:4}},write:true}),"invalid");
+  eq("missing remote permits conditional create",ctx.syncReconcileDecision({remote:{missing:true},base:null,write:true}),"merge");
+}
+
+ctx.localStorage.clear();
+ctx.state=ctx.defaults();
+eq("silent save returns persistence success",ctx.saveSilently({tracking:"remote"}),true);
+
 /* ---------- 恢复安全启动 ---------- */
 G("recovery-safe load");
 ctx.localStorage.clear();
