@@ -951,7 +951,7 @@ git add README.md sw.js index.html js tools docs/superpowers/plans/2026-09-01-we
 git commit -m "验证多设备同步安全流程"
 ```
 
-- [ ] **Step 9: Final branch review and integration**
+- [x] **Step 9: Final branch review and integration**
 
 Use `superpowers:verification-before-completion`, perform the requested code review without dispatching subagents unless the user explicitly authorizes them, then use `superpowers:finishing-a-development-branch`. Merge locally only after the feature branch is clean and every verification command has fresh passing output. Push to GitHub only if the user's current authorization includes remote publication; verify the remote SHA after pushing.
 
