@@ -305,6 +305,21 @@ eq("deleting Profile clears its sync base",clearedBases.join(","),"dav-life,dav-
 ctx.NaviStorage.clearSyncBase=clearSyncBase;
 ctx.render=renderProfile;
 
+/* ---------- WebDAV 条件写入 ---------- */
+G("WebDAV conditional transport");
+ok("strong ETag helper is exposed",typeof ctx.strongSyncEtag==="function");
+ok("conditional header helper is exposed",typeof ctx.syncConditionalHeaders==="function");
+ok("conditional PUT helper is exposed",typeof ctx.conditionalPut==="function");
+if(typeof ctx.strongSyncEtag==="function"&&typeof ctx.syncConditionalHeaders==="function"){
+  eq("strong ETag is accepted",ctx.strongSyncEtag('"abc"'),'"abc"');
+  eq("weak ETag is rejected",ctx.strongSyncEtag('W/"abc"'),"");
+  eq("lowercase weak ETag is rejected",ctx.strongSyncEtag('w/"abc"'),"");
+  eq("empty ETag is rejected",ctx.strongSyncEtag(null),"");
+  eq("existing remote uses If-Match",ctx.syncConditionalHeaders({strongEtag:'"abc"'})["If-Match"],'"abc"');
+  eq("missing remote uses If-None-Match",ctx.syncConditionalHeaders({missing:true})["If-None-Match"],"*");
+  eq("existing remote without strong ETag has no safe headers",ctx.syncConditionalHeaders({etag:'W/"abc"'}),null);
+}
+
 /* ---------- 恢复安全启动 ---------- */
 G("recovery-safe load");
 ctx.localStorage.clear();

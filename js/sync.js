@@ -110,7 +110,47 @@ function syncFetch(url, opts, ms){
     function(err){
       clearTimeout(timer);
       throw timedOut ? new Error(t("syncTimeout",{s:Math.round((ms||SYNC_TIMEOUT)/1000)})) : err;
+  });
+}
+function strongSyncEtag(value){
+  value=String(value||"").trim();
+  return value&&!/^W\//i.test(value)&&/^"[\s\S]*"$/.test(value)?value:"";
+}
+function syncConditionalHeaders(remote){
+  if(remote&&remote.missing) return {"If-None-Match":"*"};
+  if(remote&&remote.strongEtag) return {"If-Match":remote.strongEtag};
+  return null;
+}
+function conditionalPut(profile,body,remote){
+  var conditional=syncConditionalHeaders(remote);
+  if(!conditional){
+    var error=new Error("unsafe-precondition"); error.code="unsafe-precondition";
+    return Promise.reject(error);
+  }
+  return syncFetch(profile.url,{
+    method:"PUT",
+    headers:webdavHeaders(profile,Object.assign({"Content-Type":"application/json; charset=utf-8"},conditional)),
+    body:body,
+    cache:"no-store",
+    credentials:"omit"
+  },SYNC_UPLOAD_TIMEOUT);
+}
+function fetchRemoteData(profile){
+  return syncFetch(profile.url,{headers:webdavHeaders(profile),cache:"no-store",credentials:"omit"}).then(function(response){
+    var etag=response.headers&&typeof response.headers.get==="function"?(response.headers.get("ETag")||""):"";
+    var strongEtag=strongSyncEtag(etag);
+    if(response.status===404){
+      return response.text().catch(function(){return "";}).then(function(raw){
+        return {missing:true,unreadable:false,data:null,raw:raw,etag:etag,strongEtag:strongEtag,sourceVersion:0,status:404};
+      });
+    }
+    if(!response.ok) throw new Error("HTTP "+response.status);
+    return response.text().then(function(raw){
+      var data=parseRemote(raw);
+      return {missing:false,unreadable:!data,data:data,raw:raw,etag:etag,strongEtag:strongEtag,
+        sourceVersion:data&&Number(data.sourceVersion)||0,status:response.status};
     });
+  });
 }
 
 /* 这份 HTML 是不是浏览器导出的书签文件？
