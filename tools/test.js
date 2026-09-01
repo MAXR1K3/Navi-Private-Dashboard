@@ -54,6 +54,79 @@ if(ctx.SyncMerge){
   eq("restoring id touches bookmark", retracked.bookmarks[0].updatedAt,400);
 }
 
+/* ---------- 确定性三方同步合并 ---------- */
+G("three-way sync merge");
+ok("SyncMerge exposes merge", !!ctx.SyncMerge&&typeof ctx.SyncMerge.merge==="function");
+ok("SyncMerge exposes bootstrap", !!ctx.SyncMerge&&typeof ctx.SyncMerge.bootstrap==="function");
+ok("SyncMerge exposes conflict resolution", !!ctx.SyncMerge&&typeof ctx.SyncMerge.resolve==="function");
+if(ctx.SyncMerge&&typeof ctx.SyncMerge.merge==="function"){
+  const syncBm=(id,url,title,extra)=>Object.assign({id,url,title,category:"Work",description:"",tags:[],favorite:false,updatedAt:10,clicks:0,lastOpened:0},extra||{});
+  const syncSnap=(bookmarks,tombstones,extra)=>ctx.SyncMerge.canonicalize(Object.assign({
+    version:4,bookmarks,categories:["Work"],calendarEvents:[],theme:"light",view:"grid",settings:{lang:"en"},
+    sync:{protocol:1,tombstones:tombstones||[]}
+  },extra||{}));
+  const base=syncSnap([syncBm("a","https://a.example","A"),syncBm("b","https://b.example","B")]);
+  const localEdit=syncSnap([syncBm("a","https://a.example","A local"),syncBm("b","https://b.example","B")]);
+  const remoteOther=syncSnap([syncBm("a","https://a.example","A"),syncBm("b","https://b.example","B remote")]);
+  const independent=ctx.SyncMerge.merge(base,localEdit,remoteOther);
+  eq("independent edits have no conflicts",independent.conflicts.length,0);
+  eq("local edit is retained",independent.candidate.bookmarks.find(b=>b.id==="a").title,"A local");
+  eq("remote edit is retained",independent.candidate.bookmarks.find(b=>b.id==="b").title,"B remote");
+
+  const remoteSame=syncSnap([syncBm("a","https://a.example","A remote"),syncBm("b","https://b.example","B")]);
+  const sameId=ctx.SyncMerge.merge(base,localEdit,remoteSame);
+  eq("different edits to same id conflict",sameId.conflicts[0].key,"bookmark:a");
+  eq("unresolved conflict cannot be applied",ctx.SyncMerge.resolve(sameId,{}),null);
+  eq("local choice resolves only that id",ctx.SyncMerge.resolve(sameId,{"bookmark:a":"local"}).bookmarks.find(b=>b.id==="a").title,"A local");
+
+  const localDelete=syncSnap([syncBm("b","https://b.example","B")],[{id:"a",deletedAt:100}]);
+  const deletedClean=ctx.SyncMerge.merge(base,localDelete,base);
+  eq("delete against unchanged auto-deletes",deletedClean.candidate.bookmarks.some(b=>b.id==="a"),false);
+  eq("delete retains a durable tombstone",deletedClean.candidate.tombstones.find(t=>t.id==="a").deletedAt,100);
+  eq("delete against edit conflicts",ctx.SyncMerge.merge(base,localDelete,remoteSame).conflicts[0].key,"bookmark:a");
+  eq("remote delete against unchanged auto-deletes",ctx.SyncMerge.merge(base,base,localDelete).candidate.bookmarks.some(b=>b.id==="a"),false);
+
+  const localAdd=syncSnap(base.bookmarks.concat(syncBm("l","https://local.example","Local")));
+  const remoteAdd=syncSnap(base.bookmarks.concat(syncBm("r","https://remote.example","Remote")));
+  const addMerge=ctx.SyncMerge.merge(base,localAdd,remoteAdd);
+  eq("different added ids both survive",addMerge.candidate.bookmarks.filter(b=>b.id==="l"||b.id==="r").length,2);
+  const localSameAdd=syncSnap(base.bookmarks.concat(syncBm("x","https://x.example","Local X")));
+  const remoteSameAdd=syncSnap(base.bookmarks.concat(syncBm("x","https://x.example","Remote X")));
+  ok("different same-id additions conflict",ctx.SyncMerge.merge(base,localSameAdd,remoteSameAdd).conflicts.some(c=>c.key==="bookmark:x"));
+
+  const localStats=syncSnap([syncBm("a","https://a.example","A",{clicks:5,lastOpened:20}),syncBm("b","https://b.example","B")]);
+  const remoteStats=syncSnap([syncBm("a","https://a.example","A",{clicks:4,lastOpened:30}),syncBm("b","https://b.example","B")]);
+  const statsMerge=ctx.SyncMerge.merge(base,localStats,remoteStats).candidate.bookmarks.find(b=>b.id==="a");
+  eq("activity clicks merge by maximum",statsMerge.clicks,5);
+  eq("last opened merges by maximum",statsMerge.lastOpened,30);
+
+  const reordered=syncSnap([syncBm("b","https://b.example","B"),syncBm("a","https://a.example","A")]);
+  eq("one-sided reorder wins",ctx.SyncMerge.merge(base,reordered,base).candidate.order.join(","),"b,a");
+  const orderBase=syncSnap([syncBm("a","https://a.example","A"),syncBm("b","https://b.example","B"),syncBm("c","https://c.example","C")]);
+  const orderLocal=syncSnap([syncBm("b","https://b.example","B"),syncBm("a","https://a.example","A"),syncBm("c","https://c.example","C")]);
+  const orderRemote=syncSnap([syncBm("a","https://a.example","A"),syncBm("c","https://c.example","C"),syncBm("b","https://b.example","B")]);
+  ok("different two-sided ordering is explicit",ctx.SyncMerge.merge(orderBase,orderLocal,orderRemote).conflicts.some(c=>c.key==="order"));
+
+  const catsLocal=syncSnap(base.bookmarks,[],{categories:["Work","Personal"]});
+  eq("one-sided categories change wins",ctx.SyncMerge.merge(base,catsLocal,base).candidate.categories.join(","),"Work,Personal");
+  const catsRemote=syncSnap(base.bookmarks,[],{categories:["Work","Remote"]});
+  ok("two-sided categories changes conflict",ctx.SyncMerge.merge(base,catsLocal,catsRemote).conflicts.some(c=>c.key==="categories"));
+  const calLocal=syncSnap(base.bookmarks,[],{calendarEvents:[{id:"e1",date:"2026-09-01",text:"Local"}]});
+  const calRemote=syncSnap(base.bookmarks,[],{calendarEvents:[{id:"e2",date:"2026-09-02",text:"Remote"}]});
+  eq("one-sided calendar change wins",ctx.SyncMerge.merge(base,calLocal,base).candidate.calendarEvents[0].id,"e1");
+  ok("two-sided calendar changes conflict",ctx.SyncMerge.merge(base,calLocal,calRemote).conflicts.some(c=>c.key==="calendarEvents"));
+  const setLocal=syncSnap(base.bookmarks,[],{settings:{lang:"zh"}}),setRemote=syncSnap(base.bookmarks,[],{settings:{lang:"es"}});
+  eq("one-sided settings change wins",ctx.SyncMerge.merge(base,setLocal,base).candidate.settings.lang,"zh");
+  ok("two-sided settings changes conflict",ctx.SyncMerge.merge(base,setLocal,setRemote).conflicts.some(c=>c.key==="settings"));
+
+  const bootstrap=ctx.SyncMerge.bootstrap(
+    syncSnap([syncBm("local","https://local.example","Local"),syncBm("x","https://same.example/","Local same")]),
+    syncSnap([syncBm("remote","https://remote.example","Remote"),syncBm("y","https://same.example","Remote same")])
+  );
+  eq("bootstrap keeps independent records",bootstrap.candidate.bookmarks.filter(b=>b.id==="local"||b.id==="remote").length,2);
+  ok("bootstrap requires a choice for same normalized URL",bootstrap.conflicts.some(c=>c.kind==="bookmark"));
+}
+
 /* ---------- 存储检查 ---------- */
 G("storage inspection");
 ok("storage boundary is loaded", typeof ctx.NaviStorage === "object");
