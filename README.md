@@ -77,6 +77,14 @@ Navi 的扩展清单只声明实际使用的权限：
 
 移动端读取 WebDAV 时通常需要 NAS 或反向代理允许 CORS。
 
+#### WebDAV 多设备安全同步
+
+- 安全自动写入要求服务器返回**强 ETag**，并让 CORS/反向代理放行 `If-Match`、`If-None-Match`；Navi 用条件写入阻止旧设备快照覆盖较新的远端内容。
+- 不同书签上的改动会进行三方合并；同一书签被两端改成不同内容，以及“删除 vs 编辑”，会逐项询问采用本地还是远端。
+- 同步墓碑用于跨设备传播删除，与界面中可恢复的“回收站”是两套不同数据。删除同步后不会因为另一台设备仍保留旧记录而复活。
+- 没有强 ETag 的服务器仍可读取。自动上传会停用；手动确认后的兼容上传可以工作，但服务器无法为它提供并发竞争保护。
+- 依赖 v4 墓碑前，请先把所有拥有远端写权限的 Navi 设备升级到这一版本。旧客户端仍可能进行不受条件保护的写入。
+
 #### Safari 或其他浏览器
 
 Safari 推荐先从浏览器导出书签 HTML，然后在 Navi 中点击“导入”。其他浏览器也可以用同样方式导入标准书签 HTML 文件。
@@ -262,6 +270,7 @@ python3 tools/dav-stub.py 8788
 
 - `OPTIONS` 预检必须**不带认证也能通过**——浏览器发 PUT 之前会先发一个不带 Authorization 的预检请求，被 401 挡住的话 PUT 根本发不出去；
 - 允许 `PUT` 方法，并在 `Access-Control-Allow-Headers` 里放行 `Authorization` 和 `Content-Type`；
+- 安全自动写入还需要返回强 `ETag`，并在 `Access-Control-Allow-Headers` 里放行 `If-Match`、`If-None-Match`，在 `Access-Control-Expose-Headers` 里暴露 `ETag`；
 - `Access-Control-Allow-Origin` 要回你实际访问 Navi 的那个源；
 - 如果 Navi 走 https（比如 GitHub Pages），NAS 也必须是 https——https 页面访问 http 地址会被浏览器直接拦截。
 
@@ -352,6 +361,14 @@ If the PWA is only the read side of a `Chrome -> NAS -> mobile PWA` workflow, yo
 6. Use the same WebDAV/NAS URL from the mobile PWA.
 
 Mobile WebDAV reads usually require CORS support from your NAS or reverse proxy.
+
+#### Safe Multi-device WebDAV Sync
+
+- Safe automatic writes require a **strong ETag** and CORS/proxy support for `If-Match` and `If-None-Match`. Navi uses conditional writes so a stale device cannot overwrite a newer remote snapshot.
+- Changes to different bookmarks merge automatically. Different edits to the same bookmark, and delete-versus-edit cases, require an explicit per-item local or remote choice.
+- Sync tombstones propagate deletions across devices. They are separate from the visible, recoverable Trash in the interface.
+- Servers without a strong ETag remain readable, but automatic upload is disabled. A manually confirmed compatibility upload can work, but the server cannot provide race protection for it.
+- Upgrade every Navi device that can write this remote file before relying on v4 tombstones. An older writer can still make an unprotected write.
 
 #### Safari Or Other Browsers
 
@@ -538,6 +555,7 @@ inject 401 / 500 / read-only / auth-on-preflight / no-CORS / remote-changed-by-a
 
 - `OPTIONS` preflight must succeed **without authentication**: before a PUT the browser sends a preflight that carries no Authorization header, and a 401 there means the PUT is never sent;
 - allow the `PUT` method, and list `Authorization` and `Content-Type` in `Access-Control-Allow-Headers`;
+- for safe automatic writes, return a strong `ETag`, allow `If-Match` and `If-None-Match`, and expose `ETag` through `Access-Control-Expose-Headers`;
 - return an `Access-Control-Allow-Origin` matching the origin you actually open Navi from;
 - if Navi is served over https (e.g. GitHub Pages), the NAS must be https too — browsers block https→http requests outright.
 

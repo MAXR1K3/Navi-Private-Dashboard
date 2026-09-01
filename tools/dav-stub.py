@@ -167,10 +167,11 @@ class H(BaseHTTPRequestHandler):
                 current = STORE.get(path, b"{}")
                 try:
                     raced = json.loads(current.decode("utf-8") or "{}")
-                    raced.setdefault("bookmarks", []).append(
-                        {"id": "race-%d" % (REVS.get(path, 0) + 1), "title": "Concurrent update",
-                         "url": "https://race.example/update", "category": "Uncategorized",
-                         "description": "", "tags": []})
+                    rows = raced.setdefault("bookmarks", [])
+                    rows[:] = [row for row in rows if row.get("id") != "remote-x"]
+                    rows.append({"id": "remote-x", "title": "Concurrent update",
+                                 "url": "https://race.example/update", "category": "Uncategorized",
+                                 "description": "", "tags": []})
                     STORE[path] = json.dumps(raced).encode("utf-8")
                 except Exception:
                     STORE[path] = current + b"\nconcurrent-update"

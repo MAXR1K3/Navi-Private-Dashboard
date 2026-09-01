@@ -116,6 +116,34 @@ class CDP {
   close(){ if(this.ws&&this.ws.readyState<2) this.ws.close(); }
 }
 
+async function launchIsolatedChrome(browser,base,label){
+  const debugPort=await freePort();
+  const profile=fs.mkdtempSync(path.join(os.tmpdir(),"navi-e2e-"+label+"-"));
+  let chromeText="";
+  const child=spawn(browser,["--headless=new","--no-sandbox","--disable-gpu","--disable-dev-shm-usage",
+    "--disable-extensions","--disable-background-networking","--no-first-run","--no-default-browser-check",
+    "--remote-debugging-port="+debugPort,"--user-data-dir="+profile,"--window-size=1280,800",base],
+    {stdio:["ignore","pipe","pipe"]});
+  const collect=chunk=>{ chromeText=(chromeText+String(chunk)).slice(-12000); };
+  child.stdout.on("data",collect); child.stderr.on("data",collect);
+  const targets=await waitForTargets(debugPort,child,()=>chromeText);
+  const page=targets.find(t=>t.type==="page"&&t.url.startsWith(base))||targets.find(t=>t.type==="page");
+  const cdp=new CDP(page.webSocketDebuggerUrl); await cdp.connect();
+  await cdp.send("Page.enable"); await cdp.send("Runtime.enable"); await cdp.send("Network.enable");
+  await cdp.send("Network.setBypassServiceWorker",{bypass:true});
+  await cdp.send("Network.setCacheDisabled",{cacheDisabled:true});
+  return {cdp,child,profile,log:()=>chromeText};
+}
+
+async function stopIsolatedChrome(client){
+  if(!client) return;
+  if(client.cdp) client.cdp.close();
+  if(client.child&&client.child.exitCode===null) client.child.kill("SIGTERM");
+  await delay(150);
+  if(client.child&&client.child.exitCode===null) client.child.kill("SIGKILL");
+  if(client.profile&&client.profile.startsWith(os.tmpdir()+path.sep+"navi-e2e-")) fs.rmSync(client.profile,{recursive:true,force:true});
+}
+
 async function main(){
   const server=staticServer(); const appPort=await listen(server); const debugPort=await freePort();
   const base="http://127.0.0.1:"+appPort+"/";
@@ -136,6 +164,8 @@ async function main(){
     await cdp.send("Network.setBypassServiceWorker",{bypass:true});
     await cdp.send("Network.setCacheDisabled",{cacheDisabled:true});
 
+    const onlySync=process.env.NAVI_SYNC_E2E_ONLY==="1";
+    if(!onlySync){
     await group("dev-check reports no structural or visual-contract failures", async()=>{
       await cdp.navigate(base+"dev-check.html?e2e="+Date.now());
       const result=await cdp.wait(`(()=>{const s=document.querySelector("#sum");return s&&!s.textContent.includes("running")?{summary:s.textContent,failed:document.querySelectorAll(".chk.fail").length,details:[...document.querySelectorAll(".chk.fail")].map(x=>x.textContent.trim())}:null})()`,12000);
@@ -535,6 +565,122 @@ async function main(){
       } finally {
         await cdp.evaluate(`closeOverlay("conflictOverlay")`);
         await cdp.send("Emulation.clearDeviceMetricsOverride");
+      }
+    });
+    }
+
+    await group("two isolated clients converge without unsafe WebDAV writes", async()=>{
+      const davPort=await freePort(),davUrl="http://127.0.0.1:"+davPort+"/bookmarks.json";
+      let davText="",clientB=null;
+      const dav=spawn("python3",[path.join(root,"tools/dav-stub.py"),String(davPort)],{stdio:["ignore","pipe","pipe"]});
+      const collectDav=chunk=>{ davText=(davText+String(chunk)).slice(-12000); };
+      dav.stdout.on("data",collectDav); dav.stderr.on("data",collectDav);
+      const ctl=async(act,mode)=>{
+        const query="act="+encodeURIComponent(act)+(mode!==undefined?"&mode="+encodeURIComponent(mode):"");
+        const response=await fetch("http://127.0.0.1:"+davPort+"/__ctl?"+query);
+        if(!response.ok) throw new Error("DAV control failed: "+response.status);
+        return response.json();
+      };
+      const waitDav=async()=>{
+        const end=Date.now()+8000;
+        while(Date.now()<end){
+          if(dav.exitCode!==null) throw new Error("WebDAV stub exited early ("+dav.exitCode+")\n"+davText);
+          try{ return await ctl("view"); }catch(_){ await delay(80); }
+        }
+        throw new Error("Timed out waiting for WebDAV stub\n"+davText);
+      };
+      const auth="Basic "+Buffer.from("navi:s3cret").toString("base64");
+      const remoteJson=async()=>{
+        const response=await fetch(davUrl,{headers:{Authorization:auth}});
+        if(!response.ok) throw new Error("Remote GET failed: "+response.status);
+        return response.json();
+      };
+      const baseRows=[
+        {id:"shared",title:"Shared",url:"https://shared.example",category:"Work",description:"",tags:[],updatedAt:10},
+        {id:"other",title:"Other",url:"https://other.example",category:"Work",description:"",tags:[],updatedAt:10},
+        {id:"same",title:"Same",url:"https://same.example",category:"Work",description:"",tags:[],updatedAt:10}
+      ];
+      const setupClient=async(client,label)=>{
+        await client.navigate(base+"?two-client="+label+"-"+Date.now());
+        await client.wait(`typeof NaviStorage==="object" && typeof SyncMerge==="object" && typeof reconcileWebdavProfile==="function"`);
+        return client.evaluate(`(async()=>{
+          await NaviStorage.clearAll(); localStorage.clear();
+          state=defaults(); state.settings.lang="en";
+          state.settings.profiles=[{id:"local",name:"Local",type:"local"},{id:"dav-two",name:${JSON.stringify(label)},type:"webdav",url:${JSON.stringify(davUrl)},user:"navi",pass:"s3cret",autoSync:false,autoUpload:true}];
+          state.settings.activeProfile="dav-two"; state.bookmarks=${JSON.stringify(baseRows)}; state.categories=["Work"]; state.syncMeta={tombstones:[]};
+          saveSilently({tracking:"remote"}); return SyncMerge.fromState(state);
+        })()`);
+      };
+      const adoptRemote=client=>client.evaluate(`(async()=>{
+        const profile=getProfile("dav-two"),remote=await fetchRemoteData(profile),snapshot=SyncMerge.canonicalize(remote.data);
+        if(!snapshot||!applySyncSnapshot("dav-two",snapshot)) return {ok:false};
+        const saved=await NaviStorage.putSyncBase("dav-two",profile.url,remote.strongEtag,snapshot);
+        return {ok:saved,etag:remote.strongEtag,snapshot};
+      })()`);
+      const baseRecord=client=>client.evaluate(`NaviStorage.getSyncBase("dav-two",${JSON.stringify(davUrl)})`);
+      const push=client=>client.evaluate(`reconcileWebdavProfile("dav-two",{write:true,silent:true})`);
+      try{
+        await waitDav(); await ctl("reset");
+        clientB=await launchIsolatedChrome(browser,base,"client-b");
+        await setupClient(cdp,"A"); await setupClient(clientB.cdp,"B");
+
+        const created=await push(cdp);
+        const pulledB=await clientB.cdp.evaluate(`reconcileWebdavProfile("dav-two",{write:false,silent:true})`);
+        assert("client B did not enter explicit first-sync bootstrap",pulledB.status==="bootstrap",JSON.stringify(pulledB));
+        const adoptedB=await adoptRemote(clientB.cdp),baseA=await baseRecord(cdp),baseB=await baseRecord(clientB.cdp);
+        assert("clients did not persist the same initial strong ETag",created.status==="synced"&&adoptedB.ok&&baseA&&baseB&&baseA.etag===baseB.etag&&baseA.etag===created.etag,JSON.stringify({created,adoptedB,baseA:baseA&&baseA.etag,baseB:baseB&&baseB.etag}));
+        console.log("    ✔ both clients persisted the same v4 base and ETag");
+
+        await cdp.evaluate(`state.bookmarks.push({id:"a-new",title:"A new",url:"https://a-new.example",category:"Work",description:"",tags:[],updatedAt:20});save()`);
+        await clientB.cdp.evaluate(`state.bookmarks.push({id:"b-new",title:"B new",url:"https://b-new.example",category:"Work",description:"",tags:[],updatedAt:20});save()`);
+        const addA=await push(cdp),addB=await push(clientB.cdp),afterAdds=await remoteJson();
+        const addIds=(afterAdds.bookmarks||[]).map(bookmark=>bookmark.id);
+        assert("independent additions did not converge",addA.status==="synced"&&addB.status==="synced"&&addIds.includes("a-new")&&addIds.includes("b-new"),JSON.stringify({addA,addB,addIds}));
+        console.log("    ✔ independent additions converged on the remote");
+
+        await adoptRemote(cdp); await adoptRemote(clientB.cdp);
+        await cdp.evaluate(`state.bookmarks=state.bookmarks.filter(bookmark=>bookmark.id!=="shared");save()`);
+        await clientB.cdp.evaluate(`{const bookmark=state.bookmarks.find(row=>row.id==="other");bookmark.title="Other from B";bookmark.updatedAt=30;save()}`);
+        const deleteA=await push(cdp),editB=await push(clientB.cdp),afterDeleteEdit=await remoteJson();
+        const tombstones=afterDeleteEdit.sync&&afterDeleteEdit.sync.tombstones||[];
+        assert("delete and unrelated edit did not converge",deleteA.status==="synced"&&editB.status==="synced"&&!(afterDeleteEdit.bookmarks||[]).some(row=>row.id==="shared")&&tombstones.some(row=>row.id==="shared")&&(afterDeleteEdit.bookmarks||[]).some(row=>row.id==="other"&&row.title==="Other from B"),JSON.stringify({deleteA,editB,afterDeleteEdit}));
+        console.log("    ✔ deletion tombstone and unrelated edit converged");
+
+        await adoptRemote(cdp); await adoptRemote(clientB.cdp);
+        await cdp.evaluate(`{const bookmark=state.bookmarks.find(row=>row.id==="same");bookmark.title="Same from A";bookmark.updatedAt=40;save()}`);
+        await clientB.cdp.evaluate(`{const bookmark=state.bookmarks.find(row=>row.id==="same");bookmark.title="Same from B";bookmark.updatedAt=41;save()}`);
+        const sameA=await push(cdp),historyBeforeConflict=await ctl("view");
+        const conflictB=await clientB.cdp.evaluate(`(async()=>{
+          const outcome=await reconcileWebdavProfile("dav-two",{write:true,silent:false});
+          await presentSyncOutcome("dav-two",outcome,{write:true});
+          const row=document.querySelector('[data-sync-conflict-key="bookmark:same"]');
+          document.querySelector("#conflictCancel").click();
+          return {status:outcome.status,key:outcome.mergeResult&&outcome.mergeResult.conflicts[0]&&outcome.mergeResult.conflicts[0].key,shown:!!row,local:state.bookmarks.find(bookmark=>bookmark.id==="same").title,closed:!document.querySelector("#conflictOverlay").classList.contains("open")};
+        })()`);
+        const historyAfterConflict=await ctl("view"),remoteAfterConflict=await remoteJson();
+        const putCount=history=>history.requests.filter(request=>request.method==="PUT").length;
+        assert("same-record conflict wrote early or cancellation changed a side",sameA.status==="synced"&&conflictB.status==="conflict"&&conflictB.key==="bookmark:same"&&conflictB.shown&&conflictB.closed&&conflictB.local==="Same from B"&&putCount(historyAfterConflict)===putCount(historyBeforeConflict)&&(remoteAfterConflict.bookmarks||[]).some(row=>row.id==="same"&&row.title==="Same from A"),JSON.stringify({sameA,conflictB,before:putCount(historyBeforeConflict),after:putCount(historyAfterConflict),remote:remoteAfterConflict.bookmarks}));
+        console.log("    ✔ same-bookmark conflict stayed cancellable and write-free");
+
+        await adoptRemote(cdp); await adoptRemote(clientB.cdp);
+        await clientB.cdp.evaluate(`state.bookmarks.push({id:"b-race",title:"B race",url:"https://b-race.example",category:"Work",description:"",tags:[],updatedAt:50});save()`);
+        const historyBeforeRace=await ctl("view"); await ctl("fail","race");
+        const raced=await push(clientB.cdp),historyAfterRace=await ctl("view"),remoteAfterRace=await remoteJson();
+        const raceRequests=historyAfterRace.requests.slice(historyBeforeRace.requests.length).filter(request=>request.method==="PUT");
+        assert("412 retry did not use a fresh ETag or keep the injected remote change",raced.status==="synced"&&raceRequests.length===2&&raceRequests[0].ifMatch&&raceRequests[1].ifMatch&&raceRequests[0].ifMatch!==raceRequests[1].ifMatch&&(remoteAfterRace.bookmarks||[]).some(row=>row.id==="remote-x")&&(remoteAfterRace.bookmarks||[]).some(row=>row.id==="b-race"),JSON.stringify({raced,raceRequests,ids:(remoteAfterRace.bookmarks||[]).map(row=>row.id)}));
+        console.log("    ✔ 412 retry re-read, merged, and used the new ETag");
+
+        await adoptRemote(clientB.cdp); await clientB.cdp.evaluate(`state.bookmarks.push({id:"noetag-local",title:"No ETag local",url:"https://noetag.example",category:"Work",description:"",tags:[],updatedAt:60});save()`);
+        await ctl("fail","noetag"); const historyBeforeNoEtag=await ctl("view");
+        const noEtag=await clientB.cdp.evaluate(`(async()=>{const ok=await maybeUploadBookmarksAfterBrowserSync("e2e",{});return {ok,status:_syncStatus,line:document.querySelector("#syncStatusLine").textContent}})()`);
+        const historyAfterNoEtag=await ctl("view");
+        assert("no-ETag automatic upload wrote or failed to explain the safety limit",noEtag.ok===false&&putCount(historyAfterNoEtag)===putCount(historyBeforeNoEtag)&&/strong ETag|safe automatic upload/i.test(noEtag.line+" "+(noEtag.status&&noEtag.status.msg||"")),JSON.stringify({noEtag,before:putCount(historyBeforeNoEtag),after:putCount(historyAfterNoEtag)}));
+        console.log("    ✔ no-ETag server blocked auto-upload with a clear status");
+      } finally {
+        try{ await ctl("fail",""); }catch(_){ }
+        await stopIsolatedChrome(clientB);
+        if(dav.exitCode===null) dav.kill("SIGTERM");
+        await delay(100); if(dav.exitCode===null) dav.kill("SIGKILL");
       }
     });
 

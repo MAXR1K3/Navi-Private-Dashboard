@@ -3,5 +3,7 @@ _preview/
 .DS_Store
 *.log
 .worktrees/
+__pycache__/
+*.pyc
 
 # 本地实验用的存档/备份（work/ 里是历史单文件快照，保留）

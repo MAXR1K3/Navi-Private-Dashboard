@@ -873,7 +873,7 @@ git commit -m "提供逐项同步冲突处理界面"
 
 - Verifies all prior task interfaces against two isolated browser profiles and one real local HTTP/WebDAV server.
 
-- [ ] **Step 1: Add the failing two-client browser scenario**
+- [x] **Step 1: Add the failing two-client browser scenario**
 
 Within `tools/e2e.js`, start `tools/dav-stub.py` on a free port and a second Chrome process with a separate temporary `--user-data-dir`. Connect a second `Cdp` instance and configure both pages with the same WebDAV URL and credentials.
 
@@ -886,13 +886,13 @@ Exercise these exact cases:
 5. Enable stub `race`; B's first PUT receives 412, its retry includes the injected `remote-x`, and request history proves both ETags differ.
 6. Enable `noetag`; automatic upload makes no PUT and the status explains safe auto-upload is unavailable.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `node tools/e2e.js`
 
 Expected: one or more two-client, tombstone, 412 retry, or no-ETag assertions fail before the complete integration is present.
 
-- [ ] **Step 3: Run the focused scenario until all six cases pass**
+- [x] **Step 3: Run the focused scenario until all six cases pass**
 
 Add an environment filter in `tools/e2e.js`:
 
@@ -902,7 +902,7 @@ const onlySync=process.env.NAVI_SYNC_E2E_ONLY==="1";
 
 Wrap the pre-existing non-sync groups in `if(!onlySync)` and always run the two-client group. Run `NAVI_SYNC_E2E_ONLY=1 node tools/e2e.js`. If a case fails, apply `superpowers:systematic-debugging`, add a focused logic or protocol assertion that reproduces the exact cause, make the smallest correction in the owning module, and rerun this command. Task 8 is not complete until all six named cases produce passing output; an unexplained retry or skipped assertion is a failure.
 
-- [ ] **Step 4: Document safe and compatibility modes**
+- [x] **Step 4: Document safe and compatibility modes**
 
 Update Chinese and English README sections to explain:
 
@@ -912,13 +912,13 @@ Update Chinese and English README sections to explain:
 - Servers without strong ETag can still be read, but auto-upload is disabled and manual compatibility upload cannot guarantee race protection.
 - Every writing device must run the upgraded Navi version before relying on v4 tombstones.
 
-- [ ] **Step 5: Regenerate the offline shell and bump cache version once**
+- [x] **Step 5: Regenerate the offline shell and bump cache version once**
 
 Run `node tools/bump.js` without a numeric override so it increments the current version and adds `js/sync-merge.js` to the Service Worker shell. Inspect that `index.html`, `sw.js` CACHE, both stylesheets, and all script entries agree.
 
 Add `__pycache__/` and `*.pyc` under the existing temporary-artifact section of `.gitignore` before Python verification, so syntax checks cannot contaminate the release diff.
 
-- [ ] **Step 6: Run the complete release verification**
+- [x] **Step 6: Run the complete release verification**
 
 ```bash
 node tools/test.js
@@ -940,11 +940,11 @@ Expected:
 - bump verification reports no version drift and creates no diff;
 - only intended tracked changes are present before the final commit.
 
-- [ ] **Step 7: Audit spec completion explicitly**
+- [x] **Step 7: Audit spec completion explicitly**
 
 For every item in spec sections 3, 5–14, and 17, record the proving test name, file location, or command output in the execution notes. Treat absent ETag handling, remote downgrade, base failure, delete-versus-edit, order conflict, and 412 retry as incomplete unless their dedicated assertions ran.
 
-- [ ] **Step 8: Commit Task 8**
+- [x] **Step 8: Commit Task 8**
 
 ```bash
 git add README.md sw.js index.html js tools docs/superpowers/plans/2026-09-01-webdav-sync-safety.md
@@ -954,3 +954,31 @@ git commit -m "验证多设备同步安全流程"
 - [ ] **Step 9: Final branch review and integration**
 
 Use `superpowers:verification-before-completion`, perform the requested code review without dispatching subagents unless the user explicitly authorizes them, then use `superpowers:finishing-a-development-branch`. Merge locally only after the feature branch is clean and every verification command has fresh passing output. Push to GitHub only if the user's current authorization includes remote publication; verify the remote SHA after pushing.
+
+## 执行与规格审计（2026-09-01）
+
+| 规格章节 | 完成证据 |
+| --- | --- |
+| 3 已批准的产品行为 | `tools/test.js` 的 `three-way sync merge` 覆盖独立修改、同记录冲突、删除对编辑、顺序/分类/日历/设置；`tools/e2e.js` 的双客户端组证明自动上传只走条件写入。 |
+| 5 组件边界 | `js/sync-merge.js` 保持纯对象逻辑；`NaviStorage` 的 base 接口由 `sync bases are isolated by Profile and URL` 实测；网络/UI 编排留在 `js/sync.js`；`tools/dav-stub.py --self-test` 验证协议替身。 |
+| 6 v4 数据格式 | `sync v4 canonicalization` 与 `sync metadata persistence` 验证 v3→canonical v4、远端 `sync.tombstones`、本地/Profile `syncMeta.tombstones`、恢复移除墓碑和活动统计不制造内容冲突。 |
+| 7 兼容与迁移 | 逻辑测试验证 v3 可读、缺 ID/时间字段规范化；`unsafe reconciliation paths never write or advance the base` 覆盖无 base 首次建立关系、弱 ETag、v4 base 对 v3 downgrade 和 base 不可用。 |
+| 8 本地变更跟踪 | `sync metadata persistence` 验证统一保存边界的 `updatedAt`、删除墓碑、恢复、remote tracking 与 Profile 隔离；双客户端删除场景证明墓碑跨端生效且不依赖 UI 回收站。 |
+| 9 三方合并规则 | `three-way sync merge` 覆盖书签矩阵、同 ID 新增、delete-versus-edit、点击统计最大值、单/双边改序、分类集合、日历和设置；`per-conflict choices...` 验证 `SyncMerge.resolve` 输出。 |
+| 10 安全写入流程 | `tools/dav-stub.py --self-test` 证明 `If-None-Match: *`、`If-Match`、旧 ETag 412 和 CORS 条件头；双客户端 412 场景证明重读、重新合并、两个不同 ETag；`failed base persistence...` 证明 base 保存失败显示 `base-warning`。 |
+| 11 无 ETag 兼容模式 | `weak-ETag conflict choices require confirmation and a fresh read` 证明人工兼容写前确认与复读；双客户端 `no-ETag server blocked auto-upload...` 证明自动路径零 PUT 且状态解释强 ETag 限制。 |
+| 12 冲突界面 | `per-conflict choices...`、`first sync always offers...`、`unreadable remote...`、`conflict choices fit a narrow mobile viewport` 覆盖具名 dialog、逐项/批量选择、完整选择门槛、取消、原文下载、强 ETag 覆盖限制、三语集合标题、焦点/underlay 与 375px 布局。 |
+| 13 错误和恢复 | `unsafe reconciliation paths...` 覆盖 invalid、bootstrap、compatibility、base-unavailable、三次 412；`failed base persistence...` 覆盖 PUT 后 base 失败；既有 recovery 两组 E2E 证明原文保留、恢复版本、下载与确认重置。 |
+| 14 测试策略 | RED 已分别观察到缺失逐项控件、首次三选缺失、隐藏按钮误显示、弹层 underlay 未隔离、412 最终状态不可审核、双客户端墓碑字段假设、race 注入 ID 与 no-ETag 状态提示失败；随后 focused 与 full suite 均 GREEN。 |
+| 17 完成标准 | `node tools/test.js` 为 `333 passed`；`node tools/e2e.js` 的既有组及六个双客户端子场景全通过；协议、JS/Python 语法、cache drift 与 `git diff --check` 均通过。正常 PUT 调用仍仅存在于 `conditionalPut`，无条件 PUT 仅存在于显式确认的 `compatibilityPutConfirmed`。 |
+
+发布验证记录：
+
+- `NAVI_SYNC_E2E_ONLY=1 node tools/e2e.js`：六个双客户端子场景通过。
+- `node tools/test.js`：`333 passed`。
+- `node tools/e2e.js`：全部浏览器组与双客户端组通过。
+- `python3 tools/dav-stub.py --self-test`：通过。
+- `for f in js/*.js tools/*.js sw.js; do node --check "$f" || exit 1; done`：通过。
+- `python3 -m py_compile tools/dav-stub.py`：通过，产物由 `.gitignore` 排除。
+- `node tools/bump.js 75`：`navi-v75 → navi-v75`，2 个样式、35 个脚本，无版本漂移。
+- `git diff --check`：通过。

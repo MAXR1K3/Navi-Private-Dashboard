@@ -490,7 +490,7 @@ function presentSyncOutcome(id,outcome,opts){
     return Promise.resolve(true);
   }
   if(outcome.status==="compatibility"){
-    setSyncStatus("cache",_syncStatus.at,"compatibility");
+    setSyncStatus("cache",_syncStatus.at,t("syncConflictNoStrongEtag"));
     if(opts.silent){ toast(t("syncConflictAuto"),"err"); return Promise.resolve(false); }
     openConfirm(t("syncCompatibilityTitle"),t("syncCompatibilityMsg"),t("webdavUploadNow"),function(){
       reconcileWebdavProfile(id,{write:true,compatibilityConfirmed:true}).then(function(next){ return presentSyncOutcome(id,next,{write:true}); });
